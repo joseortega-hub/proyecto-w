@@ -1,0 +1,45 @@
+# Blueprint de Render para la API de Sintonía (plan gratuito).
+# La base de datos vive en Neon (Postgres 17 + pgvector); la web, en Vercel.
+# Las claves (sync: false) se rellenan en el panel de Render al crear el Blueprint.
+services:
+  - type: web
+    name: sintonia-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    # Solo se redespliega si cambia algo que afecte a la API.
+    buildFilter:
+      paths:
+        - apps/api/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - render.yaml
+    # --prod=false: nest build necesita las dependencias de desarrollo (@nestjs/cli, typescript).
+    buildCommand: npx --yes pnpm@10.34.7 install --frozen-lockfile --prod=false && npx --yes pnpm@10.34.7 --filter @sintonia/api build
+    # Aplica las migraciones pendientes (si no hay, no hace nada) y arranca.
+    startCommand: node apps/api/dist/db/migrate.js && node apps/api/dist/main.js
+    healthCheckPath: /api/domains
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      # Sin Ollaya en producción: Groq y, de respaldo, Gemini.
+      - key: DECISION_CHAIN
+        value: groq,gemini
+      - key: TEXT_CHAIN
+        value: groq,gemini
+      - key: DECISION_PROVIDER
+        value: gemini
+      - key: CONTEXT_TIME_ZONE
+        value: Europe/Madrid
+      # Cadena de conexión de Neon (la directa, sin "-pooler", con sslmode=require).
+      - key: DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      # URL pública de la web en Vercel (para CORS), p. ej. https://sintonia.vercel.app
+      - key: WEB_URL
+        sync: false
