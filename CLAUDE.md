@@ -85,9 +85,23 @@ Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualiza
   - Preparado para las "Ideas extra": cada elemento guarda `fit` (probabilidad de encaje del DecisionProvider), `POST /api/sessions` acepta `initialText` opcional, la sesión tiene `context` (vacío hasta conectar Open-Meteo, ver `interview.context.ts`) y el perfil incluye `confidence` por dimensión. El texto y el contexto viajan siempre en el `state`, nunca en las instrucciones.
   - Separación por dominio lista para la Fase 3: los elementos y las sesiones (con su perfil) llevan `domain_id`; los atributos de cada elemento van en JSONB (`items.attributes`) y su definición en `domain_attributes` y `domains.config`. En la web, todas las rutas cuelgan de `/:domain/` (`/music`, `/music/entrevista`, `/music/listas`, `/music/biblioteca`, `/music/resultado/:id`); `/` redirige a `/music` hasta que haya selector de dominio. Las listas guardadas llevan `domainId` y los textos ("canciones") salen de la configuración del dominio. El reproductor es global.
   - Limitaciones conocidas:
-    - El % de encaje sale poco disperso (≈ 69-75 %).
     - Biblioteca y Ficha son marcadores de posición.
     - La navegación lateral es propia, no el Sidebar de shadcn.
     - Los tipos de la API están duplicados en `apps/web/src/lib/api.ts`.
     - `nest start --watch` tarda unos 30 s en arrancar.
-- Siguiente: Fase 2 (embeddings + pgvector + explicaciones).
+- **Fase 2 (embeddings + pgvector + explicaciones) terminada el 23/10/2026.**
+  - `pnpm embed` calcula los embeddings del catálogo con `gemini-embedding-001` (768 dimensiones) y los guarda en `items.embedding`. Se puede reanudar (solo procesa los que faltan; `--all` los recalcula) y va en lotes de 50 con pausas.
+    - El plan gratuito cuenta cada texto del lote como una petición (≈ 100 por minuto), así que el script limita a 80 textos por minuto y reintenta si recibe un 429. Las 803 canciones tardan unos 10 minutos.
+    - El texto de cada elemento (`itemEmbeddingText` en `interview.engine.ts`) pone los atributos en palabras ("tranquila", "instrumental"), igual que la consulta del perfil (`profileQueryText`), para que los dos textos usen el mismo vocabulario.
+  - Índice HNSW (`vector_cosine_ops`) en la migración `0002_embedding_hnsw`. Las consultas filtran siempre por `domain_id` y usan `hnsw.iterative_scan = relaxed_order` (pgvector 0.8).
+  - Afinando:
+    - Calcula el embedding de la consulta (purpose `query`) y pide a pgvector 120 vecinos, a los que suma los mejores por atributos.
+    - `hybridRank` combina los dos parecidos en percentiles, a partes iguales.
+    - Si falla el embedding, ordena solo por atributos; si falla el `noul` de un lote, ese lote se queda sin `fit`.
+  - % de encaje (`matchPercent`, 40-99): combina la probabilidad `noul` con la relevancia relativa entre los 16 evaluados. Ejemplo verificado: 71-97 % (antes, 57-93 % con la misma entrevista).
+  - Explicaciones: el prompt incluye las coincidencias de cada elemento con el perfil (`matchHints`). Si el modelo se salta alguna, se vuelve a pedir solo por las que faltan; si aun así falta, se usa `fallbackReason`. Ningún elemento se queda sin explicación.
+  - `GET /api/items/:id/similar?limit=10` devuelve los vecinos por embedding del mismo dominio, para la futura Ficha (`api.getSimilar` en la web).
+  - Verificado en local: Afinando sobre una entrevista real da una lista coherente con el perfil y con todas las explicaciones, y la pantalla de resultado la muestra bien.
+  - Ojo: el plan gratuito de `gemini-3.1-flash-lite` admite 15 peticiones por minuto, y cada Afinando hace 3 (2 de `noul` y 1 de explicaciones) más la entrevista.
+  - Pendiente: los ajustes rápidos mueven poco la consulta semántica, porque el resumen de respuestas no cambia con ellos.
+- Siguiente: Fase 3 (más dominios) o las "Ideas extra" de prioridad para el finde.

@@ -5,7 +5,11 @@
 ## Cómo funciona
 
 1. **Entrevista adaptativa.** En cada turno, un `DecisionProvider` elige qué preguntar a continuación (o si ya puede terminar) entre las "sondas" que define el dominio. Al mismo tiempo, un `TextProvider` redacta las candidatas, así que la espera es la de una sola llamada. La entrevista dura entre 4 y 10 preguntas y se corta cuando la confianza del perfil es suficiente.
-2. **Afinando.** El perfil de ánimo se calcula con decisiones `score` (una por atributo) y `noul` (una por grupo de estilos). Después se ordena el catálogo por parecido con el perfil, el `DecisionProvider` comprueba si cada candidata encaja, y Gemini escribe el porqué de cada una. La pantalla muestra estos pasos en directo mediante Server-Sent Events.
+2. **Afinando.** El perfil de ánimo se calcula con decisiones `score` (una por atributo) y `noul` (una por grupo de estilos). Después:
+   - **Búsqueda híbrida.** El perfil se convierte en un texto de consulta con el mismo vocabulario que los elementos ("tranquila", "instrumental", "jazz, clásica y lounge"), se calcula su embedding y pgvector trae los vecinos más cercanos por similitud coseno (índice HNSW, siempre filtrando por dominio). Esa bolsa se une a los mejores por atributos y se ordena combinando ambos parecidos en percentiles. Si no hay embeddings, se usa solo el parecido por atributos.
+   - **Encaje.** El `DecisionProvider` comprueba si encaja cada candidata (`noul`). El % mostrado (40-99) combina esa probabilidad con la relevancia relativa dentro de la lista.
+   - **Explicaciones.** Gemini escribe el porqué de cada elemento a partir de sus coincidencias con el perfil. Si se salta alguno, se le vuelve a pedir; si aun así falta, se usa una explicación de respaldo, así que ningún elemento se queda sin porqué.
+   - La pantalla muestra estos pasos en directo mediante Server-Sent Events.
 3. **Resultado y reproductor.** La lista lleva el % de encaje y la explicación de cada canción, ajustes rápidos ("+ energía", "con voz") que relanzan la búsqueda sin repetir la entrevista, un reproductor global con mini-reproductor y la Media Session API para la pantalla de bloqueo.
 
 ## Estructura
@@ -40,8 +44,11 @@ pnpm install
 docker compose up -d        # PostgreSQL 17 + pgvector en el puerto 5434
 pnpm db:migrate
 pnpm seed                   # ~800 canciones de Jamendo
+pnpm embed                  # embeddings del catálogo (reanudable; --all recalcula todos)
 pnpm dev                    # API en :3001 y web en http://localhost:5173
 ```
+
+`GET /api/items/:id/similar?limit=10` devuelve los elementos más parecidos por embedding (para la futura Ficha).
 
 Otros comandos: `pnpm storybook` (en :6006), `pnpm test` (pruebas del motor), `pnpm typecheck` y `pnpm tokens`.
 

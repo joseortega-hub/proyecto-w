@@ -15,6 +15,13 @@
       "when": 1792767192434,
       "tag": "0001_session_context",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792768139319,
+      "tag": "0002_embedding_hnsw",
+      "breakpoints": true
     }
   ]
 }

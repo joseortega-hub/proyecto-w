@@ -122,3 +122,167 @@ export function rankCandidates<T extends Rankable>(
   }
   return out;
 }
+
+// --- Búsqueda semántica (Fase 2) ---
+
+/** Palabra para un valor de escala: la etiqueta baja, la alta o nada si está en medio. */
+function scaleWord(value: number, attr: DomainConfig['attributes'][number]): string | null {
+  if (value <= 0.35) return attr.lowLabel ?? null;
+  if (value >= 0.65) return attr.highLabel ?? null;
+  return null;
+}
+
+/**
+ * Texto que representa a un elemento en el espacio de embeddings. Los atributos van
+ * en palabras ("tranquila", "instrumental") para que se parezca a la consulta del perfil.
+ */
+export function itemEmbeddingText(
+  item: Pick<Rankable, 'subtitle' | 'attributes' | 'tags'> & {
+    title: string;
+    description: string | null;
+  },
+  config: DomainConfig,
+  itemNoun: string,
+): string {
+  const words = config.attributes.flatMap((a) =>
+    a.kind === 'scale' && item.attributes[a.key] !== undefined ? [scaleWord(item.attributes[a.key], a)] : [],
+  );
+  const groups = config.tagGroups.filter((g) => item.tags.some((t) => g.tags.includes(t))).map((g) => g.label);
+  return [
+    `${itemNoun}: «${item.title}» de ${item.subtitle ?? 'autor desconocido'}`,
+    item.description ? `Obra: ${item.description}` : null,
+    item.tags.length ? `Etiquetas: ${item.tags.slice(0, 12).join(', ')}` : null,
+    groups.length ? `Estilo: ${groups.join(', ')}` : null,
+    words.some(Boolean) ? `Carácter: ${words.filter(Boolean).join(', ')}` : null,
+  ]
+    .filter(Boolean)
+    .join('. ');
+}
+
+/**
+ * Consulta para pgvector a partir del perfil y de las respuestas. Usa el mismo
+ * vocabulario que `itemEmbeddingText`. El texto inicial de la persona entra como dato.
+ */
+export function profileQueryText(
+  profile: MoodProfile,
+  config: DomainConfig,
+  itemNounPlural: string,
+  initialText?: string | null,
+): string {
+  const words = config.attributes.flatMap((a) => {
+    if (a.kind !== 'scale' || profile.scales[a.key] === undefined) return [];
+    // Sin respuesta directa, solo cuentan los valores claramente marcados.
+    const value = profile.scales[a.key];
+    if (!profile.informed.includes(a.key) && value > 0.2 && value < 0.8) return [];
+    const word = scaleWord(value, a);
+    return word ? [word] : [];
+  });
+  const wanted = config.tagGroups.filter((g) => (profile.tagGroups[g.key] ?? 0) >= 0.6);
+  return [
+    `${itemNounPlural} ${profile.summary.join(', ') || 'variadas'}`,
+    wanted.length ? `Estilo: ${wanted.map((g) => g.label).join(', ')}` : null,
+    wanted.length ? `Etiquetas: ${wanted.flatMap((g) => g.tags.slice(0, 4)).join(', ')}` : null,
+    words.length ? `Carácter: ${words.join(', ')}` : null,
+    initialText ? `Cómo se siente: ${initialText}` : null,
+  ]
+    .filter(Boolean)
+    .join('. ');
+}
+
+/** Rango percentil (0–1) de cada valor dentro de la lista; los empates comparten rango. */
+export function percentiles(values: number[]): number[] {
+  if (values.length <= 1) return values.map(() => 1);
+  const sorted = [...values].sort((a, b) => a - b);
+  return values.map((v) => {
+    const below = sorted.findIndex((x) => x >= v);
+    const upTo = sorted.findLastIndex((x) => x <= v);
+    return (below + upTo) / 2 / (values.length - 1);
+  });
+}
+
+export interface HybridCandidate<T> {
+  item: T;
+  /** Parecido por atributos, 0–1. */
+  attr: number;
+  /** Similitud coseno con la consulta, o null si el elemento no tiene embedding. */
+  semantic: number | null;
+  /** Relevancia combinada, 0–1, relativa al resto de candidatos. */
+  relevance: number;
+}
+
+/**
+ * Combina el parecido por atributos con la similitud semántica. Ambos se pasan a
+ * percentiles dentro de la bolsa de candidatos para que pesen igual aunque las
+ * similitudes coseno vivan en un rango estrecho (≈ 0,6–0,8).
+ */
+export function hybridRank<T extends Rankable>(
+  pool: { item: T; semantic: number | null }[],
+  profile: MoodProfile,
+  config: DomainConfig,
+  limit: number,
+  semanticWeight = 0.5,
+  perArtist = 2,
+): HybridCandidate<T>[] {
+  const attr = pool.map(({ item }) => similarity(item, profile, config));
+  const attrPct = percentiles(attr);
+  const withSemantic = pool.map((p, i) => ({ i, s: p.semantic })).filter((p) => p.s !== null);
+  const semPct = new Map(percentiles(withSemantic.map((p) => p.s as number)).map((pct, k) => [withSemantic[k].i, pct]));
+  const scored = pool
+    .map(({ item, semantic }, i) => {
+      const s = semPct.get(i);
+      const relevance = s === undefined ? attrPct[i] : (1 - semanticWeight) * attrPct[i] + semanticWeight * s;
+      return { item, attr: attr[i], semantic, relevance };
+    })
+    .sort((a, b) => b.relevance - a.relevance || b.attr - a.attr);
+
+  const seen = new Map<string, number>();
+  const out: HybridCandidate<T>[] = [];
+  for (const s of scored) {
+    const artist = s.item.subtitle ?? s.item.id;
+    const count = seen.get(artist) ?? 0;
+    if (count >= perArtist) continue;
+    seen.set(artist, count + 1);
+    out.push(s);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/**
+ * % de encaje que se muestra (40–99). Mezcla la relevancia relativa con la
+ * probabilidad de encaje del DecisionProvider; sin ella, solo cuenta la relevancia.
+ */
+export function matchPercent(relevance: number, fit: number | null): number {
+  const combined = fit === null ? relevance : 0.45 * relevance + 0.55 * fit;
+  return Math.round(40 + 59 * Math.min(1, Math.max(0, combined)));
+}
+
+/** Rasgos del elemento que coinciden con el perfil, para las explicaciones. */
+export function matchHints(item: Rankable, profile: MoodProfile, config: DomainConfig): string[] {
+  const hints: string[] = [];
+  for (const a of config.attributes) {
+    if (a.kind !== 'scale') continue;
+    const target = profile.scales[a.key];
+    const value = item.attributes[a.key];
+    if (target === undefined || value === undefined || !profile.informed.includes(a.key)) continue;
+    const word = scaleWord(value, a);
+    if (word && Math.abs(target - value) <= 0.25) hints.push(word);
+  }
+  for (const g of config.tagGroups) {
+    if ((profile.tagGroups[g.key] ?? 0) >= 0.6 && item.tags.some((t) => g.tags.includes(t))) hints.push(g.label);
+  }
+  return hints;
+}
+
+/** Explicación de respaldo cuando el TextProvider no la da: nunca se deja un elemento sin porqué. */
+export function fallbackReason(item: Rankable, profile: MoodProfile, config: DomainConfig): string {
+  const hints = matchHints(item, profile, config).slice(0, 3);
+  if (!hints.length) {
+    const tags = item.tags.slice(0, 2);
+    return tags.length
+      ? `Aporta un toque ${tags.join(' y ')} que encaja con el tono general de la lista.`
+      : 'Encaja con el tono general de lo que buscas.';
+  }
+  const list = hints.length === 1 ? hints[0] : `${hints.slice(0, -1).join(', ')} y ${hints.at(-1)}`;
+  return `Está aquí porque es ${list}, justo lo que pediste.`;
+}

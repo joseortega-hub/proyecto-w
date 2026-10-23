@@ -65,7 +65,7 @@ export const items = pgTable(
     attributes: jsonb('attributes').$type<Record<string, number>>().notNull().default({}),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
     popularity: real('popularity').notNull().default(0),
-    /** Se rellena en la Fase 2 (búsqueda semántica con pgvector). */
+    /** Embedding del texto del elemento (`pnpm embed`); null hasta calcularlo. */
     embedding: vector('embedding', { dimensions: 768 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -73,6 +73,7 @@ export const items = pgTable(
     uniqueIndex('items_source_uq').on(t.domainId, t.source, t.externalId),
     index('items_domain_idx').on(t.domainId),
     index('items_tags_idx').using('gin', t.tags),
+    index('items_embedding_idx').using('hnsw', t.embedding.op('vector_cosine_ops')),
   ],
 );
 

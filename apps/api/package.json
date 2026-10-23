@@ -21,7 +21,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
-    "seed": "tsx src/catalog/seed.ts"
+    "seed": "tsx src/catalog/seed.ts",
+    "embed": "tsx src/catalog/embed.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.104",

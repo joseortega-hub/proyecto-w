@@ -13,6 +13,7 @@
     "db:up": "docker compose up -d",
     "db:migrate": "pnpm --filter @sintonia/api db:migrate",
     "seed": "pnpm --filter @sintonia/api seed",
+    "embed": "pnpm --filter @sintonia/api embed",
     "storybook": "pnpm --filter @sintonia/web storybook",
     "tokens": "pnpm --filter @sintonia/tokens build",
     "typecheck": "pnpm -r typecheck",

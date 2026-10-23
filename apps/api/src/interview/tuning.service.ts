@@ -2,12 +2,27 @@ import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common'
 import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { DECISION_PROVIDER, type DecisionProvider, type DecisionQuestion } from '../ai/decision-provider.js';
+import { EMBEDDING_PROVIDER, type EmbeddingProvider } from '../ai/embedding-provider.js';
 import { TEXT_PROVIDER, type TextProvider } from '../ai/text-provider.js';
 import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
-import { interviewSessions, items, type ItemRow, type SessionRow } from '../db/schema.js';
+import { interviewSessions, items, type SessionRow } from '../db/schema.js';
 import { DomainsService, type DomainRow } from '../domains/domains.service.js';
-import { answerChips, answered, applyRefinements, informedDimensions, rankCandidates } from './interview.engine.js';
+import { ItemsService, publicItem, type ItemWithoutEmbedding } from '../items/items.service.js';
+import {
+  answerChips,
+  answered,
+  applyRefinements,
+  fallbackReason,
+  hybridRank,
+  informedDimensions,
+  matchHints,
+  matchPercent,
+  percentiles,
+  profileQueryText,
+  rankCandidates,
+  type HybridCandidate,
+} from './interview.engine.js';
 import { stateExtras } from './interview.context.js';
 import { InterviewService } from './interview.service.js';
 import type { MoodProfile, SessionResult } from './interview.types.js';
@@ -22,6 +37,8 @@ export type TuningEvent =
 
 const SCORE_LEVELS: [string, string, string, string, string] = ['Muy bajo', 'Bajo', 'Medio', 'Alto', 'Muy alto'];
 const FIT_BATCH = 8;
+/** Vecinos semánticos que se traen de pgvector antes del ranking híbrido. */
+const SEMANTIC_POOL = 120;
 
 const explanationSchema = z.object({
   title: z.string().describe('Título corto y evocador para la lista, de 2 a 4 palabras'),
@@ -41,12 +58,14 @@ export class TuningService {
     @Inject(DB) private readonly db: Db,
     @Inject(DECISION_PROVIDER) private readonly decisions: DecisionProvider,
     @Inject(TEXT_PROVIDER) private readonly text: TextProvider,
+    @Inject(EMBEDDING_PROVIDER) private readonly embeddings: EmbeddingProvider,
+    private readonly items: ItemsService,
     private readonly domains: DomainsService,
     private readonly interviews: InterviewService,
   ) {}
 
   /**
-   * Perfil (score) → candidatos por atributos → ¿encaja? (noul) → explicaciones.
+   * Perfil (score) → candidatos (pgvector + atributos) → ¿encaja? (noul) → explicaciones.
    * Emite un evento por paso para que la pantalla Afinando muestre el progreso real.
    */
   async *run(sessionId: string, refinements: string[]): AsyncGenerator<TuningEvent> {
@@ -59,8 +78,8 @@ export class TuningService {
     const profile = applyRefinements(base, refinements, config);
     yield { step: 'profile', profile };
 
-    const catalog = await this.db.select().from(items).where(eq(items.domainId, domain.id));
-    const candidates = rankCandidates(catalog, profile, config, config.result.candidates);
+    const catalog = await this.items.catalog(domain.id);
+    const candidates = await this.findCandidates(session, domain, profile, catalog);
     yield {
       step: 'candidates',
       count: candidates.length,
@@ -71,22 +90,28 @@ export class TuningService {
     const fit = new Map<string, number>();
     for (let i = 0; i < judged.length; i += FIT_BATCH) {
       const batch = judged.slice(i, i + FIT_BATCH);
-      const answers = await this.decisions.decide(
-        {
-          busca: profile.summary,
-          perfil: this.describeProfile(profile, domain),
-          ...stateExtras(session),
-        },
-        Object.fromEntries(
-          batch.map(({ item }) => [
-            item.id,
-            {
-              type: 'noul',
-              instructions: `¿Encaja con lo que busca esta ${domain.itemNoun}? ${this.describeItem(item, domain)}`,
-            },
-          ]),
-        ) as Record<string, DecisionQuestion & { type: 'noul' }>,
-      );
+      // Si el proveedor falla, ese lote se queda sin `fit` y el % sale solo de la relevancia.
+      const answers = await this.decisions
+        .decide(
+          {
+            busca: profile.summary,
+            perfil: this.describeProfile(profile, domain),
+            ...stateExtras(session),
+          },
+          Object.fromEntries(
+            batch.map(({ item }) => [
+              item.id,
+              {
+                type: 'noul',
+                instructions: `¿Encaja con lo que busca esta ${domain.itemNoun}? ${this.describeItem(item, domain)}`,
+              },
+            ]),
+          ) as Record<string, DecisionQuestion & { type: 'noul' }>,
+        )
+        .catch((error: Error) => {
+          this.logger.warn(`Encaje sin comprobar para ${batch.length} elementos: ${error.message.slice(0, 120)}`);
+          return {};
+        });
       for (const [id, a] of Object.entries(answers)) fit.set(id, a.probability);
       yield {
         step: 'fit',
@@ -95,42 +120,31 @@ export class TuningService {
       };
     }
 
+    // La relevancia se reparte dentro de los evaluados para que el % no se amontone arriba.
+    const relevance = percentiles(judged.map((c) => c.relevance));
     const finalists = judged
-      .map(({ item, score }) => ({
+      .map(({ item }, i) => ({
         item,
         fit: fit.get(item.id) ?? null,
-        match: Math.round(100 * (0.55 * score + 0.45 * (fit.get(item.id) ?? 0.5))),
+        match: matchPercent(relevance[i], fit.get(item.id) ?? null),
       }))
       .sort((a, b) => b.match - a.match)
       .slice(0, config.result.size);
 
     yield { step: 'explain' };
-    // Si Gemini está saturado, la lista se guarda igual (sin explicaciones) en vez de perderla.
-    const written = await this.text
-      .write({
-        system: `${config.voice} Explicas por qué cada ${domain.itemNoun} encaja con el ánimo de la persona, sin repetir fórmulas.`,
-        prompt: [
-          `Lo que busca: ${profile.summary.join(', ') || 'sin preferencias claras'}.`,
-          `Perfil: ${this.describeProfile(profile, domain)}`,
-          `${domain.itemNounPlural} elegidas:`,
-          ...finalists.map(({ item }, i) => `${i + 1}. ${this.describeItem(item, domain)}`),
-          `Devuelve un título para la lista y exactamente ${finalists.length} explicaciones, una por número, en tono cercano. Puedes citar datos (estilo, energía, voz).`,
-        ].join('\n'),
-        schema: explanationSchema,
-      })
-      .catch((error: Error): z.infer<typeof explanationSchema> => {
-        this.logger.warn(`Sin explicaciones: ${error.message}`);
-        return { title: 'Tu lista', reasons: [] };
-      });
-    const reasons = new Map(written.reasons.map((r) => [r.n - 1, r.reason]));
+    const { title, reasons } = await this.explain(
+      profile,
+      domain,
+      finalists.map((f) => f.item),
+    );
 
     const result: SessionResult = {
-      title: written.title,
+      title,
       entries: finalists.map(({ item, match, fit: p }, i) => ({
         itemId: item.id,
         match,
         fit: p === null ? null : round(p),
-        reason: reasons.get(i) ?? '',
+        reason: reasons[i],
       })),
       candidates: candidates.length,
       catalogSize: catalog.length,
@@ -176,11 +190,103 @@ export class TuningService {
                 match: e.match,
                 fit: e.fit ?? null,
                 reason: e.reason,
-                item: this.publicItem(item),
+                item: publicItem(item),
               },
             ]
           : [];
       }),
+    };
+  }
+
+  /**
+   * Bolsa de candidatos = vecinos semánticos (pgvector) ∪ mejores por atributos, y
+   * ranking híbrido sobre ella. Si no hay embeddings o falla la consulta, solo atributos.
+   */
+  private async findCandidates(
+    session: SessionRow,
+    domain: DomainRow,
+    profile: MoodProfile,
+    catalog: ItemWithoutEmbedding[],
+  ): Promise<HybridCandidate<ItemWithoutEmbedding>[]> {
+    const { config } = domain;
+    const byAttributes = rankCandidates(catalog, profile, config, SEMANTIC_POOL / 2);
+    const query = profileQueryText(profile, config, domain.itemNounPlural, session.initialText);
+    const vector = await this.embeddings
+      .embed([query], 'query')
+      .then(([v]) => v)
+      .catch((error: Error) => {
+        this.logger.warn(`Sin búsqueda semántica: ${error.message}`);
+        return null;
+      });
+    if (!vector) {
+      return hybridRank(
+        byAttributes.map(({ item }) => ({ item, semantic: null })),
+        profile,
+        config,
+        config.result.candidates,
+      );
+    }
+
+    const nearest = await this.items.nearest(domain.id, vector, SEMANTIC_POOL);
+    const pool = new Map<string, { item: ItemWithoutEmbedding; semantic: number | null }>(
+      nearest.map(({ semantic, ...item }) => [item.id, { item, semantic: Number(semantic) }]),
+    );
+    const missing = byAttributes.filter(({ item }) => !pool.has(item.id)).map(({ item }) => item);
+    const sims = await this.items.similarities(
+      domain.id,
+      missing.map((i) => i.id),
+      vector,
+    );
+    for (const item of missing) pool.set(item.id, { item, semantic: sims.get(item.id) ?? null });
+    this.logger.log(`Consulta semántica: "${query}" → ${nearest.length} vecinos + ${missing.length} por atributos`);
+    return hybridRank([...pool.values()], profile, config, config.result.candidates);
+  }
+
+  /**
+   * Título y una explicación por elemento. Si el modelo se salta alguna, se pide otra
+   * vez solo por las que faltan; si aún faltan, se usa una explicación de respaldo.
+   */
+  private async explain(profile: MoodProfile, domain: DomainRow, list: ItemWithoutEmbedding[]) {
+    const { config } = domain;
+    const reasons: (string | null)[] = list.map(() => null);
+    let title = 'Tu lista';
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const missing = reasons.flatMap((r, i) => (r ? [] : [i]));
+      if (!missing.length) break;
+      const written = await this.text
+        .write({
+          system: `${config.voice} Explicas por qué cada ${domain.itemNoun} encaja con el ánimo de la persona, sin repetir fórmulas.`,
+          prompt: [
+            `Lo que busca: ${profile.summary.join(', ') || 'sin preferencias claras'}.`,
+            `Perfil: ${this.describeProfile(profile, domain)}`,
+            `${domain.itemNounPlural} elegidas:`,
+            ...missing.map((i) => {
+              const hints = matchHints(list[i], profile, config);
+              return `${i + 1}. ${this.describeItem(list[i], domain)}${hints.length ? ` Coincide en: ${hints.join(', ')}.` : ''}`;
+            }),
+            `Devuelve ${attempt === 0 ? 'un título para la lista y ' : ''}exactamente ${missing.length} explicaciones, una por cada número de arriba (usa ese mismo número), en tono cercano. Apóyate en las coincidencias y cita datos concretos (estilo, energía, voz).`,
+          ].join('\n'),
+          schema: explanationSchema,
+        })
+        .catch((error: Error) => {
+          // Si Gemini está saturado, la lista se guarda igual en vez de perderla.
+          this.logger.warn(`Explicaciones (intento ${attempt + 1}): ${error.message}`);
+          return null;
+        });
+      if (!written) continue;
+      if (attempt === 0 && written.title.trim()) title = written.title.trim();
+      for (const r of written.reasons) {
+        const i = r.n - 1;
+        if (missing.includes(i) && r.reason.trim()) reasons[i] = r.reason.trim();
+      }
+    }
+
+    const fallbacks = reasons.filter((r) => !r).length;
+    if (fallbacks) this.logger.warn(`${fallbacks} explicaciones de respaldo`);
+    return {
+      title,
+      reasons: reasons.map((r, i) => r ?? fallbackReason(list[i], profile, config)),
     };
   }
 
@@ -239,17 +345,12 @@ export class TuningService {
       .join(', ');
   }
 
-  private describeItem(item: ItemRow, domain: DomainRow) {
+  private describeItem(item: ItemWithoutEmbedding, domain: DomainRow) {
     const attrs = domain.config.attributes
       .filter((a) => a.kind === 'scale' && item.attributes[a.key] !== undefined)
       .map((a) => `${a.label.toLowerCase()} ${item.attributes[a.key].toFixed(2)}`)
       .join(', ');
     return `«${item.title}» de ${item.subtitle ?? 'autor desconocido'}. Etiquetas: ${item.tags.slice(0, 6).join(', ') || '—'}. ${attrs}.`;
-  }
-
-  publicItem(item: ItemRow) {
-    const { embedding: _embedding, createdAt: _createdAt, ...rest } = item;
-    return rest;
   }
 }
 

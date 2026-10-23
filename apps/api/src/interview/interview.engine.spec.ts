@@ -2,7 +2,14 @@ import { musicDomain } from '../domains/music.domain.js';
 import {
   answerChips,
   applyRefinements,
+  fallbackReason,
+  hybridRank,
+  itemEmbeddingText,
+  matchHints,
+  matchPercent,
   mustFinish,
+  percentiles,
+  profileQueryText,
   profileConfidence,
   rankCandidates,
   remainingProbes,
@@ -72,5 +79,129 @@ describe('ranking', () => {
     expect(refined.scales.energy).toBeCloseTo(0.6);
     expect(refined.scales.vocal).toBeCloseTo(0.4);
     expect(applyRefinements(profile, ['more-calm', 'more-calm'], config).scales.energy).toBe(0);
+  });
+});
+
+describe('búsqueda semántica', () => {
+  const profile: MoodProfile = {
+    scales: {
+      energy: 0.15,
+      positivity: 0.5,
+      focus: 0.9,
+      acoustic: 0.7,
+      vocal: 0.05,
+      dance: 0.2,
+    },
+    tagGroups: { urban: 0.1, calm: 0.9 },
+    informed: ['energy', 'focus', 'vocal'],
+    confidence: {},
+    summary: ['para concentrarse', 'tranquila', 'instrumental'],
+  };
+  const song = (id: string, subtitle: string, attributes: Record<string, number>, tags: string[] = []) => ({
+    id,
+    title: id,
+    subtitle,
+    description: null,
+    attributes,
+    tags,
+    popularity: 0.5,
+  });
+  const calm = song(
+    'calm',
+    'A',
+    {
+      energy: 0.2,
+      positivity: 0.5,
+      focus: 0.9,
+      acoustic: 0.8,
+      vocal: 0.05,
+      dance: 0.1,
+    },
+    ['piano'],
+  );
+  const loud = song(
+    'loud',
+    'B',
+    {
+      energy: 0.9,
+      positivity: 0.7,
+      focus: 0.1,
+      acoustic: 0.1,
+      vocal: 0.9,
+      dance: 0.9,
+    },
+    ['reggaeton'],
+  );
+  const mid = song('mid', 'C', {
+    energy: 0.5,
+    positivity: 0.5,
+    focus: 0.5,
+    acoustic: 0.5,
+    vocal: 0.5,
+    dance: 0.5,
+  });
+
+  it('el elemento y la consulta comparten vocabulario', () => {
+    const doc = itemEmbeddingText(calm, config, 'canción');
+    const query = profileQueryText(profile, config, 'canciones');
+    for (const word of ['tranquila', 'instrumental', 'para concentrarse']) {
+      expect(doc).toContain(word);
+      expect(query).toContain(word);
+    }
+    expect(doc).toContain('jazz, clásica y lounge');
+    expect(query).toContain('jazz, clásica y lounge');
+    expect(query).not.toContain('urbano');
+  });
+
+  it('el texto inicial entra en la consulta como dato', () => {
+    expect(profileQueryText(profile, config, 'canciones', 'cansado tras el curro')).toContain(
+      'Cómo se siente: cansado tras el curro',
+    );
+  });
+
+  it('los percentiles reparten valores apretados entre 0 y 1', () => {
+    expect(percentiles([0.71, 0.72, 0.73])).toEqual([0, 0.5, 1]);
+    expect(percentiles([0.7, 0.7])).toEqual([0.5, 0.5]);
+    expect(percentiles([0.4])).toEqual([1]);
+  });
+
+  it('la similitud semántica puede reordenar el ranking por atributos', () => {
+    const byAttributes = hybridRank(
+      [calm, mid].map((item) => ({ item, semantic: null })),
+      profile,
+      config,
+      2,
+    );
+    expect(byAttributes[0].item.id).toBe('calm');
+    const semanticFirst = hybridRank(
+      [
+        { item: calm, semantic: 0.6 },
+        { item: mid, semantic: 0.9 },
+        { item: loud, semantic: 0.5 },
+      ],
+      profile,
+      config,
+      3,
+      0.8,
+    );
+    expect(semanticFirst[0].item.id).toBe('mid');
+    expect(semanticFirst.at(-1)?.item.id).toBe('loud');
+  });
+
+  it('el % de encaje usa todo el rango y respeta el orden', () => {
+    expect(matchPercent(1, 1)).toBe(99);
+    expect(matchPercent(0, 0)).toBe(40);
+    expect(matchPercent(0.5, null)).toBe(70);
+    const spread = [0, 0.25, 0.5, 0.75, 1].map((r) => matchPercent(r, r));
+    expect(spread.at(-1)! - spread[0]).toBeGreaterThan(50);
+    expect([...spread].sort((a, b) => a - b)).toEqual(spread);
+  });
+
+  it('siempre hay una explicación, aunque falle el modelo', () => {
+    expect(matchHints(calm, profile, config)).toEqual(
+      expect.arrayContaining(['tranquila', 'para concentrarse', 'instrumental', 'jazz, clásica y lounge']),
+    );
+    expect(fallbackReason(calm, profile, config)).toMatch(/tranquila/);
+    expect(fallbackReason(loud, profile, config).length).toBeGreaterThan(10);
   });
 });
