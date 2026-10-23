@@ -22,7 +22,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/catalog/seed.ts",
-    "embed": "tsx src/catalog/embed.ts"
+    "embed": "tsx src/catalog/embed.ts",
+    "questions": "tsx src/interview/question-bank.generate.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.104",

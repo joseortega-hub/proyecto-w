@@ -28,6 +28,7 @@ import {
 } from './interview.engine.js';
 import { askableProbes, assertNotAsked } from './interview.flow.js';
 import { NextQuestionPrefetch } from './interview.prefetch.js';
+import { QuestionBankService } from './question-bank.service.js';
 import type { Answer, InterviewTurn } from './interview.types.js';
 
 const ANSWER_TEXT: Record<Answer, string> = { yes: 'sí', no: 'no', unknown: 'no lo sé' };
@@ -67,14 +68,18 @@ export class InterviewService implements OnModuleInit {
     @Inject(DECISION_PROVIDER) private readonly decisions: DecisionProvider,
     @Inject(TEXT_PROVIDER) private readonly text: TextProvider,
     private readonly domains: DomainsService,
+    private readonly bank: QuestionBankService,
   ) {}
 
-  /** Calienta la primera pregunta al arrancar, sin bloquear el arranque. */
+  /** Carga el banco de preguntas y calienta la primera pregunta al arrancar, sin bloquear el arranque. */
   onModuleInit() {
     for (const d of domainDefinitions) {
       this.domains
         .get(d.id)
-        .then((domain) => this.firstTurns(domain))
+        .then(async (domain) => {
+          await this.bank.load(domain);
+          return this.firstTurns(domain);
+        })
         .catch((error: Error) => this.logger.warn(`No he podido preparar la primera pregunta de ${d.id}: ${error.message}`));
     }
   }
@@ -164,9 +169,10 @@ export class InterviewService implements OnModuleInit {
   }
 
   /**
-   * Decide la siguiente pregunta (o terminar) y la redacta. La decisión la toma el
-   * DecisionProvider (Jev o Gemini); el texto, el TextProvider (Gemini). Solo se ofrecen
-   * preguntas que aún aportan algo (`askableProbes`) y se redacta solo la elegida.
+   * Decide la siguiente pregunta (o terminar). La decisión la toma el DecisionProvider
+   * (Jev o Gemini) entre las preguntas que aún aportan algo (`askableProbes`). El texto
+   * sale del banco pregenerado: una sola llamada por pregunta. Si la sonda no tiene banco,
+   * el TextProvider (Gemini) la redacta en vivo como respaldo.
    */
   private async advance(turns: InterviewTurn[], domain: DomainRow, session: SessionSeed): Promise<InterviewTurn[]> {
     const { config } = domain;
@@ -209,6 +215,12 @@ export class InterviewService implements OnModuleInit {
     const probe = options.find((p) => p.id === next.choice) ?? options[0];
     assertNotAsked(turns, probe.id);
 
+    const fromBank = this.bank.pick(domain, probe.id, turns);
+    if (fromBank) {
+      this.logger.log(`[${this.decisions.name}] siguiente: ${probe.id} (decisión ${decisionMs} ms, banco)`);
+      return [...turns, { probeId: probe.id, text: fromBank.question, reason: fromBank.reason, answer: null }];
+    }
+
     const writeStarted = Date.now();
     const written = await this.text
       .write({
@@ -229,7 +241,7 @@ export class InterviewService implements OnModuleInit {
         return { question: `¿${probe.intent.replace(/^Si /, '')}?`, reason: '' };
       });
     this.logger.log(
-      `[${this.decisions.name}] siguiente: ${probe.id} (decisión ${decisionMs} ms, redacción ${Date.now() - writeStarted} ms)`,
+      `[${this.decisions.name}] siguiente: ${probe.id} (decisión ${decisionMs} ms, redacción en vivo ${Date.now() - writeStarted} ms)`,
     );
 
     return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null }];
