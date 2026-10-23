@@ -16,5 +16,19 @@ services:
       timeout: 3s
       retries: 10
 
+  # Laya en local (decisiones de la entrevista). Opcional: docker compose --profile laya up -d
+  ollaya:
+    image: ghcr.io/ollaya-dev/ollaya
+    container_name: ollaya
+    profiles: ["laya"]
+    ports:
+      - "127.0.0.1:11435:11435"
+    volumes:
+      - ollaya-models:/home/ollaya/.ollaya
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  # Mismo volumen que el contenedor creado a mano: se reutilizan los modelos descargados.
+  ollaya-models:
+    name: ollaya-models

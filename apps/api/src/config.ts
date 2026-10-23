@@ -7,12 +7,43 @@ const rootEnv = resolve(dirname(fileURLToPath(import.meta.url)), '../../../.env'
 if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
 const optional = (name: string, fallback = '') => process.env[name]?.trim() || fallback;
+const list = (name: string, fallback = '') =>
+  optional(name, fallback)
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
 
 export const config = {
-  apiPort: Number(optional('API_PORT', '3001')),
+  /** `PORT` lo fijan los hostings (Render) y la vista previa; si no, API_PORT. */
+  apiPort: Number(optional('PORT') || optional('API_PORT', '3001')),
   webUrl: optional('WEB_URL', 'http://localhost:5173'),
   databaseUrl: optional('DATABASE_URL', 'postgresql://proyecto:proyecto@localhost:5434/proyecto'),
+  /** Proveedor del perfil (`score`) y del encaje (`noul`): Gemini o Jev (con Gemini de respaldo). */
   decisionProvider: optional('DECISION_PROVIDER', 'gemini') as 'gemini' | 'jev',
+  /**
+   * Cadena de respaldo para elegir la siguiente pregunta de la entrevista (`choice`):
+   * responde el primero disponible. Admite groq, laya, gemini y jev. Groq va primero
+   * porque con el estado real de la entrevista es más rápido (0,4-1 s) que Laya en CPU
+   * (1-2,5 s, en serie); Laya, sin cupo, cubre cuando Groq agota sus tokens por minuto.
+   * En producción, sin Ollaya, basta con `groq,gemini` (Laya caído se salta solo).
+   */
+  decisionChain: list('DECISION_CHAIN', 'groq,laya,gemini'),
+  /** Cadena de respaldo del texto (explicaciones y redacción en vivo): groq y gemini. */
+  textChain: list('TEXT_CHAIN', 'groq,gemini'),
+  /** Ollaya en local (compatible con la API de Jev) con el modelo Laya. */
+  layaBaseUrl: optional('LAYA_BASE_URL', 'http://127.0.0.1:11435'),
+  layaModel: optional('LAYA_MODEL', 'laya:multilingual'),
+  /**
+   * En caliente, una decisión de la entrevista tarda ~0,5-1 s en CPU, y Ollaya atiende
+   * las peticiones de una en una: la segunda precarga (sí/no) espera a la primera.
+   */
+  layaTimeoutMs: Number(optional('LAYA_TIMEOUT_MS', '3000')),
+  groqApiKey: optional('GROQ_API_KEY'),
+  /** Modelo de Groq para las decisiones. Cada modelo tiene su cupo (≈30 peticiones y ~8K tokens por minuto). */
+  groqModel: optional('GROQ_MODEL', 'openai/gpt-oss-120b'),
+  /** Modelo de Groq para el texto; distinto del de decisiones para no compartir cupo. */
+  groqTextModel: optional('GROQ_TEXT_MODEL', 'qwen/qwen3.8-27b'),
+  groqFallbackModels: list('GROQ_FALLBACK_MODELS'),
   typesafeApiKey: optional('TYPESAFE_API_KEY'),
   jevModel: optional('JEV_MODEL', 'jev-latest'),
   geminiApiKey: optional('GEMINI_API_KEY'),
@@ -24,10 +55,7 @@ export const config = {
    */
   geminiTextModel: optional('GEMINI_TEXT_MODEL', 'gemini-3.5-flash-lite'),
   /** Modelos de respaldo, en orden, si el principal está saturado. */
-  geminiFallbackModels: optional('GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash')
-    .split(',')
-    .map((m) => m.trim())
-    .filter(Boolean),
+  geminiFallbackModels: list('GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash'),
   geminiEmbeddingModel: optional('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001'),
   jamendoClientId: optional('JAMENDO_CLIENT_ID'),
 };

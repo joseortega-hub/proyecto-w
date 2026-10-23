@@ -23,9 +23,20 @@ packages/
 docs/      Diseño aprobado de la Fase 0 (docs/diseno.md) y fuente del lienzo
 ```
 
-- **IA detrás de interfaces** (`apps/api/src/ai`): `DecisionProvider` (choice, score y noul, las primitivas de Jev), `TextProvider` y `EmbeddingProvider`.
-  - Con `DECISION_PROVIDER=gemini`, las decisiones usan `experimental_decide` del AI SDK con `google.decisionModel()`.
-  - Con `DECISION_PROVIDER=jev`, se usa Jev (`@typesafe-ai/sdk`), y Gemini queda de respaldo si Jev falla.
+- **IA detrás de interfaces** (`apps/api/src/ai`): `DecisionProvider` (choice, score y noul, las primitivas de Jev), `TextProvider` y `EmbeddingProvider`. Cada tarea usa una cadena de respaldo (`provider-chain.ts`): responde el primer proveedor disponible, y el que se cae, se satura o se queda sin cupo queda apartado unos minutos.
+
+  | Tarea | Cadena por defecto | Variable |
+  |---|---|---|
+  | Siguiente pregunta (`choice`) | Groq → Laya (local) → Gemini | `DECISION_CHAIN` |
+  | Perfil (`score`) y % de encaje (`noul`) | Gemini (o Jev → Gemini) | `DECISION_PROVIDER` |
+  | Texto (explicaciones, redacción en vivo) | Groq → Gemini | `TEXT_CHAIN` |
+  | Embeddings | Gemini | — |
+
+  - **Gemini**: `experimental_decide` del AI SDK con `google.decisionModel()`.
+  - **Jev** (`@typesafe-ai/sdk`): con `DECISION_PROVIDER=jev`; también puede entrar en `DECISION_CHAIN`.
+  - **Laya** con Ollaya en local (`ghcr.io/ollaya-dev/ollaya`): habla el protocolo de Jev, así que reutiliza `JevDecisionProvider` con otra `baseURL` (sin compresión zstd, que Ollaya no admite). Al arrancar, la API lo precalienta con `keep_alive: -1` para dejarlo residente; mientras carga, o si no está (producción), se salta sin esperar. No se usa para `noul`: con preguntas vagas ("¿encaja esta canción?") da probabilidades poco fiables.
+  - **Groq** (`@ai-sdk/groq`): no da logprobs, así que en `choice` usa salida estructurada con una probabilidad que declara el propio modelo. **No está calibrada**: sirve para elegir la opción, no para fiarse de su confianza. Decisiones con `openai/gpt-oss-120b` y texto con `qwen/qwen3.8-27b`: modelos distintos para no compartir el cupo (~8K tokens/min por modelo), y cada uno es el respaldo del otro.
+  - Los logs registran qué proveedor respondió cada decisión y cuánto tardó (`[Decisiones] decisión choice → groq:openai/gpt-oss-120b en 480 ms`).
 - **Multidominio** (`apps/api/src/domains`): un dominio es un adaptador de importación (`CatalogAdapter`) más una configuración con atributos, grupos de estilos, sondas y ajustes. El motor (`interview.engine.ts`) no sabe qué es una canción.
 - **Rutas por dominio** (`apps/web/src/lib/domain.ts`): biblioteca, listas, entrevistas y resultados cuelgan de `/:domain/` (por ahora solo `/music`), y las listas guardadas en el dispositivo van separadas por dominio.
 - **Diseño atómico** (`apps/web/src/components`):
@@ -39,9 +50,11 @@ docs/      Diseño aprobado de la Fase 0 (docs/diseno.md) y fuente del lienzo
 Requisitos: Node 24, pnpm 10 y Docker.
 
 ```bash
-cp .env.example .env        # y rellena GEMINI_API_KEY y JAMENDO_CLIENT_ID
+cp .env.example .env        # y rellena GEMINI_API_KEY, GROQ_API_KEY y JAMENDO_CLIENT_ID
 pnpm install
 docker compose up -d        # PostgreSQL 17 + pgvector en el puerto 5434
+docker compose --profile laya up -d   # opcional: Ollaya con Laya en 127.0.0.1:11435
+docker exec ollaya ollaya pull laya:multilingual   # solo la primera vez
 pnpm db:migrate
 pnpm seed                   # ~800 canciones de Jamendo
 pnpm embed                  # embeddings del catálogo (reanudable; --all recalcula todos)

@@ -26,3 +26,8 @@ export interface DecisionProvider {
 }
 
 export const DECISION_PROVIDER = Symbol('DecisionProvider');
+/**
+ * Decisiones rápidas de la entrevista (elegir la siguiente pregunta). Va aparte porque
+ * admite proveedores más rápidos pero menos precisos con `score`/`noul` (Laya, Groq).
+ */
+export const INTERVIEW_DECISION_PROVIDER = Symbol('InterviewDecisionProvider');

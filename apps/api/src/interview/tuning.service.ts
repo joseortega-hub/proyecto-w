@@ -281,7 +281,7 @@ export class TuningService {
               const hints = matchHints(list[i], profile, config);
               return `${i + 1}. ${this.describeItem(list[i], domain)}${hints.length ? ` Coincide en: ${hints.join(', ')}.` : ''}`;
             }),
-            `Devuelve ${attempt === 0 ? 'un título para la lista y ' : ''}exactamente ${missing.length} explicaciones, una por cada número de arriba (usa ese mismo número), en tono cercano. Apóyate en las coincidencias y cita datos concretos (estilo, energía, voz).`,
+            `Devuelve ${attempt === 0 ? 'un título para la lista y ' : ''}exactamente ${missing.length} explicaciones, una por cada número de arriba (usa ese mismo número), en tono cercano. Apóyate en las coincidencias y cita datos concretos (estilo, energía, voz), siempre con palabras: nunca escribas las cifras de 0 a 1.`,
           ].join('\n'),
           schema: explanationSchema,
         })

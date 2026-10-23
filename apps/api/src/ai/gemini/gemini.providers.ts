@@ -4,55 +4,12 @@ import { embedMany, experimental_decide, generateText, Output } from 'ai';
 import type { z } from 'zod';
 import type { DecisionAnswer, DecisionProvider, DecisionQuestion } from '../decision-provider.js';
 import type { EmbeddingProvider } from '../embedding-provider.js';
+import { withModelFallback } from '../model-fallback.js';
 import type { TextProvider } from '../text-provider.js';
 
-/**
- * El plan gratuito a veces se satura (503 "high demand") o se queda colgado. En vez de
- * reintentar el mismo modelo, se falla rápido y se pasa al siguiente de la cadena.
- * El modelo que falla queda apartado unos minutos ("cortacircuitos"): así las llamadas
- * siguientes no vuelven a esperar a que se agote su timeout.
- */
+/** Si un modelo no responde en este tiempo, se pasa al siguiente de la cadena. */
 const CALL_TIMEOUT_MS = 12_000;
-const COOLDOWN_MS = 3 * 60_000;
 const logger = new Logger('Gemini');
-const cooldownUntil = new Map<string, number>();
-
-export const isTransient = (error: unknown) =>
-  (error as Error)?.name === 'TimeoutError' ||
-  /high demand|overloaded|unavailable|resource.?exhausted|quota|rate limit|timeout|aborted|\b(429|500|503)\b/i.test(
-    String((error as Error)?.message ?? error),
-  );
-
-/** Modelos disponibles primero (en su orden); los apartados, al final, por si fallan todos. */
-export function modelOrder(models: string[], now = Date.now()): string[] {
-  const ready = models.filter((m) => (cooldownUntil.get(m) ?? 0) <= now);
-  const cooling = models
-    .filter((m) => (cooldownUntil.get(m) ?? 0) > now)
-    .sort((a, b) => cooldownUntil.get(a)! - cooldownUntil.get(b)!);
-  return [...ready, ...cooling];
-}
-
-/** Aparta un modelo hasta `until` (lo usa `withModelFallback` y los tests). */
-export function coolDown(model: string, until = Date.now() + COOLDOWN_MS) {
-  cooldownUntil.set(model, until);
-}
-
-async function withModelFallback<T>(models: string[], call: (model: string) => Promise<T>): Promise<T> {
-  let lastError: unknown;
-  for (const model of modelOrder(models)) {
-    try {
-      const result = await call(model);
-      cooldownUntil.delete(model);
-      return result;
-    } catch (error) {
-      if (!isTransient(error)) throw error;
-      lastError = error;
-      coolDown(model);
-      logger.warn(`${model} no disponible (${(error as Error).message?.slice(0, 80)}); lo aparto unos minutos`);
-    }
-  }
-  throw lastError;
-}
 
 export function createGemini(apiKey: string) {
   if (!apiKey) throw new Error('Falta GEMINI_API_KEY en .env');
@@ -75,16 +32,19 @@ export class GeminiDecisionProvider implements DecisionProvider {
   }
 
   async decide<Q extends Record<string, DecisionQuestion>>(state: string | Record<string, unknown>, questions: Q) {
-    const { answers } = await withModelFallback(this.models, (model) =>
-      experimental_decide({
-        model: this.google.decisionModel(model),
-        maxRetries: 0,
-        abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
-        state: state as Parameters<typeof experimental_decide>[0]['state'],
-        questions: Object.fromEntries(
-          Object.entries(questions).map(([id, q]) => [id, q.type === 'noul' ? { type: 'boolean', instructions: q.instructions } : q]),
-        ),
-      }),
+    const { answers } = await withModelFallback(
+      this.models,
+      (model) =>
+        experimental_decide({
+          model: this.google.decisionModel(model),
+          maxRetries: 0,
+          abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+          state: state as Parameters<typeof experimental_decide>[0]['state'],
+          questions: Object.fromEntries(
+            Object.entries(questions).map(([id, q]) => [id, q.type === 'noul' ? { type: 'boolean', instructions: q.instructions } : q]),
+          ),
+        }),
+      logger,
     );
 
     const out: Record<string, DecisionAnswer> = {};
@@ -116,17 +76,20 @@ export class GeminiTextProvider implements TextProvider {
   }
 
   async write<S extends z.ZodType>({ system, prompt, schema }: { system: string; prompt: string; schema: S }) {
-    const { output } = await withModelFallback(this.models, (model) =>
-      generateText({
-        model: this.google(model),
-        system,
-        prompt,
-        output: Output.object({ schema }),
-        reasoning: 'none',
-        maxRetries: 0,
-        // Los textos largos (explicaciones de toda la lista) necesitan algo más de margen.
-        timeout: CALL_TIMEOUT_MS * 1.5,
-      }),
+    const { output } = await withModelFallback(
+      this.models,
+      (model) =>
+        generateText({
+          model: this.google(model),
+          system,
+          prompt,
+          output: Output.object({ schema }),
+          reasoning: 'none',
+          maxRetries: 0,
+          // Los textos largos (explicaciones de toda la lista) necesitan algo más de margen.
+          timeout: CALL_TIMEOUT_MS * 1.5,
+        }),
+      logger,
     );
     return output as z.infer<S>;
   }

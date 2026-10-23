@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { DECISION_PROVIDER, type DecisionProvider } from '../ai/decision-provider.js';
+import { INTERVIEW_DECISION_PROVIDER, type DecisionProvider } from '../ai/decision-provider.js';
 import { TEXT_PROVIDER, type TextProvider } from '../ai/text-provider.js';
 import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
@@ -65,7 +65,7 @@ export class InterviewService implements OnModuleInit {
 
   constructor(
     @Inject(DB) private readonly db: Db,
-    @Inject(DECISION_PROVIDER) private readonly decisions: DecisionProvider,
+    @Inject(INTERVIEW_DECISION_PROVIDER) private readonly decisions: DecisionProvider,
     @Inject(TEXT_PROVIDER) private readonly text: TextProvider,
     private readonly domains: DomainsService,
     private readonly bank: QuestionBankService,
@@ -169,10 +169,10 @@ export class InterviewService implements OnModuleInit {
   }
 
   /**
-   * Decide la siguiente pregunta (o terminar). La decisión la toma el DecisionProvider
-   * (Jev o Gemini) entre las preguntas que aún aportan algo (`askableProbes`). El texto
-   * sale del banco pregenerado: una sola llamada por pregunta. Si la sonda no tiene banco,
-   * el TextProvider (Gemini) la redacta en vivo como respaldo.
+   * Decide la siguiente pregunta (o terminar). La decisión la toma la cadena de la
+   * entrevista (por defecto Groq → Laya → Gemini; ver DECISION_CHAIN) entre las preguntas
+   * que aún aportan algo (`askableProbes`). El texto sale del banco pregenerado: una sola
+   * llamada por pregunta. Si la sonda no tiene banco, el TextProvider la redacta en vivo.
    */
   private async advance(turns: InterviewTurn[], domain: DomainRow, session: SessionSeed): Promise<InterviewTurn[]> {
     const { config } = domain;
@@ -208,7 +208,7 @@ export class InterviewService implements OnModuleInit {
     );
     const decisionMs = Date.now() - decisionStarted;
     if (next.choice === FINISH) {
-      this.logger.log(`[${this.decisions.name}] terminar (${decisionMs} ms)`);
+      this.logger.log(`terminar (decisión ${decisionMs} ms)`);
       return turns;
     }
 
@@ -217,7 +217,7 @@ export class InterviewService implements OnModuleInit {
 
     const fromBank = this.bank.pick(domain, probe.id, turns);
     if (fromBank) {
-      this.logger.log(`[${this.decisions.name}] siguiente: ${probe.id} (decisión ${decisionMs} ms, banco)`);
+      this.logger.log(`siguiente: ${probe.id} (decisión ${decisionMs} ms, banco)`);
       return [...turns, { probeId: probe.id, text: fromBank.question, reason: fromBank.reason, answer: null }];
     }
 
@@ -241,7 +241,7 @@ export class InterviewService implements OnModuleInit {
         return { question: `¿${probe.intent.replace(/^Si /, '')}?`, reason: '' };
       });
     this.logger.log(
-      `[${this.decisions.name}] siguiente: ${probe.id} (decisión ${decisionMs} ms, redacción en vivo ${Date.now() - writeStarted} ms)`,
+      `siguiente: ${probe.id} (decisión ${decisionMs} ms, redacción en vivo ${Date.now() - writeStarted} ms)`,
     );
 
     return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null }];
