@@ -28,7 +28,8 @@ function Step({ status, children }: { status: Status; children: React.ReactNode 
 }
 
 /** Los pasos reales de Afinando, alimentados por los eventos del servidor. */
-export function PipelineSteps({ progress }: { progress: PipelineProgress }) {
+export function PipelineSteps({ progress, gender = 'f' }: { progress: PipelineProgress; gender?: 'f' | 'm' }) {
+  const f = gender === 'f'
   const { profile, candidates, fit, explaining, done } = progress
   const fitDone = !!fit && fit.checked >= fit.total
   const status = (isDone: boolean, isActive: boolean): Status => (isDone ? 'done' : isActive ? 'active' : 'pending')
@@ -39,16 +40,16 @@ export function PipelineSteps({ progress }: { progress: PipelineProgress }) {
       <Step status={status(!!candidates, profile && !candidates)}>
         {candidates ? (
           <>
-            <span className="font-mono">{candidates.count}</span> candidatas entre <span className="font-mono">{formatInt(candidates.total)}</span>
+            <span className="font-mono">{candidates.count}</span> {f ? 'candidatas' : 'candidatos'} entre <span className="font-mono">{formatInt(candidates.total)}</span>
           </>
         ) : (
-          'Buscando candidatas'
+          `Buscando ${f ? 'candidatas' : 'candidatos'}`
         )}
       </Step>
       <Step status={status(fitDone, !!candidates && !fitDone)}>
         Comprobando si encajan{fit && !fitDone && <span className="font-mono"> ({fit.checked}/{fit.total})</span>}
       </Step>
-      <Step status={status(done, explaining && !done)}>Escribiendo el porqué de cada una</Step>
+      <Step status={status(done, explaining && !done)}>Escribiendo el porqué de {f ? 'cada una' : 'cada uno'}</Step>
     </ol>
   )
 }

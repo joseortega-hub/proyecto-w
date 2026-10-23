@@ -289,7 +289,7 @@ export function fallbackReason(item: Rankable, profile: MoodProfile, config: Dom
 
 // --- Preferencias previas (filtros duros) ---
 
-/** Filtro sobre `items.facets`: el elemento pasa si su valor está en `values`. */
+/** Filtro sobre `items.facets`: el elemento pasa si su valor (o alguno de sus valores) está en `values`. */
 export interface FacetFilter {
   key: string;
   values: string[];
@@ -304,12 +304,19 @@ export function preferenceFilters(preferences: SessionPreferences, config: Domai
   });
 }
 
+/** Valor de una faceta: uno solo (`es`) o varios (`['pc', 'switch']`). */
+export type FacetValue = string | string[];
+
+/** Si la faceta del elemento incluye el valor. */
+export const facetHas = (value: FacetValue | undefined, wanted: string) =>
+  Array.isArray(value) ? value.includes(wanted) : value === wanted;
+
 /**
  * Aviso cuando un filtro deja pocos elementos del valor elegido y la lista se completa
  * con los que pasan siempre (p. ej. pocas en español → instrumentales). Nunca en silencio.
  */
 export function preferenceNotice(
-  list: { facets: Record<string, string> }[],
+  list: { facets: Record<string, FacetValue> }[],
   preferences: SessionPreferences,
   config: DomainConfig,
   itemNounPlural: string,
@@ -319,11 +326,12 @@ export function preferenceNotice(
     const chosen = preferences[pref.key]?.value;
     const option = pref.options.find((o) => o.value === chosen);
     if (!option || chosen === pref.anyValue) continue;
-    const exact = list.filter((it) => it.facets[pref.key] === chosen).length;
+    const exact = list.filter((it) => facetHas(it.facets[pref.key], chosen)).length;
     const phrase = option.phrase ?? option.label.toLowerCase();
     const Phrase = phrase.charAt(0).toUpperCase() + phrase.slice(1);
     if (list.length < size) {
-      return `${Phrase} o ${pref.fillerLabel} solo he encontrado ${list.length} ${itemNounPlural} que encajen.`;
+      const scope = pref.alwaysPass.length && pref.fillerLabel ? `${Phrase} o ${pref.fillerLabel}` : Phrase;
+      return `${scope} solo he encontrado ${list.length} ${itemNounPlural} que encajen.`;
     }
     if (exact === 0) return `${Phrase} no tengo ${itemNounPlural} que encajen, así que te pongo ${pref.fillerLabel}.`;
     if (exact < Math.ceil(size / 2)) {

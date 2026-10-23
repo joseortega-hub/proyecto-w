@@ -1,6 +1,8 @@
 export function formatDuration(seconds: number | null | undefined) {
   if (!seconds || !Number.isFinite(seconds)) return '0:00'
   const s = Math.floor(seconds)
+  // Películas: "2 h 22 min" en vez de "142:00".
+  if (s >= 3600) return `${Math.floor(s / 3600)} h ${String(Math.round((s % 3600) / 60)).padStart(2, '0')} min`
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 

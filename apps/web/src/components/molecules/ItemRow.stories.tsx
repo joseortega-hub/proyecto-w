@@ -22,6 +22,9 @@ export const WithExplanation: Story = {
     children: <Explanation reason="Instrumental, tempo lento (84 BPM) y tono cálido. Acompaña sin distraer." defaultOpen />,
   },
 }
+export const OpensDetail: Story = {
+  args: { title: 'Hollow Knight', subtitle: 'Team Cherry', durationSec: null, match: 91, actionLabel: 'Ver la ficha de' },
+}
 export const LongTitle: Story = {
   args: { title: 'Quand je serai grand (versión instrumental remasterizada en 2024)', subtitle: 'Un artista con un nombre también muy largo' },
 }

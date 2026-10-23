@@ -64,8 +64,8 @@ export const items = pgTable(
     /** Valores de escala (0–1) por clave de atributo. */
     attributes: jsonb('attributes').$type<Record<string, number>>().notNull().default({}),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
-    /** Valores categóricos para las preferencias previas del dominio (p. ej. `language: es`). */
-    facets: jsonb('facets').$type<Record<string, string>>().notNull().default({}),
+    /** Valores categóricos para las preferencias previas del dominio (`language: 'es'`, `platforms: ['pc', 'switch']`). */
+    facets: jsonb('facets').$type<Record<string, string | string[]>>().notNull().default({}),
     popularity: real('popularity').notNull().default(0),
     /** Embedding del texto del elemento (`pnpm embed`); null hasta calcularlo. */
     embedding: vector('embedding', { dimensions: 768 }),

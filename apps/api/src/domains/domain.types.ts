@@ -44,7 +44,7 @@ export interface Refinement {
  * idioma de la letra). No es ánimo: se aplica en la búsqueda, no en el perfil.
  */
 export interface Preference {
-  /** Clave en `items.facets`. */
+  /** Clave en `items.facets`. El valor del elemento puede ser uno o varios (p. ej. plataformas). */
   key: string;
   label: string;
   options: {
@@ -57,15 +57,32 @@ export interface Preference {
   anyValue: string;
   /** Valores del elemento que pasan siempre el filtro (p. ej. las instrumentales). */
   alwaysPass: string[];
-  /** Cómo se llaman los elementos que completan la lista si faltan ("instrumentales"). */
-  fillerLabel: string;
+  /** Cómo se llaman los elementos que completan la lista si faltan ("instrumentales"); sin `alwaysPass`, no hace falta. */
+  fillerLabel?: string;
   /** Qué se pregunta al DecisionProvider para preseleccionar la opción a partir del texto inicial. */
   guessInstructions: string;
+}
+
+/** Fuente de los datos del catálogo, con la atribución que exigen sus condiciones de uso. */
+export interface DomainSource {
+  name: string;
+  url: string;
+  /** Texto de atribución que se muestra en la ficha y en la biblioteca. */
+  attribution: string;
 }
 
 export interface DomainConfig {
   /** Cómo se habla del catálogo en los textos generados. */
   voice: string;
+  /** Género gramatical del sustantivo del elemento: "esta canción" (f), "este videojuego" (m). */
+  gender: 'f' | 'm';
+  /** Verbo de consumo en infinitivo: "escuchar", "ver", "leer", "jugar". */
+  verb: string;
+  /** Quién firma cada elemento ("artista", "dirección", "autoría", "estudio"). */
+  creatorLabel: string;
+  /** Si los elementos se reproducen dentro de la app (audio). Si no, la ficha enlaza a la fuente. */
+  playable: boolean;
+  source: DomainSource;
   attributes: DomainAttribute[];
   tagGroups: TagGroup[];
   probes: Probe[];

@@ -1,13 +1,16 @@
 import { Outlet } from 'react-router'
 import { AppHeader, BottomNav, MiniPlayer, PlayerBar, SideNav } from '@/components/organisms'
+import { useDomain } from '@/lib/domain'
 import { usePlayer } from '@/player/player-context'
 
 /** Marco con navegación: inferior + mini-reproductor en móvil; lateral + barra en escritorio. */
 export function AppShell() {
   const player = usePlayer()
   const { current } = player
+  const domain = useDomain()
   return (
-    <div className="flex h-dvh">
+    // data-domain fija el color de la temática para todo lo que hay dentro.
+    <div className="flex h-dvh" data-domain={domain.id}>
       <SideNav />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />

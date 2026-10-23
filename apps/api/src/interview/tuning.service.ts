@@ -108,7 +108,7 @@ export class TuningService {
               item.id,
               {
                 type: 'noul',
-                instructions: `¿Encaja con lo que busca esta ${domain.itemNoun}? ${this.describeItem(item, domain)}`,
+                instructions: `¿Encaja con lo que busca ${config.gender === 'f' ? 'esta' : 'este'} ${domain.itemNoun}? ${this.describeItem(item, domain)}`,
               },
             ]),
           ) as Record<string, DecisionQuestion & { type: 'noul' }>,
@@ -276,12 +276,12 @@ export class TuningService {
           prompt: [
             `Lo que busca: ${profile.summary.join(', ') || 'sin preferencias claras'}.`,
             `Perfil: ${this.describeProfile(profile, domain)}`,
-            `${domain.itemNounPlural} elegidas:`,
+            `${capitalize(domain.itemNounPlural)} ${config.gender === 'f' ? 'elegidas' : 'elegidos'}:`,
             ...missing.map((i) => {
               const hints = matchHints(list[i], profile, config);
               return `${i + 1}. ${this.describeItem(list[i], domain)}${hints.length ? ` Coincide en: ${hints.join(', ')}.` : ''}`;
             }),
-            `Devuelve ${attempt === 0 ? 'un título para la lista y ' : ''}exactamente ${missing.length} explicaciones, una por cada número de arriba (usa ese mismo número), en tono cercano. Apóyate en las coincidencias y cita datos concretos (estilo, energía, voz), siempre con palabras: nunca escribas las cifras de 0 a 1.`,
+            `Devuelve ${attempt === 0 ? 'un título para la lista y ' : ''}exactamente ${missing.length} explicaciones, una por cada número de arriba (usa ese mismo número), en tono cercano. Apóyate en las coincidencias y cita datos concretos (${config.attributes.slice(0, 3).map((a) => a.label.toLowerCase()).join(', ')}), siempre con palabras: nunca escribas las cifras de 0 a 1.`,
           ].join('\n'),
           schema: explanationSchema,
         })
@@ -319,14 +319,14 @@ export class TuningService {
     for (const a of scales) {
       questions[`scale_${a.key}`] = {
         type: 'score',
-        instructions: `¿Cuánto de "${a.label}" (${a.description}; de ${a.lowLabel} a ${a.highLabel}) quiere escuchar ahora? Si no hay pistas, elige Medio.`,
+        instructions: `¿Cuánto de "${a.label}" (${a.description}; de ${a.lowLabel} a ${a.highLabel}) quiere para ${config.verb} ahora? Si no hay pistas, elige Medio.`,
         criteria: SCORE_LEVELS,
       };
     }
     for (const g of config.tagGroups) {
       questions[`tags_${g.key}`] = {
         type: 'noul',
-        instructions: `¿Le apetecería escuchar ${g.label}?`,
+        instructions: `¿Le apetecería algo de ${g.label} para ${config.verb}?`,
       };
     }
 
@@ -370,8 +370,12 @@ export class TuningService {
       .filter((a) => a.kind === 'scale' && item.attributes[a.key] !== undefined)
       .map((a) => `${a.label.toLowerCase()} ${item.attributes[a.key].toFixed(2)}`)
       .join(', ');
-    return `«${item.title}» de ${item.subtitle ?? 'autor desconocido'}. Etiquetas: ${item.tags.slice(0, 6).join(', ') || '—'}. ${attrs}.`;
+    const { creatorLabel, playable } = domain.config;
+    // En música la descripción es el álbum; en el resto, la sinopsis ayuda a juzgar el encaje.
+    const about = !playable && item.description ? ` Sinopsis: ${item.description.slice(0, 160)}.` : '';
+    return `«${item.title}» (${creatorLabel}: ${item.subtitle ?? 'desconocido'}). Etiquetas: ${item.tags.slice(0, 6).join(', ') || '—'}. ${attrs}.${about}`;
   }
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

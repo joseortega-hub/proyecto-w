@@ -12,13 +12,15 @@ interface ItemRowProps {
   active?: boolean
   playing?: boolean
   onSelect?: () => void
+  /** Qué hace el toque, para lectores de pantalla ("Ver la ficha de"). Por defecto, reproducir o pausar. */
+  actionLabel?: string
   /** Contenido extra bajo la fila (p. ej. la explicación). */
   children?: ReactNode
   className?: string
 }
 
 /** Un elemento del catálogo en una lista: portada, título, autor y encaje. */
-export function ItemRow({ title, subtitle, imageUrl, durationSec, match, active, playing, onSelect, children, className }: ItemRowProps) {
+export function ItemRow({ title, subtitle, imageUrl, durationSec, match, active, playing, onSelect, actionLabel, children, className }: ItemRowProps) {
   const content = (
     <>
       <div className="relative size-12 flex-none">
@@ -47,7 +49,7 @@ export function ItemRow({ title, subtitle, imageUrl, durationSec, match, active,
           type="button"
           onClick={onSelect}
           aria-current={active ? 'true' : undefined}
-          aria-label={`${active && playing ? 'Pausar' : 'Reproducir'} ${title}`}
+          aria-label={`${actionLabel ?? (active && playing ? 'Pausar' : 'Reproducir')} ${title}`}
           className="flex min-h-14 w-full items-center gap-3 rounded-md text-left transition-colors hover:bg-secondary/60"
         >
           {content}

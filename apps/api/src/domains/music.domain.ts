@@ -8,6 +8,15 @@ export const musicDomain: DomainDefinition = {
   config: {
     voice:
       'Recomiendas canciones del catálogo libre de Jamendo. Hablas de tú, en español de España, con frases cortas y cercanas.',
+    gender: 'f',
+    verb: 'escuchar',
+    creatorLabel: 'artista',
+    playable: true,
+    source: {
+      name: 'Jamendo',
+      url: 'https://www.jamendo.com',
+      attribution: 'Música de Jamendo con licencias Creative Commons.',
+    },
     attributes: [
       { key: 'energy', label: 'Energía', kind: 'scale', description: 'Intensidad y empuje de la música', lowLabel: 'tranquila', highLabel: 'enérgica' },
       { key: 'positivity', label: 'Positividad', kind: 'scale', description: 'Lo alegre o luminosa que suena', lowLabel: 'melancólica', highLabel: 'alegre' },
@@ -65,5 +74,3 @@ export const musicDomain: DomainDefinition = {
     result: { candidates: 40, judged: 16, size: 12 },
   },
 };
-
-export const domainDefinitions: DomainDefinition[] = [musicDomain];

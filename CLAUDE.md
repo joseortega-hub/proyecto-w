@@ -134,4 +134,25 @@ Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualiza
     - Laya primero: sin precarga mediana 966 ms, máx. 3,8 s (Laya encolado y timeouts).
     - Groq → Laya → Gemini: sin precarga mediana 479 ms, máx. 763 ms; con 3-6 s de lectura, 45-55 ms.
     - Explicaciones con Groq: 1,6-2,3 s. Afinando sigue tardando ~18-24 s porque el perfil (`score`/`noul`) va con Gemini, que estaba saturado o sin cupo.
-- Siguiente: Fase 3 (más dominios) o las "Ideas extra" de prioridad para el finde.
+- **Fase 3 (más dominios) hecha el 23/10/2026, salvo los embeddings que faltan (ver Pendiente).**
+  - Dominios en `apps/api/src/domains` (registro en `index.ts`): música, **videojuegos** (`games`, RAWG), **películas** (`movies`, TMDB) y **libros** (`books`, Open Library). Cada configuración añade `gender` y `verb` ("esta canción" / "este videojuego", "escuchar" / "jugar"), `creatorLabel`, `playable` (solo música) y `source` (nombre, URL y atribución). La entrevista, el perfil, el encaje y las explicaciones usan esos datos en vez de textos de música.
+  - Adaptadores en `apps/api/src/catalog` (`rawg`, `tmdb`, `openlibrary`), con utilidades comunes en `derive.ts` (atributos por reglas, peticiones espaciadas con reintentos, concurrencia limitada) y pruebas en `catalog.spec.ts`.
+    - RAWG: listados por género y etiqueta + un detalle por juego (descripción y estudio). Filtra etiquetas de tienda ("steam-achievements"…). Faceta `platforms` con varios valores (pc, playstation, xbox, nintendo, mobile).
+    - TMDB: discover por género, cine en español, clásicos y mejor valoradas + detalle (`credits,keywords`). Acepta la clave v3 o el token v4. Faceta `language` (idioma original).
+    - Open Library: `search.json` por tema con `lang=es` (usa el título de la edición en español si esa edición es solo en español) + la obra para la sinopsis. User-Agent identificado; `OPEN_LIBRARY_CONTACT` opcional sube el límite a 3 peticiones/s. Faceta `languages` con varios valores.
+  - Las facetas admiten listas: el filtro pasa a `facets -> key ?| array[...]`, que también vale para un valor suelto.
+  - Comandos por dominio: `pnpm seed games` (sin argumentos, todos; se salta el que no tenga clave), `pnpm embed games movies` y `pnpm questions books`. Claves nuevas en `.env.example`: `RAWG_API_KEY`, `TMDB_API_KEY` y `OPEN_LIBRARY_CONTACT`.
+  - Catálogo (23/10/2026): 803 canciones, 393 videojuegos, 324 películas y 253 libros. Banco de preguntas completo en los tres dominios nuevos (generado al arrancar la API; 19 variantes corregidas a mano en la tabla `question_bank` por faltas o giros raros).
+  - API nueva: `GET /api/domains/:id/items` (biblioteca con búsqueda y filtro por etiquetas), `GET /api/items/:id` (ficha). `GET /api/domains` devuelve también `gender`, `verb`, `creatorLabel`, `playable`, `source` y `tagGroups`.
+  - Web:
+    - `/` es el selector de temáticas (`DomainPickerPage`, molécula `DomainCard`). `*` y los dominios inexistentes vuelven a `/`.
+    - Color e icono por temática: `[data-domain]` en `index.css` define `--domain` (claro y oscuro) y las utilidades `bg-domain`, `text-domain` y `bg-domain-soft`; `AppShell` lo fija para todo el dominio. Iconos en `lib/domain.ts` (`domainIcon`).
+    - Cambio de temática con `DomainTabs` (molécula) / `DomainSwitcher` (organismo): pestañas con scroll en la cabecera móvil y lista en la barra lateral; se conserva la sección (biblioteca, listas).
+    - Biblioteca real (`LibraryPage`, `ItemGrid`, `ItemCard`, `SearchField`) y Ficha (`/:domain/biblioteca/:itemId`, `ItemDetail`) con carácter, etiquetas, parecidos por embedding, reproducir (música) o "Ver en <fuente>" y `SourceAttribution`.
+    - Resultado sin reproductor en las temáticas no reproducibles: cada elemento abre su ficha. Textos con concordancia de género ("candidatos", "elegidos"). La lista y el perfil van en columnas a partir de `lg`.
+    - Historias de Storybook para las piezas nuevas (`DomainIcon`, `SearchField`, `DomainCard`, `DomainTabs`, `ItemCard`, `SourceAttribution`, `PreferencePicker` con muchas opciones e `ItemRow` que abre la ficha).
+  - Vista previa propia sin tocar la de otro chat: `.claude/launch.json` tiene `sintonia-api-3002` y `sintonia-web-5174` (la web acepta `API_PROXY`).
+  - Verificado en local: entrevista completa con lista, % y explicaciones en videojuegos (escritorio, con filtro de plataforma), películas (móvil) y libros (escritorio); biblioteca, ficha y cambio de temática en móvil y escritorio; música sigue reproduciendo.
+  - **Pendiente**: embeddings de 243 videojuegos, 324 películas y 253 libros. El plan gratuito de `gemini-embedding-001` admite **1000 textos al día** y hoy se agotó (803 de música + 150 de juegos). Lanzar `pnpm embed` a partir de las ~9:00 del 24/10; se reanuda solo y, si vuelve a topar con el cupo diario, se para y avisa. Mientras tanto la búsqueda usa los atributos y los vecinos que ya tienen embedding.
+  - Pendiente menor: logo de TMDB junto a la atribución (sus condiciones lo piden; ahora solo va el texto) y descripciones de RAWG en inglés.
+- Siguiente: lanzar `pnpm embed` (ver arriba) y las "Ideas extra" de prioridad para el finde (perfil de gustos con videojuegos).

@@ -4,6 +4,7 @@ import { EmptyState } from '@/components/molecules'
 import { MoodProfile, PipelineSteps, type PipelineProgress } from '@/components/organisms'
 import { FocusTemplate } from '@/components/templates/FocusTemplate'
 import { api, type Attribute, type MoodProfile as Profile, type TuningEvent } from '@/lib/api'
+import { useDomain } from '@/lib/domain'
 import { applyPreferences, storedPreferences } from '@/lib/preferences'
 
 interface TuningPageProps {
@@ -21,6 +22,7 @@ export function TuningPage({ sessionId, domainId, refine, attributes, onDone }: 
   const [error, setError] = useState<string>()
   const [attempt, setAttempt] = useState(0)
   const refineKey = refine.join(',')
+  const domain = useDomain()
 
   useEffect(() => {
     setError(undefined)
@@ -83,7 +85,7 @@ export function TuningPage({ sessionId, domainId, refine, attributes, onDone }: 
         </Heading>
       </div>
       {scaleAttributes.length > 0 && <MoodProfile attributes={scaleAttributes} scales={profile?.scales} />}
-      <PipelineSteps progress={progress} />
+      <PipelineSteps progress={progress} gender={domain.info?.gender} />
     </FocusTemplate>
   )
 }

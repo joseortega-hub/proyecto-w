@@ -1,8 +1,9 @@
-import { NavLink } from 'react-router'
+import { Link, NavLink } from 'react-router'
 import { Heading, Icon, IconButton, type IconName } from '@/components/atoms'
 import { useDomain } from '@/lib/domain'
 import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
+import { DomainSwitcher } from './DomainSwitcher'
 
 const LINKS: { to: string; label: string; icon: IconName }[] = [
   { to: '', label: 'Inicio', icon: 'home' },
@@ -47,9 +48,11 @@ export function SideNav() {
   const links = useLinks()
   return (
     <nav aria-label="Principal" className="hidden w-60 flex-none flex-col gap-1 border-r border-border bg-card p-4 md:flex">
-      <Heading as="span" size="brand" className="px-3 pt-2 pb-6">
-        Sintonía
-      </Heading>
+      <Link to="/" className="rounded-sm px-3 pt-2 pb-6">
+        <Heading as="span" size="brand">
+          Sintonía
+        </Heading>
+      </Link>
       {links.map((l) => (
         <NavLink
           key={l.to}
@@ -66,6 +69,10 @@ export function SideNav() {
           {l.label}
         </NavLink>
       ))}
+      <div className="mt-6 flex flex-col gap-1">
+        <span className="label-caps px-3 pb-1">Temáticas</span>
+        <DomainSwitcher orientation="vertical" />
+      </div>
       <div className="mt-auto">
         <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
       </div>

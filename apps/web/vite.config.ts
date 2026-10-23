@@ -44,6 +44,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: { '/api': 'http://localhost:3001' },
+    // API_PROXY permite apuntar a otra instancia de la API (p. ej. una segunda vista previa en :3002).
+    proxy: { '/api': process.env.API_PROXY ?? 'http://localhost:3001' },
   },
 })

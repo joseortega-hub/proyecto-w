@@ -4,14 +4,59 @@
     {
       "name": "sintonia",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev"],
+      "runtimeArgs": [
+        "dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "sintonia-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@sintonia/web",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "sintonia-api",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@sintonia/api", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@sintonia/api",
+        "dev"
+      ],
       "port": 3001
+    },
+    {
+      "name": "sintonia-api-3002",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@sintonia/api",
+        "dev"
+      ],
+      "env": {
+        "PORT": "3002"
+      },
+      "port": 3002
+    },
+    {
+      "name": "sintonia-web-5174",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@sintonia/web",
+        "dev",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
+      "env": {
+        "API_PROXY": "http://localhost:3002"
+      },
+      "port": 5174
     }
   ]
 }

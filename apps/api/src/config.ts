@@ -58,6 +58,11 @@ export const config = {
   geminiFallbackModels: list('GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash'),
   geminiEmbeddingModel: optional('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001'),
   jamendoClientId: optional('JAMENDO_CLIENT_ID'),
+  rawgApiKey: optional('RAWG_API_KEY'),
+  /** API Key (v3) o token de lectura (v4) de TMDB. */
+  tmdbApiKey: optional('TMDB_API_KEY'),
+  /** Contacto opcional para el User-Agent de Open Library (sube el límite de 1 a 3 peticiones/s). */
+  openLibraryContact: optional('OPEN_LIBRARY_CONTACT'),
 };
 
 export type AppConfig = typeof config;

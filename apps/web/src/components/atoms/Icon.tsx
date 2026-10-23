@@ -18,12 +18,26 @@ import {
   BookmarkCheck,
   ChevronDown,
   RefreshCw,
+  BookOpen,
+  Clapperboard,
+  ExternalLink,
+  Gamepad2,
+  LayoutGrid,
+  Music,
+  Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /** Catálogo cerrado de iconos: la UI solo usa estos y el nombre describe el gesto. */
 const ICONS = {
   back: ArrowLeft,
+  books: BookOpen,
+  domains: LayoutGrid,
+  external: ExternalLink,
+  games: Gamepad2,
+  movies: Clapperboard,
+  music: Music,
+  search: Search,
   bookmark: Bookmark,
   bookmarked: BookmarkCheck,
   check: Check,

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router'
-import { Button, Cover, Heading, IconButton, Text } from '@/components/atoms'
+import { Button, Cover, DomainIcon, Heading, IconButton, Text } from '@/components/atoms'
 import { PreferencePicker } from '@/components/molecules'
 import { Card } from '@/components/ui/card'
 import { useDomain } from '@/lib/domain'
@@ -18,6 +18,14 @@ export function HomePage() {
   return (
     <div className="mx-auto flex w-full max-w-xl flex-1 flex-col px-6 md:px-10">
       <section className="flex flex-1 flex-col justify-center gap-[18px] py-8">
+        {domain.info && (
+          <div className="flex items-center gap-2.5">
+            <DomainIcon icon={domain.icon} size="sm" />
+            <Text font="label" className="text-domain">
+              {domain.info.name}
+            </Text>
+          </div>
+        )}
         <Heading size="display">Dime cómo estás y te pongo lo que encaja.</Heading>
         <Text tone="muted" size="lead">
           Unas pocas preguntas de sí o no. Sin formularios ni registro.

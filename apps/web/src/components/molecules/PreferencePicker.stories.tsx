@@ -30,3 +30,22 @@ export const Espanol: Story = {
     return <PreferencePicker {...args} value={value} onChange={setValue} />
   },
 }
+
+/** Muchas opciones (plataformas de videojuegos): saltan de línea. */
+export const ManyOptions: Story = {
+  args: {
+    preference: {
+      key: 'platforms',
+      label: 'Dónde juegas',
+      anyValue: 'any',
+      options: [
+        { value: 'pc', label: 'PC' },
+        { value: 'playstation', label: 'PlayStation' },
+        { value: 'xbox', label: 'Xbox' },
+        { value: 'nintendo', label: 'Nintendo' },
+        { value: 'mobile', label: 'Móvil' },
+        { value: 'any', label: 'Me da igual' },
+      ],
+    },
+  },
+}

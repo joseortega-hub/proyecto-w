@@ -7,10 +7,12 @@ interface ResultListProps {
   currentId?: string | null
   playing?: boolean
   onSelect: (index: number) => void
+  /** Si el toque abre la ficha en vez de reproducir (temáticas sin reproductor). */
+  opensDetail?: boolean
 }
 
 /** La lista personalizada. La primera (o la que suena) se destaca con su explicación abierta. */
-export function ResultList({ entries, currentId, playing, onSelect }: ResultListProps) {
+export function ResultList({ entries, currentId, playing, onSelect, opensDetail }: ResultListProps) {
   const highlighted = currentId ?? entries[0]?.item.id
   return (
     <ol className="flex flex-col gap-1.5">
@@ -27,6 +29,7 @@ export function ResultList({ entries, currentId, playing, onSelect }: ResultList
               active={e.item.id === currentId}
               playing={playing}
               onSelect={() => onSelect(i)}
+              actionLabel={opensDetail ? 'Ver la ficha de' : undefined}
               className={cn('rounded-[14px] px-3 py-2', active && 'border border-border bg-card py-3')}
             >
               {e.reason && <Explanation key={String(active)} reason={e.reason} defaultOpen={active} />}

@@ -53,10 +53,13 @@ export function PlayerBar({ entry, playing, onToggle, position, duration, hasPre
         <SeekBar position={position} duration={duration} onSeek={onSeek} />
       </div>
       <div className="flex w-72 items-center justify-end gap-3">
-        <MatchBadge value={entry.match} />
-        <Link to="/reproductor" className="inline-flex items-center gap-1 text-sm font-bold text-accent-foreground">
-          <Icon name="sparkles" className="size-4" /> Por qué suena
-        </Link>
+        {/* Desde la ficha se reproduce una canción suelta: sin encaje ni explicación que enseñar. */}
+        {entry.match > 0 && <MatchBadge value={entry.match} />}
+        {entry.reason && (
+          <Link to="/reproductor" className="inline-flex items-center gap-1 text-sm font-bold text-accent-foreground">
+            <Icon name="sparkles" className="size-4" /> Por qué suena
+          </Link>
+        )}
       </div>
     </div>
   )

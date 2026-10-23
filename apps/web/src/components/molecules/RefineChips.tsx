@@ -6,21 +6,23 @@ interface RefineChipsProps {
   value: string[]
   onChange: (value: string[]) => void
   disabled?: boolean
+  /** Título del grupo; también sirve para filtros ("Géneros"). */
+  label?: string
 }
 
 /** Ajustes rápidos que relanzan la búsqueda sin repetir la entrevista. */
-export function RefineChips({ options, value, onChange, disabled }: RefineChipsProps) {
+export function RefineChips({ options, value, onChange, disabled, label = 'Afinar' }: RefineChipsProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Text as="span" font="label">
-        Afinar
+        {label}
       </Text>
       <ToggleGroup
         type="multiple"
         value={value}
         onValueChange={onChange}
         disabled={disabled}
-        aria-label="Afinar la lista"
+        aria-label={label === 'Afinar' ? 'Afinar la lista' : label}
         className="flex flex-wrap gap-2"
       >
         {options.map((o) => (

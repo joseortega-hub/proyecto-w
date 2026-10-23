@@ -1,0 +1,76 @@
+import type { DomainDefinition } from './domain.types.js';
+
+export const booksDomain: DomainDefinition = {
+  id: 'books',
+  name: 'Libros',
+  itemNoun: 'libro',
+  itemNounPlural: 'libros',
+  config: {
+    voice:
+      'Recomiendas libros del catálogo de Open Library. Hablas de tú, en español de España, con frases cortas y cercanas, como alguien que lee mucho.',
+    gender: 'm',
+    verb: 'leer',
+    creatorLabel: 'autoría',
+    playable: false,
+    source: {
+      name: 'Open Library',
+      url: 'https://openlibrary.org',
+      attribution: 'Datos y portadas de Open Library (Internet Archive).',
+    },
+    attributes: [
+      { key: 'lightness', label: 'Ligereza', kind: 'scale', description: 'Lo fácil o exigente que es de leer', lowLabel: 'densa', highLabel: 'ligera' },
+      { key: 'pace', label: 'Ritmo', kind: 'scale', description: 'Si engancha con acción o se lee con calma', lowLabel: 'pausada', highLabel: 'trepidante' },
+      { key: 'mood', label: 'Ánimo', kind: 'scale', description: 'Lo luminosa u oscura que es', lowLabel: 'oscura', highLabel: 'luminosa' },
+      { key: 'fiction', label: 'Ficción', kind: 'scale', description: 'Si es una historia inventada o no ficción', lowLabel: 'de no ficción', highLabel: 'de ficción' },
+      { key: 'length', label: 'Extensión', kind: 'scale', description: 'Número de páginas', lowLabel: 'corta', highLabel: 'larga' },
+      { key: 'era', label: 'Época', kind: 'scale', description: 'Si es un clásico o un libro actual', lowLabel: 'clásica', highLabel: 'actual' },
+      { key: 'genres', label: 'Géneros', kind: 'tags', description: 'Géneros y temas' },
+    ],
+    tagGroups: [
+      { key: 'fantasy', label: 'fantasía y ciencia ficción', tags: ['fantasy', 'science_fiction', 'magic', 'dystopia'] },
+      { key: 'mystery', label: 'misterio y thriller', tags: ['mystery', 'thriller', 'crime', 'detective'] },
+      { key: 'romance', label: 'romance', tags: ['romance', 'love'] },
+      { key: 'horror', label: 'terror', tags: ['horror', 'ghost_stories'] },
+      { key: 'classics', label: 'clásicos y literatura', tags: ['classics', 'literature', 'poetry', 'historical_fiction'] },
+      { key: 'nonfiction', label: 'ensayo y divulgación', tags: ['history', 'biography', 'science', 'philosophy', 'psychology', 'self-help', 'business'] },
+      { key: 'humor', label: 'humor y aventuras', tags: ['humor', 'adventure', 'young_adult', 'graphic_novels'] },
+    ],
+    probes: [
+      { id: 'easy', intent: 'Si quiere una lectura ligera que se lea sola', informs: ['lightness'], yesChip: 'ligera', noChip: 'exigente' },
+      { id: 'hooked', intent: 'Si quiere algo que enganche y no pueda soltar', informs: ['pace'], yesChip: 'que enganche', noChip: 'con calma' },
+      { id: 'bright', intent: 'Si busca algo luminoso y optimista', informs: ['mood'], yesChip: 'luminosa', noChip: 'oscura' },
+      { id: 'story', intent: 'Si le apetece una historia inventada antes que un ensayo', informs: ['fiction'], yesChip: 'ficción', noChip: 'no ficción' },
+      { id: 'short', intent: 'Si prefiere un libro corto', informs: ['length'], yesChip: 'corto', noChip: 'largo' },
+      { id: 'classic', intent: 'Si le apetece un clásico', informs: ['era', 'genres'], yesChip: 'clásico', noChip: 'actual' },
+      { id: 'learn', intent: 'Si quiere aprender algo nuevo', informs: ['fiction', 'genres'], yesChip: 'para aprender', noChip: 'para evadirse' },
+      { id: 'fantasy', intent: 'Si le apetecen mundos de fantasía o ciencia ficción', informs: ['genres'], yesChip: 'fantasía', noChip: 'realista' },
+      { id: 'mystery', intent: 'Si le apetece un misterio o un thriller', informs: ['genres', 'pace'], yesChip: 'misterio', noChip: 'sin misterio' },
+      { id: 'romance', intent: 'Si le apetece una historia de amor', informs: ['genres'], yesChip: 'romance', noChip: 'sin romance' },
+      { id: 'scary', intent: 'Si le apetece pasar miedo leyendo', informs: ['genres', 'mood'], yesChip: 'terror', noChip: 'sin miedo' },
+      { id: 'laugh', intent: 'Si le apetece reírse o vivir una aventura', informs: ['genres', 'mood'], yesChip: 'humor', noChip: 'serio' },
+      { id: 'escape', intent: 'Si quiere evadirse de la rutina', informs: ['fiction', 'lightness'], yesChip: 'para evadirse', noChip: 'con los pies en la tierra' },
+    ],
+    refinements: [
+      { key: 'lighter', label: '+ ligera', attribute: 'lightness', delta: 0.25 },
+      { key: 'more-pace', label: '+ ritmo', attribute: 'pace', delta: 0.2 },
+      { key: 'shorter', label: 'más corta', attribute: 'length', delta: -0.3 },
+      { key: 'newer', label: 'más actual', attribute: 'era', delta: 0.3 },
+    ],
+    preferences: [
+      {
+        key: 'languages',
+        label: 'Idioma',
+        options: [
+          { value: 'es', label: 'En español', phrase: 'En español' },
+          { value: 'en', label: 'En inglés', phrase: 'En inglés' },
+          { value: 'any', label: 'Me da igual' },
+        ],
+        anyValue: 'any',
+        alwaysPass: [],
+        guessInstructions: '¿En qué idioma quiere leer? Si no lo dice ni se deduce, elige "any".',
+      },
+    ],
+    interview: { minQuestions: 4, maxQuestions: 9, confidenceToFinish: 0.8 },
+    result: { candidates: 40, judged: 16, size: 10 },
+  },
+};

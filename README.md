@@ -1,6 +1,13 @@
 # Sintonía
 
-*Un catálogo que te entiende.* Unas pocas preguntas de sí o no, al estilo Akinator, y una lista hecha a tu medida en la que cada elección viene con su explicación. El motor es genérico: el primer dominio es música (catálogo libre de [Jamendo](https://www.jamendo.com)).
+*Un catálogo que te entiende.* Unas pocas preguntas de sí o no, al estilo Akinator, y una lista hecha a tu medida en la que cada elección viene con su explicación. El motor es genérico y sirve a cuatro temáticas:
+
+| Temática | Fuente | Elementos (seed por defecto) | Preferencia previa |
+|---|---|---|---|
+| Música | [Jamendo](https://www.jamendo.com) (Creative Commons) | ~800 canciones, con reproductor | Idioma de la letra |
+| Videojuegos | [RAWG](https://rawg.io) | ~400 juegos | Plataforma (PC, PlayStation, Xbox, Nintendo, móvil) |
+| Películas | [TMDB](https://www.themoviedb.org) | ~325 películas | Idioma original |
+| Libros | [Open Library](https://openlibrary.org) | ~250 libros | Idioma con edición |
 
 ## Cómo funciona
 
@@ -10,7 +17,7 @@
    - **Encaje.** El `DecisionProvider` comprueba si encaja cada candidata (`noul`). El % mostrado (40-99) combina esa probabilidad con la relevancia relativa dentro de la lista.
    - **Explicaciones.** Gemini escribe el porqué de cada elemento a partir de sus coincidencias con el perfil. Si se salta alguno, se le vuelve a pedir; si aun así falta, se usa una explicación de respaldo, así que ningún elemento se queda sin porqué.
    - La pantalla muestra estos pasos en directo mediante Server-Sent Events.
-3. **Resultado y reproductor.** La lista lleva el % de encaje y la explicación de cada canción, ajustes rápidos ("+ energía", "con voz") que relanzan la búsqueda sin repetir la entrevista, un reproductor global con mini-reproductor y la Media Session API para la pantalla de bloqueo.
+3. **Resultado.** La lista lleva el % de encaje y la explicación de cada elemento y ajustes rápidos ("+ energía", "+ historia", "más corto") que relanzan la búsqueda sin repetir la entrevista. En música hay un reproductor global con mini-reproductor y la Media Session API para la pantalla de bloqueo; en el resto de temáticas cada elemento abre su ficha, que enlaza a la fuente con su atribución.
 
 ## Estructura
 
@@ -37,8 +44,10 @@ docs/      Diseño aprobado de la Fase 0 (docs/diseno.md) y fuente del lienzo
   - **Laya** con Ollaya en local (`ghcr.io/ollaya-dev/ollaya`): habla el protocolo de Jev, así que reutiliza `JevDecisionProvider` con otra `baseURL` (sin compresión zstd, que Ollaya no admite). Al arrancar, la API lo precalienta con `keep_alive: -1` para dejarlo residente; mientras carga, o si no está (producción), se salta sin esperar. No se usa para `noul`: con preguntas vagas ("¿encaja esta canción?") da probabilidades poco fiables.
   - **Groq** (`@ai-sdk/groq`): no da logprobs, así que en `choice` usa salida estructurada con una probabilidad que declara el propio modelo. **No está calibrada**: sirve para elegir la opción, no para fiarse de su confianza. Decisiones con `openai/gpt-oss-120b` y texto con `qwen/qwen3.8-27b`: modelos distintos para no compartir el cupo (~8K tokens/min por modelo), y cada uno es el respaldo del otro.
   - Los logs registran qué proveedor respondió cada decisión y cuánto tardó (`[Decisiones] decisión choice → groq:openai/gpt-oss-120b en 480 ms`).
-- **Multidominio** (`apps/api/src/domains`): un dominio es un adaptador de importación (`CatalogAdapter`) más una configuración con atributos, grupos de estilos, sondas y ajustes. El motor (`interview.engine.ts`) no sabe qué es una canción.
-- **Rutas por dominio** (`apps/web/src/lib/domain.ts`): biblioteca, listas, entrevistas y resultados cuelgan de `/:domain/` (por ahora solo `/music`), y las listas guardadas en el dispositivo van separadas por dominio.
+- **Multidominio** (`apps/api/src/domains`): un dominio es un adaptador de importación (`CatalogAdapter`, en `apps/api/src/catalog`) más una configuración (`*.domain.ts`) con atributos de escala, grupos de géneros, sondas, ajustes, preferencias previas, género gramatical y verbo ("esta canción" / "este videojuego", "escuchar" / "jugar") y la fuente con su atribución. El motor (`interview.engine.ts`) no sabe qué es una canción.
+  - Cada adaptador traduce los datos de su fuente a atributos 0-1 con reglas sencillas y probadas (`catalog.spec.ts`): géneros y etiquetas de RAWG más el tiempo de juego; géneros, palabras clave, año y duración de TMDB; temas, páginas y año de Open Library.
+  - Las facetas (`items.facets`) admiten uno o varios valores (`language: 'es'`, `platforms: ['pc', 'nintendo']`); el filtro usa `?|` de JSONB.
+- **Rutas por dominio** (`apps/web/src/lib/domain.ts`): `/` es el selector de temáticas; biblioteca, ficha (`/:domain/biblioteca/:id`), listas, entrevistas y resultados cuelgan de `/:domain/`. Cada temática tiene icono y color propios (`[data-domain]` en `index.css`, utilidades `bg-domain`, `text-domain`, `bg-domain-soft`) y se cambia con pestañas (cabecera en móvil, barra lateral en escritorio). Las listas guardadas en el dispositivo van separadas por dominio.
 - **Diseño atómico** (`apps/web/src/components`):
   - `ui/` es el código generado por shadcn.
   - `atoms/` y `molecules/` lo envuelven con las variantes de Sintonía y tienen historias de Storybook.
@@ -50,19 +59,22 @@ docs/      Diseño aprobado de la Fase 0 (docs/diseno.md) y fuente del lienzo
 Requisitos: Node 24, pnpm 10 y Docker.
 
 ```bash
-cp .env.example .env        # y rellena GEMINI_API_KEY, GROQ_API_KEY y JAMENDO_CLIENT_ID
+cp .env.example .env        # y rellena GEMINI_API_KEY, GROQ_API_KEY, JAMENDO_CLIENT_ID, RAWG_API_KEY y TMDB_API_KEY
 pnpm install
 docker compose up -d        # PostgreSQL 17 + pgvector en el puerto 5434
 docker compose --profile laya up -d   # opcional: Ollaya con Laya en 127.0.0.1:11435
 docker exec ollaya ollaya pull laya:multilingual   # solo la primera vez
 pnpm db:migrate
-pnpm seed                   # ~800 canciones de Jamendo
-pnpm embed                  # embeddings del catálogo (reanudable; --all recalcula todos)
+pnpm seed                   # todos los dominios; o uno: pnpm seed games (también movies, books, music)
+pnpm embed                  # embeddings del catálogo (reanudable; pnpm embed games; --all recalcula)
+pnpm questions              # banco de preguntas (la API también lo completa al arrancar)
 pnpm classify               # idioma de las pistas que Jamendo no trae (reanudable)
 pnpm dev                    # API en :3001 y web en http://localhost:5173
 ```
 
-`GET /api/items/:id/similar?limit=10` devuelve los elementos más parecidos por embedding (para la futura Ficha).
+Endpoints del catálogo: `GET /api/domains/:id/items?q=&tags=&offset=&limit=` (biblioteca), `GET /api/items/:id` (ficha) y `GET /api/items/:id/similar?limit=10` (parecidos por embedding).
+
+**Cupos gratuitos.** Los embeddings de Gemini admiten 1000 textos al día por modelo: con los cuatro catálogos (~1800 elementos) hacen falta dos días. `pnpm embed` lo detecta, se para y dice cuándo volver a lanzarlo; lo que ya se guardó se conserva. Sin embedding, la búsqueda tira de los atributos.
 
 **Preferencias previas.** Cada dominio puede declarar filtros duros que se eligen antes de la entrevista (en música, el idioma de la letra: español, inglés o me da igual). Se guardan en `items.facets`, filtran la búsqueda (SQL y pgvector) y, si dejan pocos elementos, el resultado lo avisa. Las instrumentales pasan siempre el filtro de idioma. El texto inicial de la persona solo se guarda mientras dura la entrevista.
 
@@ -70,4 +82,7 @@ Otros comandos: `pnpm storybook` (en :6006), `pnpm test` (pruebas del motor), `p
 
 ## Datos y licencias
 
-La música viene de Jamendo con licencias Creative Commons; el reproductor enlaza cada pista con su página original.
+- **Música**: Jamendo, con licencias Creative Commons; el reproductor enlaza cada pista con su página original.
+- **Videojuegos**: [RAWG API](https://rawg.io/apidocs), clave gratuita para proyectos personales con atribución y enlace a RAWG en cada página que muestra sus datos (biblioteca, ficha y resultado lo llevan).
+- **Películas**: [TMDB API](https://developer.themoviedb.org), clave gratuita de desarrollador para uso no comercial. *This product uses the TMDB API but is not endorsed or certified by TMDB.*
+- **Libros**: [Open Library](https://openlibrary.org/developers/api), sin clave. Las peticiones se identifican con un User-Agent (límite de 1 petición/s, o 3/s con un contacto en `OPEN_LIBRARY_CONTACT`).

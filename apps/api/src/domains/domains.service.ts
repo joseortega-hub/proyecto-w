@@ -3,6 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import { DB } from '../db/db.module.js';
 import type { Db } from '../db/client.js';
 import { domains, items } from '../db/schema.js';
+import { domainDefinitions } from './index.js';
 
 export type DomainRow = typeof domains.$inferSelect;
 
@@ -16,12 +17,20 @@ export class DomainsService {
       this.db.select({ domainId: items.domainId, count: sql<number>`count(*)::int` }).from(items).groupBy(items.domainId),
     ]);
     const countBy = new Map(counts.map((c) => [c.domainId, c.count]));
+    const order = new Map(domainDefinitions.map((d, i) => [d.id, i]));
+    rows.sort((a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99));
     return rows.map((domain) => ({
       id: domain.id,
       name: domain.name,
       itemNoun: domain.itemNoun,
       itemNounPlural: domain.itemNounPlural,
       itemCount: countBy.get(domain.id) ?? 0,
+      gender: domain.config.gender,
+      verb: domain.config.verb,
+      creatorLabel: domain.config.creatorLabel,
+      playable: domain.config.playable,
+      source: domain.config.source,
+      tagGroups: domain.config.tagGroups.map(({ key, label, tags }) => ({ key, label, tags })),
       attributes: domain.config.attributes,
       refinements: domain.config.refinements.map(({ key, label }) => ({ key, label })),
       preferences: (domain.config.preferences ?? []).map(({ key, label, options, anyValue }) => ({ key, label, options, anyValue })),

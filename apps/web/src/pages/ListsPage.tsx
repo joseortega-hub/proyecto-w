@@ -29,6 +29,7 @@ export function ListsPage() {
                 title={l.title}
                 subtitle={`${l.count} ${domain.nounPlural} · ${timeAgo(l.savedAt)}`}
                 imageUrl={l.cover}
+                actionLabel="Abrir la lista"
                 onSelect={() => navigate(domain.path(`resultado/${l.id}`))}
                 className="flex-1"
               />

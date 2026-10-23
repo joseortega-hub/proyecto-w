@@ -5,7 +5,38 @@
 @import '@fontsource/atkinson-hyperlegible/700.css';
 @import '@fontsource-variable/jetbrains-mono';
 
+/* Color propio de cada temática: lo fija [data-domain] en el marco y en cada tarjeta del selector. */
+:root {
+  --domain: var(--primary);
+}
+[data-domain='music'] {
+  --domain: #3d4bf0;
+}
+[data-domain='games'] {
+  --domain: #8a3fd1;
+}
+[data-domain='movies'] {
+  --domain: #c22e6e;
+}
+[data-domain='books'] {
+  --domain: #0b7f7a;
+}
+html.dark [data-domain='music'] {
+  --domain: #8290ff;
+}
+html.dark [data-domain='games'] {
+  --domain: #c59bff;
+}
+html.dark [data-domain='movies'] {
+  --domain: #ff80b5;
+}
+html.dark [data-domain='books'] {
+  --domain: #4fd1c5;
+}
+
 @theme inline {
+  --color-domain: var(--domain);
+  --color-domain-soft: color-mix(in oklab, var(--domain) 14%, var(--card));
   --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', 'Cascadia Mono', ui-monospace, monospace;
   --font-sans: var(--font-body);

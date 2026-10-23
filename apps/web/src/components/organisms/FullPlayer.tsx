@@ -37,7 +37,7 @@ export function FullPlayer({ entry, listTitle, onClose, ...p }: FullPlayerProps)
           </Heading>
           <Text tone="muted">{item.subtitle}</Text>
         </div>
-        <MatchBadge value={entry.match} />
+        {entry.match > 0 && <MatchBadge value={entry.match} />}
       </div>
       <SeekBar position={p.position} duration={p.duration || item.durationSec || 0} onSeek={p.onSeek} />
       <PlaybackControls playing={p.playing} onToggle={p.onToggle} onPrevious={p.onPrevious} onNext={p.onNext} hasPrevious={p.hasPrevious} hasNext={p.hasNext} />

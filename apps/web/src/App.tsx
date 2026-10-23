@@ -3,9 +3,10 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AppShell } from '@/components/templates/AppShell'
 import { DomainGate } from '@/components/templates/DomainGate'
 import { Toaster } from '@/components/ui/sonner'
-import { DEFAULT_DOMAIN } from '@/lib/domain'
+import { DomainPickerPage } from '@/pages/DomainPickerPage'
 import { HomePage } from '@/pages/HomePage'
 import { InterviewPage } from '@/pages/InterviewPage'
+import { ItemPage } from '@/pages/ItemPage'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { ListsPage } from '@/pages/ListsPage'
 import { PlayerPage } from '@/pages/PlayerPage'
@@ -22,8 +23,8 @@ export function App() {
       <PlayerProvider>
         <BrowserRouter>
           <Routes>
-            {/* Con un solo dominio, "/" entra directamente; con varios, aquí irá el selector de dominio. */}
-            <Route index element={<Navigate to={`/${DEFAULT_DOMAIN}`} replace />} />
+            {/* "/" es el selector de temáticas. */}
+            <Route index element={<DomainPickerPage />} />
             {/* Cada temática tiene su biblioteca, sus listas y sus entrevistas. */}
             <Route path=":domain" element={<DomainGate />}>
               <Route element={<AppShell />}>
@@ -31,13 +32,14 @@ export function App() {
                 <Route path="resultado/:id" element={<ResultPage />} />
                 <Route path="listas" element={<ListsPage />} />
                 <Route path="biblioteca" element={<LibraryPage />} />
+                <Route path="biblioteca/:itemId" element={<ItemPage key="ficha" />} />
               </Route>
               <Route path="entrevista" element={<InterviewPage key="nueva" />} />
               <Route path="entrevista/:sesion" element={<InterviewPage key="sesion" />} />
             </Route>
             {/* El reproductor es global: la música sigue al cambiar de dominio. */}
             <Route path="reproductor" element={<PlayerPage />} />
-            <Route path="*" element={<Navigate to={`/${DEFAULT_DOMAIN}`} replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
         <Toaster position="top-center" />

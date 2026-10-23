@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, cosineDistance, eq, getTableColumns, inArray, isNotNull, ne, sql } from 'drizzle-orm';
+import { and, arrayOverlaps, asc, cosineDistance, desc, eq, getTableColumns, ilike, inArray, isNotNull, ne, or, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
 import { items, type ItemRow } from '../db/schema.js';
@@ -15,10 +15,21 @@ export function publicItem(item: ItemWithoutEmbedding & { embedding?: unknown })
   return rest;
 }
 
-/** Condición SQL para las preferencias previas: cada faceta debe tener uno de sus valores. */
+/**
+ * Condición SQL para las preferencias previas: cada faceta debe tener uno de sus valores.
+ * `?|` sirve tanto para un valor suelto (`"es"`) como para una lista (`["pc", "switch"]`).
+ */
 export const facetCondition = (filters: FacetFilter[] = []) =>
   filters.length
-    ? and(...filters.map((f) => inArray(sql<string>`${items.facets} ->> ${f.key}`, f.values)))
+    ? and(
+        ...filters.map(
+          (f) =>
+            sql`(${items.facets} -> ${f.key}) ?| array[${sql.join(
+              f.values.map((v) => sql`${v}`),
+              sql`, `,
+            )}]::text[]`,
+        ),
+      )
     : undefined;
 
 /** Búsquedas por similitud coseno con pgvector, siempre dentro de un dominio. */
@@ -74,6 +85,33 @@ export class ItemsService {
       .from(items)
       .where(and(eq(items.domainId, domainId), inArray(items.id, ids)));
     return new Map(rows.map((r) => [r.id, r.semantic === null ? null : Number(r.semantic)]));
+  }
+
+  /** Biblioteca de un dominio: búsqueda por título o autor y filtro por etiquetas, de más a menos popular. */
+  async browse(domainId: string, options: { q?: string; tags?: string[]; offset: number; limit: number }) {
+    const q = options.q?.trim().replace(/[%_\\]/g, (c) => `\\${c}`);
+    const where = and(
+      eq(items.domainId, domainId),
+      q ? or(ilike(items.title, `%${q}%`), ilike(items.subtitle, `%${q}%`)) : undefined,
+      options.tags?.length ? arrayOverlaps(items.tags, options.tags) : undefined,
+    );
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select(itemColumns)
+        .from(items)
+        .where(where)
+        .orderBy(desc(items.popularity), asc(items.title))
+        .offset(options.offset)
+        .limit(options.limit),
+      this.db.select({ total: sql<number>`count(*)::int` }).from(items).where(where),
+    ]);
+    return { total, items: rows.map(publicItem) };
+  }
+
+  async get(id: string) {
+    const [item] = await this.db.select(itemColumns).from(items).where(eq(items.id, id));
+    if (!item) throw new NotFoundException('Elemento no encontrado');
+    return publicItem(item);
   }
 
   /** Elementos parecidos a uno dado, del mismo dominio (para la Ficha). */

@@ -32,8 +32,8 @@ export interface Item {
   attributes: Record<string, number>
   tags: string[]
   popularity: number
-  /** Valores categóricos para las preferencias previas (p. ej. `language: es`). */
-  facets?: Record<string, string>
+  /** Valores categóricos (`language: 'es'`, `platforms: ['pc', 'switch']`, `year: '2015'`). */
+  facets?: Record<string, string | string[]>
 }
 
 export interface Attribute {
@@ -60,6 +60,17 @@ export interface DomainInfo {
   itemNoun: string
   itemNounPlural: string
   itemCount: number
+  /** Género gramatical del sustantivo: "esta canción" (f), "este videojuego" (m). */
+  gender: 'f' | 'm'
+  /** Verbo de consumo: "escuchar", "ver", "leer", "jugar". */
+  verb: string
+  /** Quién firma cada elemento ("artista", "dirección", "autoría", "estudio"). */
+  creatorLabel: string
+  /** Solo los dominios reproducibles (música) usan el reproductor; el resto enlaza a la fuente. */
+  playable: boolean
+  /** Fuente de los datos con su atribución obligatoria. */
+  source: { name: string; url: string; attribution: string }
+  tagGroups: { key: string; label: string; tags: string[] }[]
   attributes: Attribute[]
   refinements: { key: string; label: string }[]
   interview: { minQuestions: number; maxQuestions: number; confidenceToFinish: number }
@@ -97,6 +108,11 @@ export interface SimilarItems {
   itemId: string
   /** Vecinos por embedding del mismo dominio, con su similitud coseno (0–1). */
   items: { similarity: number; item: Item }[]
+}
+
+export interface ItemPage {
+  total: number
+  items: Item[]
 }
 
 export type TuningEvent =
@@ -139,6 +155,16 @@ export const api = {
   undo: (id: string) => request<SessionView>(`/sessions/${id}/undo`, { method: 'POST' }),
   getResult: (id: string) => request<SessionResult>(`/sessions/${id}/result`),
   getSimilar: (itemId: string, limit = 10) => request<SimilarItems>(`/items/${itemId}/similar?limit=${limit}`),
+  getItem: (itemId: string) => request<Item>(`/items/${itemId}`),
+  /** Biblioteca de un dominio: búsqueda por título o autor y filtro por etiquetas. */
+  browse: (domainId: string, options: { q?: string; tags?: string[]; offset?: number; limit?: number } = {}) => {
+    const qs = new URLSearchParams()
+    if (options.q) qs.set('q', options.q)
+    if (options.tags?.length) qs.set('tags', options.tags.join(','))
+    qs.set('offset', String(options.offset ?? 0))
+    qs.set('limit', String(options.limit ?? 24))
+    return request<ItemPage>(`/domains/${domainId}/items?${qs}`)
+  },
 
   /** Sigue el progreso de Afinando por Server-Sent Events. Devuelve la función para cancelar. */
   tune(id: string, refine: string[], onEvent: (e: TuningEvent) => void): () => void {

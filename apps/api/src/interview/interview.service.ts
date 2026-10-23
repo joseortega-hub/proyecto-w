@@ -15,7 +15,7 @@ import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
 import { interviewSessions, type SessionRow } from '../db/schema.js';
 import { DomainsService, type DomainRow } from '../domains/domains.service.js';
-import { domainDefinitions } from '../domains/music.domain.js';
+import { domainDefinitions } from '../domains/index.js';
 import { collectContext, stateExtras, type InterviewContext } from './interview.context.js';
 import {
   answerChips,
@@ -224,7 +224,7 @@ export class InterviewService implements OnModuleInit {
     const writeStarted = Date.now();
     const written = await this.text
       .write({
-        system: `${config.voice} Redactas preguntas para una entrevista de sí o no sobre lo que le apetece escuchar ahora.`,
+        system: `${config.voice} Redactas preguntas para una entrevista de sí o no sobre lo que le apetece ${config.verb} ahora.`,
         prompt: [
           `Qué quieres averiguar: ${probe.intent}.`,
           history.length

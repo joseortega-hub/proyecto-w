@@ -1,9 +1,9 @@
 import { Navigate, Outlet } from 'react-router'
-import { DEFAULT_DOMAIN, useDomain } from '@/lib/domain'
+import { useDomain } from '@/lib/domain'
 
-/** Raíz de /:domain/…: si el dominio no existe, vuelve al de por defecto. */
+/** Raíz de /:domain/…: si el dominio no existe, vuelve al selector de temáticas. */
 export function DomainGate() {
   const { exists } = useDomain()
-  if (!exists) return <Navigate to={`/${DEFAULT_DOMAIN}`} replace />
+  if (!exists) return <Navigate to="/" replace />
   return <Outlet />
 }
