@@ -39,5 +39,9 @@ Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualiza
 
 ## Estado
 - Entorno: Node 24.22.1, npm 11, pnpm 10, Docker 27, Git 2.45, Python 3.12.
-- Pendiente del usuario: crear cuenta en console.typesafe.ai (Jev) y conseguir API keys de Gemini y Jamendo.
+- Repo: https://github.com/joseortega-hub/proyecto-w (rama `main`).
+- Configuración: `.env.example` (en Git) → el usuario rellena `.env` (ignorado). Nunca pedir ni mostrar claves en el chat.
+- Jev: cuenta creada pero sin crédito, así que todavía no hay API key. Se implementa igualmente; mientras tanto `DECISION_PROVIDER=gemini`. El usuario añadirá ~5 € más adelante.
+- Comprobar en la Fase 1 que `GEMINI_MODEL` sigue siendo un modelo vigente del plan gratuito.
+- Pendiente del usuario: API keys de Gemini y Jamendo en `.env`.
 - Siguiente: Fase 0 (diseño).
