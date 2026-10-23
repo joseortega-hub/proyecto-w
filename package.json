@@ -16,6 +16,7 @@
     "embed": "pnpm --filter @sintonia/api embed",
     "classify": "pnpm --filter @sintonia/api classify",
     "questions": "pnpm --filter @sintonia/api questions",
+    "sync-embeddings": "pnpm --filter @sintonia/api sync-embeddings",
     "storybook": "pnpm --filter @sintonia/web storybook",
     "tokens": "pnpm --filter @sintonia/tokens build",
     "typecheck": "pnpm -r typecheck",

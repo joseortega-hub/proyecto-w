@@ -88,6 +88,32 @@ Endpoints del catálogo: `GET /api/domains/:id/items?q=&tags=&offset=&limit=` (b
 
 Otros comandos: `pnpm storybook` (en :6006), `pnpm test` (pruebas del motor), `pnpm typecheck` y `pnpm tokens`.
 
+## Despliegue (gratuito)
+
+Producción: **https://proyecto-w-phi.vercel.app** (web) → **https://sintonia-api-7763.onrender.com/api** (API).
+
+| Pieza | Servicio | Configuración |
+|---|---|---|
+| Web (PWA) | Vercel, Root Directory `apps/web` | [`apps/web/vercel.json`](apps/web/vercel.json) |
+| API | Render, plan Free, Frankfurt | [`render.yaml`](render.yaml) (Blueprint) |
+| BD | Neon, Postgres 17 + pgvector 0.8.0, AWS Frankfurt | volcado de la BD local |
+
+- **Un solo origen.** La web llama siempre a `/api` y Vercel lo redirige a Render (`rewrites` en `vercel.json`), igual que el proxy de Vite en local. Así no hace falta CORS y el `EventSource` de Afinando (SSE) funciona tal cual: Vercel transmite los eventos en directo. El resto de rutas va a `index.html` (SPA) y `sw.js` no se cachea, para que las actualizaciones de la PWA lleguen.
+- **API en Render.** Build: `pnpm install --frozen-lockfile --prod=false` y `nest build`. Arranque: `node apps/api/dist/db/migrate.js && node apps/api/dist/main.js`, así que las migraciones nuevas se aplican solas en cada despliegue. Comprobación de salud: `/api/domains`. Solo se redespliega si cambia `apps/api` o el lockfile (`buildFilter`).
+  - Variables fijas en `render.yaml`: `DECISION_CHAIN=groq,gemini` (sin Laya, que es local), `TEXT_CHAIN=groq,gemini` y `DECISION_PROVIDER=gemini`.
+  - Secretos que se rellenan en el panel de Render: `DATABASE_URL` (la cadena directa de Neon, sin `-pooler`), `GROQ_API_KEY`, `GEMINI_API_KEY` y `WEB_URL`. Las claves de los catálogos no hacen falta en producción: solo las usa `pnpm seed`.
+  - Arranque en frío: el plan gratuito duerme el servicio tras 15 minutos sin tráfico y despertarlo tarda unos 30-60 s. Al arrancar, la API carga el banco de preguntas (ya completo en la BD, no redacta nada) y calienta la primera pregunta de cada temática: 4 decisiones de Groq.
+- **Base de datos.** Se cargó con un volcado de la local (sin sesiones ni gustos), para no repetir los seeds ni gastar cupo de embeddings:
+
+  ```bash
+  docker exec sintonia-db pg_dump -U proyecto -d proyecto -Fc --no-owner --no-acl \
+    --exclude-table-data=interview_sessions --exclude-table-data=taste_profiles -f /tmp/sintonia.dump
+  docker exec -e PGURL="<cadena de Neon>" sintonia-db sh -c 'psql "$PGURL" -c "create extension if not exists vector" && pg_restore --no-owner --no-acl -d "$PGURL" /tmp/sintonia.dump'
+  ```
+
+  Neon ofrece pgvector 0.8.0, que ya incluye `hnsw.iterative_scan`.
+- **Embeddings nuevos.** `pnpm embed` se lanza en local y después `pnpm sync-embeddings` copia a producción los que allí falten (con `--all`, todos). Lee `PROD_DATABASE_URL` del `.env`. Así el cupo diario de Gemini se gasta una sola vez.
+
 ## Datos y licencias
 
 - **Música**: Jamendo, con licencias Creative Commons; el reproductor enlaza cada pista con su página original.

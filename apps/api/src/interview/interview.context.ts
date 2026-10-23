@@ -102,8 +102,9 @@ export function fetchWeather(latitude: number, longitude: number, fetchImpl: typ
         esDeDia: body.current.is_day === undefined ? undefined : body.current.is_day === 1,
       };
     })
-    .catch(() => {
+    .catch((error: Error) => {
       // Sin tiempo no pasa nada: la entrevista sigue con la hora y el día. Se reintenta pronto.
+      console.warn(`[Contexto] sin tiempo de Open-Meteo: ${error.message}`);
       weatherCache.delete(key);
       return undefined;
     });

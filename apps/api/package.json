@@ -24,7 +24,8 @@
     "seed": "tsx src/catalog/seed.ts",
     "embed": "tsx src/catalog/embed.ts",
     "classify": "tsx src/catalog/classify.ts",
-    "questions": "tsx src/interview/question-bank.generate.ts"
+    "questions": "tsx src/interview/question-bank.generate.ts",
+    "sync-embeddings": "tsx src/db/sync-embeddings.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.104",
