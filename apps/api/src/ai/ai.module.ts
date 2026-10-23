@@ -13,7 +13,15 @@ import { JevDecisionProvider } from './jev/jev-decision.provider.js';
 import { TEXT_PROVIDER } from './text-provider.js';
 
 const GEMINI = Symbol('Gemini');
-const geminiModels = [config.geminiModel, ...config.geminiFallbackModels.filter((m) => m !== config.geminiModel)];
+/**
+ * Cadena de modelos: primero el suyo, luego los de respaldo y, como último recurso, el
+ * principal de la otra tarea. Así decisiones y texto no compiten por el mismo cupo.
+ */
+const chain = (primary: string, lastResort: string) => [
+  ...new Set([primary, ...config.geminiFallbackModels, lastResort]),
+];
+const decisionModels = chain(config.geminiModel, config.geminiTextModel);
+const textModels = chain(config.geminiTextModel, config.geminiModel);
 
 @Global()
 @Module({
@@ -23,7 +31,7 @@ const geminiModels = [config.geminiModel, ...config.geminiFallbackModels.filter(
       provide: DECISION_PROVIDER,
       inject: [GEMINI],
       useFactory: (google: ReturnType<typeof createGemini>): DecisionProvider => {
-        const gemini = new GeminiDecisionProvider(google, geminiModels);
+        const gemini = new GeminiDecisionProvider(google, decisionModels);
         let provider: DecisionProvider = gemini;
         if (config.decisionProvider === 'jev') {
           if (config.typesafeApiKey) {
@@ -32,14 +40,14 @@ const geminiModels = [config.geminiModel, ...config.geminiFallbackModels.filter(
             new Logger('Decisiones').warn('DECISION_PROVIDER=jev pero falta TYPESAFE_API_KEY; uso Gemini');
           }
         }
-        new Logger('Decisiones').log(`Proveedor de decisiones: ${provider.name}`);
+        new Logger('Decisiones').log(`Proveedor de decisiones: ${provider.name} · texto: ${textModels[0]}`);
         return provider;
       },
     },
     {
       provide: TEXT_PROVIDER,
       inject: [GEMINI],
-      useFactory: (google: ReturnType<typeof createGemini>) => new GeminiTextProvider(google, geminiModels),
+      useFactory: (google: ReturnType<typeof createGemini>) => new GeminiTextProvider(google, textModels),
     },
     {
       provide: EMBEDDING_PROVIDER,

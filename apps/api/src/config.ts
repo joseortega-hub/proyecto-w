@@ -16,9 +16,15 @@ export const config = {
   typesafeApiKey: optional('TYPESAFE_API_KEY'),
   jevModel: optional('JEV_MODEL', 'jev-latest'),
   geminiApiKey: optional('GEMINI_API_KEY'),
+  /** Modelo de las decisiones (siguiente pregunta, perfil, ¿encaja?). */
   geminiModel: optional('GEMINI_MODEL', 'gemini-3.1-flash-lite'),
+  /**
+   * Modelo del texto (preguntas y explicaciones). Va aparte para que cada uno tenga su
+   * propio cupo del plan gratuito (15 peticiones/min por modelo).
+   */
+  geminiTextModel: optional('GEMINI_TEXT_MODEL', 'gemini-3.5-flash-lite'),
   /** Modelos de respaldo, en orden, si el principal está saturado. */
-  geminiFallbackModels: optional('GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash,gemini-3.5-flash-lite')
+  geminiFallbackModels: optional('GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash')
     .split(',')
     .map((m) => m.trim())
     .filter(Boolean),
