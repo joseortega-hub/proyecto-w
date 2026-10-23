@@ -1,0 +1,101 @@
+/* Generado junto con tokens.json: cambia los tokens, no este archivo. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f3f4f8;
+  --foreground: #131628;
+  --card: #ffffff;
+  --card-foreground: #131628;
+  --popover: #ffffff;
+  --popover-foreground: #131628;
+  --primary: #3d4bf0;
+  --primary-foreground: #ffffff;
+  --secondary: #e8eaf2;
+  --secondary-foreground: #131628;
+  --muted: #e8eaf2;
+  --muted-foreground: #5a607a;
+  --accent: #e3e6ff;
+  --accent-foreground: #2f3bc4;
+  --destructive: #c93a55;
+  --border: #d3d7e4;
+  --input: #d3d7e4;
+  --ring: #3d4bf0;
+  --signal: #e86a1c;
+  --signal-foreground: #a5480c;
+  --signal-muted: #ffe9da;
+  --yes: #17855a;
+  --no: #c93a55;
+  --radius: 12px;
+}
+
+.dark {
+  --background: #0e1020;
+  --foreground: #eceef8;
+  --card: #171a2e;
+  --card-foreground: #eceef8;
+  --popover: #171a2e;
+  --popover-foreground: #eceef8;
+  --primary: #8290ff;
+  --primary-foreground: #0e1020;
+  --secondary: #20243c;
+  --secondary-foreground: #eceef8;
+  --muted: #20243c;
+  --muted-foreground: #9aa0bd;
+  --accent: #252a57;
+  --accent-foreground: #c3c9ff;
+  --destructive: #ff6e86;
+  --border: #2e3350;
+  --input: #2e3350;
+  --ring: #8290ff;
+  --signal: #ffa060;
+  --signal-foreground: #ffa060;
+  --signal-muted: #3a2a22;
+  --yes: #3ccb92;
+  --no: #ff6e86;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-signal: var(--signal);
+  --color-signal-foreground: var(--signal-foreground);
+  --color-signal-muted: var(--signal-muted);
+  --color-yes: var(--yes);
+  --color-no: var(--no);
+
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", ui-monospace, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5625rem;
+  --text-2xl: 1.9375rem;
+  --text-3xl: 2.4375rem;
+  --text-4xl: 3.0625rem;
+  --spacing: 0.25rem;
+  --radius-sm: 6px;
+  --radius-md: var(--radius);
+  --radius-lg: 20px;
+  --shadow-sm: 0px 1px 2px 0px rgb(19 22 40 / 0.08);
+  --shadow-md: 0px 4px 12px -2px rgb(19 22 40 / 0.12);
+  --shadow-lg: 0px 12px 32px -8px rgb(19 22 40 / 0.18);
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+}

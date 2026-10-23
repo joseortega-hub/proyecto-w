@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Reproductor</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+.sx{--bg:#F3F4F8;--card:#FFFFFF;--subtle:#E8EAF2;--border:#D3D7E4;--fg:#131628;--muted:#5A607A;--primary:#3D4BF0;--on-primary:#FFFFFF;--accent:#E3E6FF;--accent-fg:#2F3BC4;--signal:#E86A1C;--signal-fg:#A5480C;--signal-bg:#FFE9DA;--yes:#17855A;--no:#C93A55;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;color:var(--fg);background:var(--bg);box-sizing:border-box}
+.sx[data-theme="dark"]{--bg:#0E1020;--card:#171A2E;--subtle:#20243C;--border:#2E3350;--fg:#ECEEF8;--muted:#9AA0BD;--primary:#8290FF;--on-primary:#0E1020;--accent:#252A57;--accent-fg:#C3C9FF;--signal:#FFA060;--signal-fg:#FFA060;--signal-bg:#3A2A22;--yes:#3CCB92;--no:#FF6E86}
+.sx *{box-sizing:border-box}
+.d{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;letter-spacing:-0.01em}
+.m{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.lb{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.cv{background:repeating-linear-gradient(135deg,var(--subtle) 0 6px,var(--border) 6px 7px)}
+.ib{width:52px;height:52px;border-radius:999px;border:0;background:var(--subtle);color:var(--fg);display:grid;place-items:center}
+a{color:#3D4BF0}a:hover{color:#2F3BC4}
+</style>
+</helmet>
+<div class="sx" data-theme="{{theme}}" style="width: 390px; height: 844px; display: flex; flex-direction: column; padding: 20px 24px 28px; gap: 18px">
+  <header style="display: flex; justify-content: space-between; align-items: center">
+    <a href="Resultado.dc.html" aria-label="Cerrar reproductor" style="width: 44px; height: 44px; border-radius: 999px; background: var(--subtle); color: var(--fg); display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></a>
+    <span class="lb">Tarde de concentración</span>
+    <button type="button" aria-label="Ver la cola" style="width: 44px; height: 44px; border-radius: 999px; border: 0; background: var(--subtle); color: var(--fg); display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"></path></svg></button>
+  </header>
+  <div class="cv" role="img" aria-label="Portada de Marea lenta" style="width: 100%; max-width: 100%; aspect-ratio: 1; border-radius: 20px"></div>
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 12px">
+    <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+      <span class="d" style="font-size: 26px">Marea lenta</span>
+      <a href="Ficha.dc.html" style="font-size: 16px; color: var(--muted); text-decoration: none">Lumen Drift</a>
+    </div>
+    <span class="m" style="font-size: 13px; font-weight: 600; color: var(--signal-fg); background: var(--signal-bg); border-radius: 999px; padding: 3px 9px">94 %</span>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 4px">
+    <label for="seek" class="lb" style="position: absolute; width: 1px; height: 1px; overflow: hidden">Posición</label>
+    <input id="seek" type="range" min="0" max="228" value="72" style="width: 100%; accent-color: #3D4BF0">
+    <div class="m" style="display: flex; justify-content: space-between; font-size: 12px; color: var(--muted)"><span>1:12</span><span>3:48</span></div>
+  </div>
+  <div style="display: flex; justify-content: center; align-items: center; gap: 22px">
+    <button type="button" class="ib" aria-label="Anterior"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"></path></svg></button>
+    <button type="button" aria-label="Reproducir" style="width: 72px; height: 72px; border-radius: 999px; border: 0; background: var(--primary); color: var(--on-primary); display: grid; place-items: center"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></button>
+    <button type="button" class="ib" aria-label="Siguiente"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"></path></svg></button>
+  </div>
+  <p style="margin: 0; font-size: 14px; line-height: 1.45; background: var(--accent); border-radius: 12px; padding: 12px 14px"><strong style="color: var(--accent-fg)">Por qué suena:</strong> es instrumental y lenta, como pediste para concentrarte.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>

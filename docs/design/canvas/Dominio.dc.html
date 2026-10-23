@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Dominio</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+.sx{--bg:#F3F4F8;--card:#FFFFFF;--subtle:#E8EAF2;--border:#D3D7E4;--fg:#131628;--muted:#5A607A;--primary:#3D4BF0;--on-primary:#FFFFFF;--accent:#E3E6FF;--accent-fg:#2F3BC4;--signal:#E86A1C;--signal-fg:#A5480C;--signal-bg:#FFE9DA;--yes:#17855A;--no:#C93A55;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;color:var(--fg);background:var(--bg);box-sizing:border-box}
+.sx[data-theme="dark"]{--bg:#0E1020;--card:#171A2E;--subtle:#20243C;--border:#2E3350;--fg:#ECEEF8;--muted:#9AA0BD;--primary:#8290FF;--on-primary:#0E1020;--accent:#252A57;--accent-fg:#C3C9FF;--signal:#FFA060;--signal-fg:#FFA060;--signal-bg:#3A2A22;--yes:#3CCB92;--no:#FF6E86}
+.sx *{box-sizing:border-box}
+.d{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;letter-spacing:-0.01em}
+.m{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.lb{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.cv{background:repeating-linear-gradient(135deg,var(--subtle) 0 6px,var(--border) 6px 7px)}
+a{color:#3D4BF0}a:hover{color:#2F3BC4}
+</style>
+</helmet>
+<div class="sx" data-theme="{{theme}}" style="width: 390px; height: 844px; display: flex; flex-direction: column; padding: 20px 20px 28px; gap: 20px">
+  <header style="display: flex; justify-content: space-between; align-items: center">
+    <a href="Inicio.dc.html" aria-label="Volver" style="width: 44px; height: 44px; border-radius: 999px; background: var(--subtle); color: var(--fg); display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></a>
+    <span class="lb">Paso 1 de 2</span>
+    <span style="width: 44px"></span>
+  </header>
+  <h1 class="d" style="margin: 0; font-size: 32px; line-height: 1.1">¿Qué te apetece hoy?</h1>
+  <fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px">
+    <legend class="lb" style="padding: 0; margin-bottom: 10px">Elige un catálogo</legend>
+    <label style="display: flex; flex-direction: column; gap: 10px; background: var(--card); border: 2px solid var(--primary); box-shadow: 0 0 0 4px var(--accent); border-radius: 20px; padding: 16px">
+      <div class="cv" style="height: 110px; border-radius: 12px"></div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span class="d" style="font-size: 22px">Música</span>
+          <span style="font-size: 14px; color: var(--muted)"><span class="m">1.240</span> canciones de Jamendo</span>
+        </div>
+        <input type="radio" name="dominio" value="musica" checked style="width: 22px; height: 22px; accent-color: #3D4BF0">
+      </div>
+    </label>
+    <label style="display: flex; flex-direction: column; gap: 10px; background: var(--card); border: 2px solid var(--border); border-radius: 20px; padding: 16px; opacity: .6">
+      <div class="cv" style="height: 110px; border-radius: 12px"></div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <span class="d" style="font-size: 22px">Películas</span>
+          <span style="font-size: 14px; color: var(--muted)">Próximamente · catálogo de TMDB</span>
+        </div>
+        <input type="radio" name="dominio" value="peliculas" disabled style="width: 22px; height: 22px">
+      </div>
+    </label>
+  </fieldset>
+  <div style="flex: 1"></div>
+  <a href="Entrevista.dc.html" style="display: block; text-align: center; text-decoration: none; background: var(--primary); color: var(--on-primary); font-weight: 700; font-size: 17px; padding: 15px; border-radius: 999px">Continuar</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>

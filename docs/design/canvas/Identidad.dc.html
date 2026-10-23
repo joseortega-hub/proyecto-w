@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Identidad visual</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+.sx{--bg:#F3F4F8;--card:#FFFFFF;--subtle:#E8EAF2;--border:#D3D7E4;--fg:#131628;--muted:#5A607A;--primary:#3D4BF0;--accent:#E3E6FF;--accent-fg:#2F3BC4;--signal-fg:#A5480C;--signal-bg:#FFE9DA;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;color:var(--fg);background:var(--bg);box-sizing:border-box}
+.sx *{box-sizing:border-box}
+.d{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;letter-spacing:-0.01em}
+.m{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.lb{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sw{display:flex;align-items:center;gap:12px}
+.sw i{width:44px;height:44px;border-radius:10px;flex:none;border:1px solid rgba(128,128,160,.35)}
+.sw span{display:flex;flex-direction:column;font-size:14px}
+.sw code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;opacity:.75}
+a{color:#3D4BF0}a:hover{color:#2F3BC4}
+</style>
+</helmet>
+<div class="sx" style="width: 1200px; height: 1600px; padding: 56px; display: flex; flex-direction: column; gap: 32px">
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <span class="lb">Entregable 4</span>
+    <h1 class="d" style="margin: 0; font-size: 52px; line-height: 1">Identidad visual y tokens</h1>
+    <p style="margin: 0; font-size: 18px; color: var(--muted); max-width: 80ch">La idea es sintonizar una emisora: azul cobalto para la interfaz y un naranja de señal que solo aparece cuando algo encaja (el porcentaje de encaje, la aguja del dial y el motivo de cada pregunta). Los neutros tiran hacia el azul.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+    <div style="background: var(--card); border: 2px solid var(--primary); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span class="lb">Propuesta</span><span class="d" style="font-size: 34px">Sintonía</span><span style="font-size: 15px; color: var(--muted)">Estar en sintonía con alguien y sintonizar una emisora. Vale para música y películas.</span></div>
+    <div style="background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span class="lb">Alternativa</span><span class="d" style="font-size: 34px">Afín</span><span style="font-size: 15px; color: var(--muted)">Corto y directo: lo que te propone es afín a ti.</span></div>
+    <div style="background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 6px"><span class="lb">Alternativa</span><span class="d" style="font-size: 34px">Intuye</span><span style="font-size: 15px; color: var(--muted)">Verbo y promesa: la app intuye lo que te apetece.</span></div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+    <section style="background: #F3F4F8; color: #131628; border: 1px solid #D3D7E4; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+      <span class="lb" style="color: #5A607A">Modo claro</span>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+        <sc-for list="{{light}}" as="c" hint-placeholder-count="10">
+          <div class="sw"><i style="{{c.style}}"></i><span><strong>{{c.name}}</strong><code>{{c.hex}}</code></span></div>
+        </sc-for>
+      </div>
+    </section>
+    <section style="background: #0E1020; color: #ECEEF8; border: 1px solid #2E3350; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+      <span class="lb" style="color: #9AA0BD">Modo oscuro</span>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+        <sc-for list="{{dark}}" as="c" hint-placeholder-count="10">
+          <div class="sw"><i style="{{c.style}}"></i><span><strong>{{c.name}}</strong><code>{{c.hex}}</code></span></div>
+        </sc-for>
+      </div>
+    </section>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+    <section style="background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; flex-direction: column; gap: 4px"><span class="lb">Display · Bricolage Grotesque 800</span><span class="d" style="font-size: 40px; line-height: 1.05">¿Te apetece moverte?</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><span class="lb">Texto · Atkinson Hyperlegible</span><span style="font-size: 17px">Diseñada para leerse bien a cualquier tamaño, algo útil en una PWA que se usa con el móvil en la mano.</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><span class="lb">Datos · JetBrains Mono</span><span class="m" style="font-size: 17px; color: var(--signal-fg)">94 % · 84 BPM · 3:48 · 0,65</span></div>
+    </section>
+    <section style="background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 10px">
+      <span class="lb">Escalas</span>
+      <div class="m" style="display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+        <span>Texto: 12 · 14 · 16 · 20 · 25 · 31 · 39 · 49 px (razón 1,25)</span>
+        <span>Espaciado: 4 · 8 · 12 · 16 · 24 · 32 · 48 · 64</span>
+        <span>Radios: 6 · 12 · 20 · 999 (píldora)</span>
+        <span>Sombras: sm · md · lg (tinte azul, nunca negro puro)</span>
+        <span>Movimiento: 120 ms · 200 ms · cubic-bezier(.2,.8,.2,1)</span>
+      </div>
+      <span style="font-size: 14px; color: var(--muted)">Contraste mínimo AA (4,5:1) en ambos temas. Sí y No no dependen solo del color: llevan texto y posición fija.</span>
+    </section>
+  </div>
+
+  <section style="background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 12px">
+    <span class="lb">De tokens.json (W3C DTCG) a Tailwind CSS v4</span>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+      <pre class="m" style="margin: 0; font-size: 13px; line-height: 1.55; background: var(--bg); border-radius: 10px; padding: 14px; overflow-x: auto; white-space: pre">"primary": {
+  "$type": "color",
+  "$value": "{color.cobalt.600}",
+  "$extensions": {
+    "app.sintonia.modes": {
+      "dark": "{color.cobalt.300}"
+    }
+  }
+}</pre>
+      <pre class="m" style="margin: 0; font-size: 13px; line-height: 1.55; background: var(--bg); border-radius: 10px; padding: 14px; overflow-x: auto; white-space: pre">:root  { --primary: #3d4bf0; }
+.dark  { --primary: #8290ff; }
+
+@theme inline {
+  --color-primary: var(--primary);
+}
+/* → bg-primary, text-primary… */</pre>
+    </div>
+    <span style="font-size: 14px; color: var(--muted)">Los nombres semánticos son los de shadcn/ui (background, primary, muted, accent, border, ring…) más tres propios: signal, yes y no.</span>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":1600}}'>
+function S(rows) {
+  return rows.map(function (r) { return { name: r[0], hex: r[1], style: 'background: ' + r[1] }; });
+}
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      light: S([['background', '#F3F4F8'], ['card', '#FFFFFF'], ['muted', '#E8EAF2'], ['border', '#D3D7E4'], ['foreground', '#131628'], ['muted-foreground', '#5A607A'], ['primary · cobalto', '#3D4BF0'], ['accent', '#E3E6FF'], ['signal', '#E86A1C'], ['signal-foreground', '#A5480C'], ['yes', '#17855A'], ['no', '#C93A55']]),
+      dark: S([['background', '#0E1020'], ['card', '#171A2E'], ['muted', '#20243C'], ['border', '#2E3350'], ['foreground', '#ECEEF8'], ['muted-foreground', '#9AA0BD'], ['primary · cobalto', '#8290FF'], ['accent', '#252A57'], ['signal', '#FFA060'], ['signal-foreground', '#FFA060'], ['yes', '#3CCB92'], ['no', '#FF6E86']])
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Escritorio · Resultado</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+.sx{--bg:#F3F4F8;--card:#FFFFFF;--subtle:#E8EAF2;--border:#D3D7E4;--fg:#131628;--muted:#5A607A;--primary:#3D4BF0;--on-primary:#FFFFFF;--accent:#E3E6FF;--accent-fg:#2F3BC4;--signal:#E86A1C;--signal-fg:#A5480C;--signal-bg:#FFE9DA;--yes:#17855A;--no:#C93A55;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;color:var(--fg);background:var(--bg);box-sizing:border-box}
+.sx[data-theme="dark"]{--bg:#0E1020;--card:#171A2E;--subtle:#20243C;--border:#2E3350;--fg:#ECEEF8;--muted:#9AA0BD;--primary:#8290FF;--on-primary:#0E1020;--accent:#252A57;--accent-fg:#C3C9FF;--signal:#FFA060;--signal-fg:#FFA060;--signal-bg:#3A2A22;--yes:#3CCB92;--no:#FF6E86}
+.sx *{box-sizing:border-box}
+.d{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;letter-spacing:-0.01em}
+.m{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.lb{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.cv{background:repeating-linear-gradient(135deg,var(--subtle) 0 6px,var(--border) 6px 7px)}
+.mb{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px;font-weight:600;color:var(--signal-fg);background:var(--signal-bg);border-radius:999px;padding:3px 9px;justify-self:end}
+.lr{display:grid;grid-template-columns:28px 44px minmax(0,1fr) 160px 56px 60px;gap:14px;align-items:center;padding:8px 12px;border-radius:10px;border:1px solid transparent}
+.chip{font:inherit;font-size:14px;padding:7px 13px;border-radius:999px;border:1.5px solid var(--border);background:var(--card);color:var(--fg)}
+.nv{padding:10px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:15px}
+.mt{display:grid;grid-template-columns:96px minmax(0,1fr) 40px;gap:10px;align-items:center;font-size:14px}
+.tr{height:6px;border-radius:3px;background:var(--subtle);overflow:hidden}
+.tr span{display:block;height:100%;border-radius:3px;background:var(--primary)}
+.ib{width:44px;height:44px;border-radius:999px;border:0;background:var(--subtle);color:var(--fg);display:grid;place-items:center}
+a{color:#3D4BF0}a:hover{color:#2F3BC4}
+</style>
+</helmet>
+<div class="sx" data-theme="{{theme}}" style="width: 100%; min-height: 900px; display: flex; flex-direction: column">
+  <div style="flex: 1; display: flex; flex-wrap: wrap">
+    <nav aria-label="Principal" style="flex: 0 1 220px; background: var(--card); border-right: 1px solid var(--border); padding: 24px 14px; display: flex; flex-direction: column; gap: 4px">
+      <span class="d" style="font-size: 22px; padding: 0 12px 16px">Sintonía</span>
+      <a href="Main.dc.html" class="nv" style="background: var(--accent); color: var(--accent-fg); font-weight: 700">Inicio</a>
+      <a href="Biblioteca.dc.html" class="nv">Biblioteca</a>
+      <a href="Biblioteca.dc.html" class="nv">Mis listas</a>
+      <a href="Entrevista.dc.html" style="margin-top: 20px; text-align: center; text-decoration: none; background: var(--primary); color: var(--on-primary); font-weight: 700; font-size: 15px; padding: 12px; border-radius: 999px">Nueva entrevista</a>
+    </nav>
+    <main style="flex: 999 1 560px; min-width: 0; padding: 32px 36px; display: flex; flex-direction: column; gap: 18px">
+      <span class="lb">Ejemplo</span>
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h1 class="d" style="margin: 0; font-size: 44px; line-height: 1.05">Tarde de concentración</h1>
+          <span style="font-size: 15px; color: var(--muted)">12 canciones · 47 min · a partir de 5 respuestas</span>
+        </div>
+        <div style="display: flex; gap: 10px">
+          <button type="button" style="font: inherit; font-weight: 700; font-size: 15px; padding: 12px 22px; border-radius: 999px; border: 0; background: var(--primary); color: var(--on-primary)">Reproducir</button>
+          <button type="button" style="font: inherit; font-weight: 700; font-size: 15px; padding: 12px 22px; border-radius: 999px; background: var(--card); color: var(--fg); border: 1.5px solid var(--border)">Guardar</button>
+        </div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+        <span class="lb">Afinar</span>
+        <button type="button" class="chip">+ energía</button><button type="button" class="chip">+ calma</button><button type="button" class="chip">con voz</button><button type="button" class="chip">más cortas</button>
+      </div>
+      <div style="overflow-x: auto">
+        <div style="min-width: 640px; display: flex; flex-direction: column; gap: 4px">
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+            <div class="lr" style="{{r.rowStyle}}">
+              <span class="m" style="font-size: 13px; color: var(--muted)">{{r.n}}</span>
+              <div class="cv" style="width: 44px; height: 44px; border-radius: 8px"></div>
+              <div style="display: flex; flex-direction: column; min-width: 0"><strong style="font-size: 15px">{{r.title}}</strong><span style="font-size: 13px; color: var(--muted)">{{r.artist}}</span></div>
+              <span style="font-size: 13px; color: var(--muted)">{{r.genre}}</span>
+              <span class="m" style="font-size: 13px; color: var(--muted)">{{r.dur}}</span>
+              <span class="mb">{{r.match}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </main>
+    <aside aria-label="Por qué esta canción" style="flex: 1 1 320px; min-width: 0; background: var(--card); border-left: 1px solid var(--border); padding: 28px 24px; display: flex; flex-direction: column; gap: 14px">
+      <span class="lb">Por qué esta canción</span>
+      <div class="cv" style="width: 100%; max-width: 100%; aspect-ratio: 1.6; border-radius: 14px"></div>
+      <span class="d" style="font-size: 24px">Marea lenta</span>
+      <p style="margin: 0; font-size: 15px; line-height: 1.5; background: var(--accent); border-radius: 12px; padding: 14px"><strong style="color: var(--accent-fg)">Encaja en un 94 %.</strong> Es instrumental, tiene un tempo lento (<span class="m">84</span> BPM) y un tono cálido. Pediste algo para concentrarte sin voz, y esta acompaña sin distraer.</p>
+      <div class="mt"><span>Energía</span><div class="tr"><span style="width: 22%"></span></div><span class="m" style="font-size: 13px; color: var(--muted); text-align: right">0,22</span></div>
+      <div class="mt"><span>Voz</span><div class="tr"><span style="width: 4%"></span></div><span class="m" style="font-size: 13px; color: var(--muted); text-align: right">0,04</span></div>
+    </aside>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 28px; padding: 12px 20px; background: var(--card); border-top: 1px solid var(--border)">
+    <div style="display: flex; align-items: center; gap: 12px; flex: 0 1 260px; min-width: 0"><div class="cv" style="width: 48px; height: 48px; border-radius: 8px; flex: none"></div><div style="display: flex; flex-direction: column; min-width: 0"><strong style="font-size: 15px">Marea lenta</strong><span style="font-size: 13px; color: var(--muted)">Lumen Drift</span></div></div>
+    <div style="flex: 1 1 360px; display: flex; flex-direction: column; gap: 6px; max-width: 640px">
+      <div style="display: flex; justify-content: center; gap: 14px">
+        <button type="button" class="ib" aria-label="Anterior"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"></path></svg></button>
+        <button type="button" aria-label="Pausar" style="width: 44px; height: 44px; border-radius: 999px; border: 0; background: var(--primary); color: var(--on-primary); display: grid; place-items: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"></path></svg></button>
+        <button type="button" class="ib" aria-label="Siguiente"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"></path></svg></button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px"><span class="m" style="font-size: 12px; color: var(--muted)">1:12</span><label for="seek-d" style="position: absolute; width: 1px; height: 1px; overflow: hidden">Posición</label><input id="seek-d" type="range" min="0" max="228" value="72" style="flex: 1; accent-color: #3D4BF0"><span class="m" style="font-size: 12px; color: var(--muted)">3:48</span></div>
+    </div>
+    <div style="display: flex; gap: 8px; flex: 0 1 200px; justify-content: flex-end">
+      <button type="button" class="ib" aria-label="Ver la cola"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"></path></svg></button>
+      <button type="button" class="ib" aria-label="Volumen"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"></path><path d="M17 9a4 4 0 0 1 0 6"></path></svg></button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var data = [
+      ['Marea lenta', 'Lumen Drift', 'ambient · piano', '3:48', '94 %'],
+      ['Papel y lluvia', 'Okra Trio', 'jazz suave', '4:12', '91 %'],
+      ['Norte', 'Alba Ruiz', 'folk instrumental', '3:05', '88 %'],
+      ['Faro', 'Delta Kino', 'ambient', '5:20', '86 %'],
+      ['Horas quietas', 'Nube Baja', 'ambient', '6:12', '84 %'],
+      ['Vidrio', 'Mar Abierto', 'post-rock suave', '4:01', '82 %']
+    ];
+    return {
+      theme: this.props.theme ?? 'light',
+      rows: data.map(function (d, i) {
+        return { n: i + 1, title: d[0], artist: d[1], genre: d[2], dur: d[3], match: d[4], rowStyle: i === 0 ? 'background: var(--card); border-color: var(--border)' : '' };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

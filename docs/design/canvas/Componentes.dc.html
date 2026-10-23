@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Componentes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+.sx{--bg:#F3F4F8;--card:#FFFFFF;--subtle:#E8EAF2;--border:#D3D7E4;--fg:#131628;--muted:#5A607A;--primary:#3D4BF0;--on-primary:#FFFFFF;--accent:#E3E6FF;--accent-fg:#2F3BC4;--signal:#E86A1C;--signal-fg:#A5480C;--signal-bg:#FFE9DA;--yes:#17855A;--no:#C93A55;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;color:var(--fg);background:var(--bg);box-sizing:border-box}
+.sx[data-theme="dark"]{--bg:#0E1020;--card:#171A2E;--subtle:#20243C;--border:#2E3350;--fg:#ECEEF8;--muted:#9AA0BD;--primary:#8290FF;--on-primary:#0E1020;--accent:#252A57;--accent-fg:#C3C9FF;--signal:#FFA060;--signal-fg:#FFA060;--signal-bg:#3A2A22;--yes:#3CCB92;--no:#FF6E86}
+.sx *{box-sizing:border-box}
+.d{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;letter-spacing:-0.01em}
+.m{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.lb{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.base{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--signal-fg);background:var(--signal-bg);border-radius:6px;padding:2px 7px;align-self:flex-start}
+.base.own{color:var(--muted);background:var(--subtle)}
+a{color:#3D4BF0}a:hover{color:#2F3BC4}
+</style>
+</helmet>
+<div class="sx" data-theme="{{theme}}" style="width: 1840px; height: 1900px; padding: 56px; display: flex; flex-direction: column; gap: 32px">
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <span class="lb">Entregable 3 · base de Storybook</span>
+    <h1 class="d" style="margin: 0; font-size: 52px; line-height: 1">Componentes: shadcn/ui dentro del diseño atómico</h1>
+    <p style="margin: 0; font-size: 18px; color: var(--muted); max-width: 95ch">shadcn/ui copia el código de cada componente al proyecto (Radix para el comportamiento accesible y Tailwind CSS v4 para el estilo), así que lo podemos adaptar sin pelearnos con una librería cerrada. Encima de esa base van nuestros niveles atómicos. Los componentes hablan de "elementos" y no de "canciones" para que sirvan a cualquier dominio.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+    <div style="background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">
+      <span class="m" style="font-size: 14px; font-weight: 600; color: var(--accent-fg)">components/ui/</span>
+      <span style="font-size: 15px; color: var(--muted)">Lo que genera <span class="m">npx shadcn add</span>. Se toca lo mínimo y no se importa desde las páginas.</span>
+    </div>
+    <div style="background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">
+      <span class="m" style="font-size: 14px; font-weight: 600; color: var(--accent-fg)">atoms/ · molecules/</span>
+      <span style="font-size: 15px; color: var(--muted)">Envuelven ui/ con nuestras variantes (cva) y la API del dominio.</span>
+    </div>
+    <div style="background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">
+      <span class="m" style="font-size: 14px; font-weight: 600; color: var(--accent-fg)">organisms/ · templates/</span>
+      <span style="font-size: 15px; color: var(--muted)">Bloques con datos y marcos de pantalla. Sin llamadas a la API.</span>
+    </div>
+    <div style="background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">
+      <span class="m" style="font-size: 14px; font-weight: 600; color: var(--accent-fg)">pages/</span>
+      <span style="font-size: 15px; color: var(--muted)">Conectan rutas, datos (TanStack Query) y estado. Una por pantalla.</span>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 10px; align-items: center">
+    <span class="base">shadcn: Button</span><span style="font-size: 14px; color: var(--muted)">= se basa en ese componente de shadcn/ui o Radix</span>
+    <span class="base own" style="margin-left: 16px">propio</span><span style="font-size: 14px; color: var(--muted)">= sin equivalente, se construye con Tailwind</span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; align-items: start">
+    <sc-for list="{{levels}}" as="lv" hint-placeholder-count="5">
+      <section style="background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <h2 class="d" style="margin: 0; font-size: 28px">{{lv.name}}</h2>
+          <span class="m" style="font-size: 14px; color: var(--muted)">{{lv.count}}</span>
+        </div>
+        <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px">
+          <sc-for list="{{lv.items}}" as="it" hint-placeholder-count="8">
+            <li style="display: flex; flex-direction: column; gap: 3px">
+              <span class="m" style="font-size: 15px; font-weight: 600">{{it.n}}</span>
+              <span class="{{it.cls}}">{{it.b}}</span>
+              <span style="font-size: 14px; color: var(--muted); line-height: 1.35">{{it.d}}</span>
+            </li>
+          </sc-for>
+        </ul>
+      </section>
+    </sc-for>
+  </div>
+
+  <div style="background: var(--accent); border-radius: 14px; padding: 18px 22px; display: flex; flex-direction: column; gap: 6px; max-width: 1200px">
+    <strong class="d" style="font-size: 20px; color: var(--accent-fg)">Storybook</strong>
+    <span style="font-size: 16px">Una historia por variante y estado (cargando, vacío, error), con selector de tema claro u oscuro en la barra de herramientas. Los tokens llegan como variables CSS desde el mismo <span class="m">theme.css</span> que usa la app.</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1840,"height":1900}}'>
+function L(name, rows) {
+  return {
+    name: name,
+    count: String(rows.length),
+    items: rows.map(function (r) { return { n: r[0], b: r[1], cls: r[1] === 'propio' ? 'base own' : 'base', d: r[2] }; })
+  };
+}
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      theme: this.props.theme ?? 'light',
+      levels: [
+        L('Atoms', [
+          ['Button', 'shadcn: Button', 'default, secondary, outline, ghost; tamaños sm, md, lg'],
+          ['AnswerButton', 'shadcn: Button', 'variantes yes y no con cva, atajo de teclado'],
+          ['IconButton', 'shadcn: Button size=icon', 'aria-label obligatorio'],
+          ['Icon', 'lucide-react', 'el set de iconos que usa shadcn'],
+          ['Heading, Text', 'propio', 'escala tipográfica de los tokens'],
+          ['Chip', 'shadcn: Badge', 'neutral, activo e hipótesis'],
+          ['MatchBadge', 'shadcn: Badge', 'porcentaje de encaje en color señal'],
+          ['Cover', 'shadcn: AspectRatio', 'portada con placeholder y carga diferida'],
+          ['Meter', 'shadcn: Progress', 'barra de atributo o de progreso'],
+          ['Dial', 'propio', 'medidor de confianza con marcas'],
+          ['Skeleton, Spinner', 'shadcn: Skeleton, Spinner', 'estados de carga'],
+          ['Input', 'shadcn: Input + Label', 'texto y búsqueda'],
+          ['Slider', 'shadcn: Slider', 'posición y volumen (Radix Slider)'],
+          ['Kbd', 'shadcn: Kbd', 'atajos S, N y espacio']
+        ]),
+        L('Molecules', [
+          ['AnswerPair', 'propio', 'Sí, No y No lo sé'],
+          ['QuestionCard', 'shadcn: Card', 'pregunta y motivo'],
+          ['InterviewProgress', 'propio', 'número, Dial, salir y deshacer'],
+          ['AttributeMeter', 'shadcn: Progress', 'etiqueta, barra y valor'],
+          ['ItemRow', 'propio', 'portada, título, subtítulo, duración y encaje'],
+          ['Explanation', 'shadcn: Collapsible', 'bloque Por qué desplegable'],
+          ['SearchBar', 'shadcn: Input', 'con icono y borrar'],
+          ['FilterChips', 'shadcn: ToggleGroup', 'generados desde los atributos del dominio'],
+          ['RefineChips', 'shadcn: ToggleGroup', '+ energía, + calma…'],
+          ['PlaybackControls', 'shadcn: Button', 'anterior, reproducir, siguiente'],
+          ['SeekBar', 'shadcn: Slider', 'tiempo actual y total'],
+          ['DomainCard', 'shadcn: RadioGroup', 'activo, elegido, próximamente'],
+          ['EmptyState', 'propio', 'texto y acción'],
+          ['Toast', 'shadcn: Sonner', 'avisos breves']
+        ]),
+        L('Organisms', [
+          ['AppHeader', 'propio', 'marca, tema y acciones'],
+          ['BottomNav', 'propio', 'navegación inferior en móvil'],
+          ['SideNav', 'shadcn: Sidebar', 'navegación lateral en escritorio'],
+          ['InterviewPanel', 'propio', 'QuestionCard, AnswerPair e InterviewProgress'],
+          ['MoodProfile', 'shadcn: Card', 'lista de AttributeMeter'],
+          ['PipelineSteps', 'propio', 'pasos de la pantalla Afinando'],
+          ['ResultList', 'shadcn: Accordion', 'ItemRow desplegables con Explanation'],
+          ['MiniPlayer, PlayerBar', 'propio', 'reproductor persistente'],
+          ['FullPlayer', 'shadcn: Drawer', 'pantalla completa en móvil (vaul)'],
+          ['QueueSheet', 'shadcn: Sheet', 'cola de reproducción'],
+          ['CatalogBrowser', 'shadcn: Tabs', 'búsqueda, filtros y lista o rejilla'],
+          ['ItemDetail', 'shadcn: Card', 'ficha con atributos y similares'],
+          ['DomainPicker', 'shadcn: RadioGroup', 'tarjetas de dominio']
+        ]),
+        L('Templates', [
+          ['AppShell', 'shadcn: SidebarProvider', 'navegación y reproductor persistente'],
+          ['FocusTemplate', 'propio', 'sin navegación: entrevista y Afinando'],
+          ['ListDetailTemplate', 'propio', 'lista y panel lateral: resultado y biblioteca'],
+          ['DetailTemplate', 'propio', 'ficha del elemento'],
+          ['LandingTemplate', 'propio', 'inicio y dominio']
+        ]),
+        L('Pages', [
+          ['HomePage', 'propio', '/'],
+          ['DomainPage', 'propio', '/dominio'],
+          ['InterviewPage', 'propio', '/entrevista/:sesion'],
+          ['TuningPage', 'propio', 'estado de carga de /resultado'],
+          ['ResultPage', 'propio', '/resultado/:id'],
+          ['PlayerPage', 'propio', '/reproductor'],
+          ['LibraryPage', 'propio', '/biblioteca y /listas'],
+          ['ItemPage', 'propio', '/biblioteca/:itemId']
+        ])
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

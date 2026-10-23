@@ -1,0 +1,709 @@
+<title>Sintonía · Diseño Fase 0</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: documento de una columna (máx. 1120px) con índice fijo arriba; las pantallas se muestran como teléfonos en rejilla que se ajusta y los escritorios en lienzos con scroll horizontal propio. */
+:root {
+  --bg: #F3F4F8;
+  --surface: #FFFFFF;
+  --surface-2: #E8EAF2;
+  --line: #D3D7E4;
+  --fg: #131628;
+  --muted: #5A607A;
+  --accent: #3D4BF0;
+  --accent-fg: #FFFFFF;
+  --accent-soft: #E3E6FF;
+  --signal: #E86A1C;
+  --signal-soft: #FFE9DA;
+  --yes: #17855A;
+  --no: #C93A55;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --r-sm: 6px; --r-md: 12px; --r-lg: 20px; --r-pill: 999px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1020; --surface: #171A2E; --surface-2: #20243C; --line: #2E3350;
+    --fg: #ECEEF8; --muted: #9AA0BD; --accent: #8290FF; --accent-fg: #0E1020;
+    --accent-soft: #252A57; --signal: #FFA060; --signal-soft: #3A2A22;
+    --yes: #3CCB92; --no: #FF6E86; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1020; --surface: #171A2E; --surface-2: #20243C; --line: #2E3350;
+  --fg: #ECEEF8; --muted: #9AA0BD; --accent: #8290FF; --accent-fg: #0E1020;
+  --accent-soft: #252A57; --signal: #FFA060; --signal-soft: #3A2A22;
+  --yes: #3CCB92; --no: #FF6E86; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.55; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.12; margin: 0; }
+h2 { font-size: clamp(1.6rem, 3.2vw, 2.2rem); font-weight: 800; letter-spacing: -0.01em; }
+h3 { font-size: 1.15rem; font-weight: 700; }
+p { margin: 0; }
+.lead { color: var(--muted); max-width: 65ch; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.label { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* barra superior */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top .wrap { display: flex; align-items: center; gap: 16px; padding-block: 10px; flex-wrap: wrap; }
+.brand { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+.toc { display: flex; gap: 4px 14px; flex-wrap: wrap; font-size: .9rem; flex: 1; min-width: 0; }
+.toc a { color: var(--muted); text-decoration: none; }
+.toc a:hover { color: var(--fg); }
+.theme-btn { font: inherit; font-size: .85rem; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); border-radius: var(--r-pill); padding: 6px 12px; cursor: pointer; }
+
+/* cabecera */
+.hero { padding-block: 48px 24px; display: grid; gap: 16px; }
+.hero h1 { font-size: clamp(2.2rem, 6vw, 3.8rem); font-weight: 800; letter-spacing: -0.02em; max-width: 18ch; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fact { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-pill); padding: 4px 12px; font-size: .85rem; }
+
+section { padding-block: 40px; border-top: 1px solid var(--line); display: grid; gap: 20px; }
+.sec-head { display: grid; gap: 8px; }
+
+/* mapa */
+.flow-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px; overflow-x: auto; }
+.flow { display: grid; grid-template-columns: repeat(6, minmax(130px, 1fr)); gap: 10px; min-width: 860px; align-items: center; }
+.node { border: 1.5px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; background: var(--bg); display: grid; gap: 2px; position: relative; }
+.node b { font-family: var(--font-display); font-size: 1rem; }
+.node small { color: var(--muted); font-size: .78rem; line-height: 1.35; }
+.node .route { font-family: var(--font-mono); font-size: .7rem; color: var(--accent); }
+.node.main { border-color: var(--accent); background: var(--accent-soft); }
+.node.loop::after { content: "↻ hasta tener confianza"; position: absolute; left: 10px; bottom: -20px; font-family: var(--font-mono); font-size: .66rem; color: var(--signal); white-space: nowrap; }
+.arrow { text-align: center; color: var(--muted); font-family: var(--font-mono); }
+.flow-row { display: contents; }
+.side-row { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line); align-items: center; }
+.side-row .node { flex: 1 1 180px; }
+.table-box { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; min-width: 620px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td code { font-family: var(--font-mono); font-size: .82rem; color: var(--accent); }
+
+/* teléfonos */
+.phones { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 28px 20px; }
+.screen-card { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.screen-card .cap { display: grid; gap: 4px; }
+.screen-card .cap p { font-size: .88rem; color: var(--muted); }
+.phone { width: 100%; max-width: 290px; aspect-ratio: 9 / 18.5; border: 8px solid var(--fg); border-radius: 34px; background: var(--bg); overflow: hidden; display: flex; flex-direction: column; font-size: 13px; line-height: 1.4; position: relative; }
+.sb { display: flex; justify-content: space-between; padding: 6px 16px 2px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.scr { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 8px 14px 10px; min-height: 0; overflow: hidden; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ico { width: 26px; height: 26px; border-radius: var(--r-pill); background: var(--surface-2); display: grid; place-items: center; font-size: 12px; color: var(--muted); flex: none; }
+.w-h { font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1.15; text-wrap: balance; }
+.w-h.xl { font-size: 24px; }
+.w-p { color: var(--muted); font-size: 12px; }
+.btn { border-radius: var(--r-pill); padding: 9px 14px; text-align: center; font-weight: 700; font-size: 13px; border: 1.5px solid transparent; }
+.btn.pri { background: var(--accent); color: var(--accent-fg); }
+.btn.sec { border-color: var(--line); background: var(--surface); }
+.btn.ghost { color: var(--muted); padding: 6px 10px; font-weight: 400; }
+.chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.chip { font-size: 11px; padding: 3px 9px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--fg); white-space: nowrap; }
+.chip.on { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.chip.q { border: 1px dashed var(--muted); background: transparent; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px; display: grid; gap: 6px; }
+.cover { background: repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--line) 6px 7px); border-radius: var(--r-sm); flex: none; }
+.row { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.row .t { flex: 1; min-width: 0; display: grid; }
+.row .t b { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .t span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.match { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--signal); background: var(--signal-soft); border-radius: var(--r-pill); padding: 2px 7px; flex: none; }
+.why { font-size: 11.5px; background: var(--accent-soft); border-radius: var(--r-sm); padding: 7px 9px; color: var(--fg); }
+.why b { color: var(--accent); }
+.nav { display: flex; justify-content: space-around; border-top: 1px solid var(--line); background: var(--surface); padding: 7px 4px 10px; font-size: 10px; color: var(--muted); }
+.nav span { display: grid; justify-items: center; gap: 2px; }
+.nav span::before { content: ""; width: 18px; height: 18px; border-radius: 5px; background: var(--surface-2); }
+.nav .act { color: var(--accent); font-weight: 700; }
+.nav .act::before { background: var(--accent); }
+.mini { display: flex; align-items: center; gap: 8px; background: var(--fg); color: var(--bg); padding: 7px 10px; margin: 0 8px 6px; border-radius: var(--r-md); font-size: 11px; }
+.mini .cover { width: 28px; height: 28px; }
+.mini .t { flex: 1; min-width: 0; display: grid; }
+.mini .t span { opacity: .7; font-size: 10px; }
+.track { height: 4px; border-radius: 2px; background: var(--surface-2); position: relative; overflow: hidden; }
+.track i { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 2px; }
+.meter { display: grid; grid-template-columns: 82px 1fr 30px; gap: 8px; align-items: center; font-size: 11px; }
+.meter .mono { font-size: 10px; color: var(--muted); text-align: right; }
+.dial { display: grid; gap: 3px; }
+.dial .ticks { height: 14px; background: repeating-linear-gradient(90deg, var(--line) 0 1.5px, transparent 1.5px 7px); position: relative; border-radius: 2px; }
+.dial .ticks i { position: absolute; top: -2px; bottom: -2px; width: 3px; background: var(--signal); border-radius: 2px; }
+.dial .lbl { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 9.5px; color: var(--muted); }
+.answers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ans { border-radius: var(--r-lg); padding: 20px 0; text-align: center; font-family: var(--font-display); font-weight: 800; font-size: 20px; border: 2px solid; }
+.ans.yes { border-color: var(--yes); color: var(--yes); }
+.ans.no { border-color: var(--no); color: var(--no); }
+.q-big { font-family: var(--font-display); font-weight: 800; font-size: 25px; line-height: 1.12; text-wrap: balance; }
+.hint { font-size: 11.5px; color: var(--muted); border-left: 2px solid var(--signal); padding-left: 8px; }
+.steps { display: grid; gap: 6px; font-size: 12px; }
+.steps div { display: flex; gap: 8px; align-items: center; }
+.steps .ok { color: var(--yes); font-weight: 700; }
+.steps .now { color: var(--accent); font-weight: 700; }
+.steps .wait { color: var(--muted); }
+.spacer { flex: 1; }
+.ctrls { display: flex; justify-content: center; align-items: center; gap: 18px; }
+.play { width: 52px; height: 52px; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-size: 18px; }
+.search { border: 1.5px solid var(--line); background: var(--surface); border-radius: var(--r-pill); padding: 8px 12px; color: var(--muted); font-size: 12px; }
+.tabs { display: flex; gap: 14px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.tabs span { padding-bottom: 6px; color: var(--muted); }
+.tabs .act { color: var(--fg); font-weight: 700; border-bottom: 2px solid var(--accent); }
+.dom { border: 1.5px solid var(--line); border-radius: var(--r-lg); padding: 14px; display: grid; gap: 6px; background: var(--surface); }
+.dom.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.dom.off { opacity: .55; }
+.dom .art { height: 64px; border-radius: var(--r-md); }
+.notes { font-size: .85rem; color: var(--muted); display: grid; gap: 3px; padding-left: 18px; margin: 0; }
+.ex { font-family: var(--font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+/* escritorio */
+.desk-box { overflow-x: auto; padding-bottom: 6px; }
+.desk { min-width: 920px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg); overflow: hidden; font-size: 13px; line-height: 1.4; display: grid; grid-template-rows: auto 1fr auto; height: 560px; }
+.desk .chrome { display: flex; gap: 6px; padding: 8px 12px; background: var(--surface-2); align-items: center; }
+.desk .chrome i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.desk .chrome span { margin-left: 10px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); background: var(--surface); padding: 2px 10px; border-radius: var(--r-pill); }
+.desk .body { display: grid; grid-template-columns: 200px 1fr 300px; min-height: 0; }
+.desk .body.focus { grid-template-columns: 1fr 320px; }
+.desk aside.nav-d { border-right: 1px solid var(--line); background: var(--surface); padding: 16px 12px; display: grid; gap: 4px; align-content: start; font-size: 13px; }
+.desk aside.nav-d .brand { font-size: 1.05rem; margin-bottom: 12px; }
+.desk aside.nav-d span { padding: 7px 10px; border-radius: var(--r-sm); color: var(--muted); }
+.desk aside.nav-d .act { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.desk main { padding: 22px 26px; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow: hidden; }
+.desk aside.panel { border-left: 1px solid var(--line); background: var(--surface); padding: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow: hidden; }
+.desk .playerbar { display: grid; grid-template-columns: 260px 1fr 200px; gap: 20px; align-items: center; padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--line); }
+.desk .playerbar .ctrls { gap: 14px; }
+.desk .playerbar .play { width: 36px; height: 36px; font-size: 13px; }
+.desk .center { max-width: 560px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; padding-top: 30px; }
+.desk .q-big { font-size: 38px; }
+.desk .ans { font-size: 26px; padding: 26px 0; }
+.list-row { display: grid; grid-template-columns: 24px 40px 1fr 140px 60px 48px; gap: 12px; align-items: center; padding: 8px 10px; border-radius: var(--r-sm); }
+.list-row.sel { background: var(--surface); border: 1px solid var(--line); }
+.list-row .n { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.list-row .cover { width: 40px; height: 40px; }
+.list-row .t { display: grid; min-width: 0; }
+.list-row .t span, .list-row .g { font-size: 11.5px; color: var(--muted); }
+.list-row .d { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+/* componentes */
+.atomic { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.level { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.level h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.level h3 .mono { font-size: .75rem; color: var(--muted); font-weight: 400; }
+.level ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; }
+.level li { display: grid; gap: 1px; }
+.level li code { font-family: var(--font-mono); font-size: .82rem; color: var(--accent); font-weight: 600; }
+.level li span { font-size: .8rem; color: var(--muted); line-height: 1.35; }
+.callout { background: var(--accent-soft); border-radius: var(--r-md); padding: 14px 16px; display: grid; gap: 6px; max-width: 80ch; }
+.callout b { font-family: var(--font-display); }
+.callout p, .callout li { font-size: .92rem; }
+.callout ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+
+/* identidad */
+.ident { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.sw { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; background: var(--surface); font-size: .78rem; }
+.sw .c { height: 54px; }
+.sw div:last-child { padding: 7px 9px; display: grid; }
+.sw code { font-family: var(--font-mono); font-size: .72rem; color: var(--muted); }
+.type-sample { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px; display: grid; gap: 12px; }
+.type-sample .d1 { font-family: var(--font-display); font-weight: 800; font-size: 2.2rem; line-height: 1.05; }
+.type-sample .d2 { font-family: var(--font-body); font-size: 1rem; }
+.type-sample .d3 { font-family: var(--font-mono); font-size: .85rem; color: var(--signal); }
+.scale { display: grid; gap: 4px; font-family: var(--font-mono); font-size: .8rem; color: var(--muted); }
+.names { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.name-c { border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px; background: var(--surface); display: grid; gap: 4px; }
+.name-c.pick { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.name-c b { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; }
+.name-c span { font-size: .85rem; color: var(--muted); }
+pre.tokens { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px; overflow-x: auto; font-family: var(--font-mono); font-size: .78rem; line-height: 1.6; margin: 0; }
+
+/* preguntas */
+.qs { display: grid; gap: 12px; counter-reset: q; }
+.qitem { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; display: grid; gap: 4px; }
+.qitem b { font-family: var(--font-display); font-size: 1.05rem; }
+.qitem p { color: var(--muted); font-size: .92rem; }
+.qitem p strong { color: var(--fg); }
+footer { padding-block: 32px 48px; color: var(--muted); font-size: .85rem; border-top: 1px solid var(--line); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">Sintonía <span class="label">Fase 0</span></div>
+    <nav class="toc" aria-label="Secciones">
+      <a href="#mapa">Mapa</a><a href="#movil">Móvil</a><a href="#escritorio">Escritorio</a><a href="#componentes">Componentes</a><a href="#identidad">Identidad</a><a href="#decidir">Por decidir</a>
+    </nav>
+    <button class="theme-btn" id="theme-btn" type="button">Cambiar tema</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="hero">
+    <span class="label">Proyecto X · propuesta de diseño para revisar</span>
+    <h1>Un catálogo que <em>te entiende</em> con unas preguntas de sí o no.</h1>
+    <p class="lead">Cómo se verá y se usará la app antes de escribir código: el mapa de pantallas, los wireframes para móvil y escritorio, el inventario de componentes para Storybook y una identidad visual con modo claro y oscuro. El nombre de trabajo de esta propuesta es <strong>Sintonía</strong>.</p>
+    <div class="facts">
+      <span class="fact">PWA, primero móvil</span><span class="fact">7 pantallas</span><span class="fact">Diseño atómico · 5 niveles</span><span class="fact">Modo claro y oscuro</span><span class="fact">Multidominio: música → películas</span>
+    </div>
+  </div>
+
+  <!-- MAPA -->
+  <section id="mapa">
+    <div class="sec-head">
+      <span class="label">Entregable 1</span>
+      <h2>Mapa de pantallas y flujo principal</h2>
+      <p class="lead">El camino feliz va de izquierda a derecha. La entrevista se repite pregunta a pregunta hasta que el perfil tiene suficiente confianza o se llega al máximo de preguntas. La biblioteca y mis listas se abren desde la navegación en cualquier momento.</p>
+    </div>
+    <div class="flow-box">
+      <div class="flow">
+        <div class="node"><span class="route">/</span><b>Inicio</b><small>Qué hace la app y botón Empezar</small></div>
+        <div class="node"><span class="route">/dominio</span><b>Dominio</b><small>Música o películas</small></div>
+        <div class="node main loop"><span class="route">/entrevista/:id</span><b>Entrevista</b><small>Una pregunta de sí o no cada vez. Jev elige la siguiente; Gemini la redacta.</small></div>
+        <div class="node"><span class="route">(transición)</span><b>Afinando</b><small>Perfil de ánimo, búsqueda semántica y filtro de encaje</small></div>
+        <div class="node main"><span class="route">/resultado/:id</span><b>Resultado</b><small>Lista con el porqué de cada elección</small></div>
+        <div class="node"><span class="route">/reproductor</span><b>Reproductor</b><small>Pantalla completa; mini-reproductor en el resto</small></div>
+        <div class="side-row">
+          <span class="label">Siempre accesible</span>
+          <div class="node"><span class="route">/biblioteca</span><b>Biblioteca</b><small>Catálogo completo, búsqueda y filtros por atributo</small></div>
+          <div class="node"><span class="route">/biblioteca/:itemId</span><b>Ficha del elemento</b><small>Atributos, reproducir, similares</small></div>
+          <div class="node"><span class="route">/listas</span><b>Mis listas</b><small>Resultados guardados en este dispositivo</small></div>
+        </div>
+      </div>
+    </div>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>Pantalla</th><th>Ruta</th><th>Qué decide la IA aquí</th><th>Salidas</th></tr></thead>
+        <tbody>
+          <tr><td>Inicio</td><td><code>/</code></td><td>Nada</td><td>Empezar · Biblioteca · Última lista</td></tr>
+          <tr><td>Dominio</td><td><code>/dominio</code></td><td>Nada; se salta si solo hay un dominio activo</td><td>Entrevista</td></tr>
+          <tr><td>Entrevista</td><td><code>/entrevista/:sesion</code></td><td><code>choice</code> elige la siguiente pregunta o decide terminar; Gemini redacta la pregunta y el motivo</td><td>Siguiente pregunta · Afinando · Salir</td></tr>
+          <tr><td>Afinando</td><td>estado de <code>/resultado</code></td><td><code>score</code> calcula el perfil, embeddings + pgvector buscan candidatos, <code>noul</code> filtra cada uno</td><td>Resultado</td></tr>
+          <tr><td>Resultado</td><td><code>/resultado/:id</code></td><td>Gemini explica cada elección; los chips de afinar relanzan la búsqueda</td><td>Reproducir · Guardar · Afinar · Repetir</td></tr>
+          <tr><td>Reproductor</td><td><code>/reproductor</code></td><td>Muestra la explicación del elemento que suena</td><td>Cola · Ficha · Volver</td></tr>
+          <tr><td>Biblioteca y ficha</td><td><code>/biblioteca</code>, <code>/biblioteca/:itemId</code></td><td>Similares por embedding</td><td>Reproducir · Entrevista</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- MÓVIL -->
+  <section id="movil">
+    <div class="sec-head">
+      <span class="label">Entregable 2 · móvil (360–430 px)</span>
+      <h2>Wireframes para móvil</h2>
+      <p class="lead">Fidelidad media: ya usan la paleta y la tipografía propuestas para que se vea cómo queda la identidad. Las portadas rayadas y los títulos de canciones son de ejemplo.</p>
+    </div>
+    <div class="phones">
+
+      <div class="screen-card">
+        <div class="phone"><div class="sb"><span>9:41</span><span>●●● 5G</span></div>
+          <div class="scr">
+            <div class="bar"><b style="font-family:var(--font-display);font-size:16px">Sintonía</b><span class="ico">◐</span></div>
+            <div class="spacer"></div>
+            <div class="w-h xl">Dime cómo estás y te pongo lo que encaja.</div>
+            <p class="w-p">Unas pocas preguntas de sí o no. Sin formularios ni registro.</p>
+            <div class="btn pri">Empezar</div>
+            <div class="btn sec">Explorar la biblioteca</div>
+            <div class="spacer"></div>
+            <div class="card"><span class="label" style="font-size:9px">Tu última lista</span><div class="row"><div class="cover" style="width:34px;height:34px"></div><div class="t"><b>Tarde de concentración</b><span>12 canciones · hace 2 días</span></div><span class="ico">▶</span></div></div>
+          </div>
+          <div class="nav"><span class="act">Inicio</span><span>Biblioteca</span><span>Mis listas</span></div>
+        </div>
+        <div class="cap"><h3>1 · Inicio</h3><p>Una sola acción principal. La última lista aparece solo si existe.</p></div>
+      </div>
+
+      <div class="screen-card">
+        <div class="phone"><div class="sb"><span>9:41</span><span>●●● 5G</span></div>
+          <div class="scr">
+            <div class="bar"><span class="ico">←</span><span class="label" style="font-size:9px">Paso 1 de 2</span><span style="width:26px"></span></div>
+            <div class="w-h">¿Qué te apetece hoy?</div>
+            <div class="dom on"><div class="art cover"></div><b style="font-family:var(--font-display);font-size:16px">Música</b><span class="w-p"><span class="mono">1.240</span> canciones de Jamendo</span></div>
+            <div class="dom off"><div class="art cover"></div><b style="font-family:var(--font-display);font-size:16px">Películas</b><span class="w-p">Próximamente · TMDB</span></div>
+            <div class="spacer"></div>
+            <div class="btn pri">Continuar</div>
+          </div>
+        </div>
+        <div class="cap"><h3>2 · Dominio</h3><p>Cada tarjeta sale de la configuración del dominio. Con uno solo activo, se salta.</p></div>
+      </div>
+
+      <div class="screen-card">
+        <div class="phone"><div class="sb"><span>9:41</span><span>●●● 5G</span></div>
+          <div class="scr">
+            <div class="bar"><span class="ico">✕</span><span class="label" style="font-size:9px">Pregunta 4</span><span class="ico">↶</span></div>
+            <div class="dial"><div class="ticks"><i style="left:58%"></i></div><div class="lbl"><span>Te voy conociendo</span><span>58 %</span></div></div>
+            <div class="spacer"></div>
+            <div class="q-big">¿Quieres que la música tenga voz?</div>
+            <p class="hint">Lo pregunto porque dijiste que es para concentrarte.</p>
+            <div class="spacer"></div>
+            <div class="chips"><span class="chip on">tranquila</span><span class="chip on">para concentrarse</span><span class="chip q">¿instrumental?</span></div>
+            <div class="answers"><div class="ans yes">Sí</div><div class="ans no">No</div></div>
+            <div class="btn ghost">No lo sé</div>
+          </div>
+        </div>
+        <div class="cap"><h3>3 · Entrevista</h3><p>Botones grandes al alcance del pulgar. El dial muestra cuánto sabe ya el motor. Cada pregunta explica por qué se hace.</p></div>
+      </div>
+
+      <div class="screen-card">
+        <div class="phone"><div class="sb"><span>9:41</span><span>●●● 5G</span></div>
+          <div class="scr">
+            <div class="spacer"></div>
+            <div class="w-h">Afinando tu lista…</div>
+            <div class="card">
+              <span class="label" style="font-size:9px">Tu perfil de ánimo</span>
+              <div class="meter"><span>Energía</span><div class="track"><i style="width:30%"></i></div><span class="mono">0,30</span></div>
+              <div class="meter"><span>Positividad</span><div class="track"><i style="width:65%"></i></div><span class="mono">0,65</span></div>
+              <div class="meter"><span>Concentración</span><div class="track"><i style="width:85%"></i></div><span class="mono">0,85</span></div>
+              <div class="meter"><span>Acústico</span><div class="track"><i style="width:70%"></i></div><span class="mono">0,70</span></div>
+            </div>
+            <div class="steps">
+              <div><span class="ok">✓</span>Perfil calculado</div>
+              <div><span class="ok">✓</span>40 candidatas entre 1.240</div>
+              <div><span class="now">●</span>Comprobando si encajan <span class="mono">(23/40)</span></div>
+              <div><span class="wait">○</span>Escribiendo el porqué</div>
+            </div>
+            <div class="spacer"></div>
+          </div>
+        </div>
+        <div class="cap"><h3>4 · Afinando</h3><p>Convierte la espera en demostración: se ven el perfil y cada paso del proceso de IA.</p></div>
+      </div>
+
+      <div class="screen-card">
+        <div class="phone"><div class="sb"><span>9:41</span><span>●●● 5G</span></div>
+          <div class="scr">
+            <div class="bar"><span class="ico">←</span><span class="ico">⋯</span></div>
+            <div><span class="ex">Ejemplo</span><div class="w-h">Tarde de concentración</div><p class="w-p">12 canciones · 47 min</p></div>
+            <div class="row"><div class="btn pri" style="flex:1">▶ Reproducir</div><div class="btn sec">Guardar</div></div>
+            <div class="card">
+              <div class="row"><div class="cover" style="width:36px;height:36px"></div><div class="t"><b>Marea lenta</b><span>Lumen Drift · 3:48</span></div><span class="match">94 %</span></div>
+              <div class="why"><b>Por qué:</b> instrumental, tempo lento (84 BPM) y tono cálido. Acompaña sin distraer.</div>
+            </div>
+            <div class="row"><div class="cover" style="width:36px;height:36px"></div><div class="t"><b>Papel y lluvia</b><span>Okra Trio · 4:12</span></div><span class="match">91 %</span></div>
+            <div class="row"><div class="cover" style="width:36px;height:36px"></div><div class="t"><b>Norte</b><span>Alba Ruiz · 3:05</span></div><span class="match">88 %</span></div>
+            <div class="chips"><span class="label" style="font-size:9px;align-self:center">Afinar</span><span class="chip">+ energía</span><span class="chip">+ calma</span><span class="chip">con voz</span></div>
+          </div>
+          <div class="mini"><div class="cover"></div><div class="t"><b>Marea lenta</b><span>Lumen Drift</span></div><span>❚❚</span></div>
+          <div class="nav"><span class="act">Inicio</span><span>Biblioteca</span><span>Mis listas</span></div>
+        </div>
+        <div class="cap"><h3>5 · Resultado</h3><p>Cada fila muestra el encaje y se despliega con su explicación. Los chips de afinar ajustan el perfil sin repetir la entrevista.</p></div>
+      </div>
+
+      <div class="screen-card">
+        <div class="phone"><div class="sb"><span>9:41</span><span>●●● 5G</span></div>
+          <div class="scr">
+            <div class="bar"><span class="ico">⌄</span><span class="label" style="font-size:9px">Tarde de concentración</span><span class="ico">≡</span></div>
+            <div class="cover" style="width:100%;aspect-ratio:1;max-width:100%;border-radius:var(--r-md)"></div>
+            <div><b style="font-family:var(--font-display);font-size:18px">Marea lenta</b><p class="w-p">Lumen Drift</p></div>
+            <div class="track"><i style="width:32%"></i></div>
+            <div class="bar mono" style="font-size:10px;color:var(--muted)"><span>1:12</span><span>3:48</span></div>
+            <div class="ctrls"><span class="ico">⏮</span><span class="play">▶</span><span class="ico">⏭</span></div>
+            <div class="why"><b>Por qué suena:</b> instrumental y lenta, como pediste.</div>
+          </div>
+        </div>
+        <div class="cap"><h3>6 · Reproductor</h3><p>Se abre desde el mini-reproductor. Audio en streaming de Jamendo. En películas mostrará tráiler y ficha.</p></div>
+      </div>
+
+      <div class="screen-card">
+        <div class="phone"><div class="sb"><span>9:41</span><span>●●● 5G</span></div>
+          <div class="scr">
+            <div class="w-h">Biblioteca</div>
+            <div class="tabs"><span class="act">Catálogo</span><span>Mis listas</span></div>
+            <div class="search">Buscar canción, artista o ánimo</div>
+            <div class="chips"><span class="chip on">Ambient</span><span class="chip">Energía ▾</span><span class="chip">Con voz ▾</span><span class="chip">Duración ▾</span></div>
+            <p class="w-p mono" style="font-size:10px">312 de 1.240 canciones</p>
+            <div class="row"><div class="cover" style="width:36px;height:36px"></div><div class="t"><b>Marea lenta</b><span>Lumen Drift · ambient</span></div><span class="ico">▶</span></div>
+            <div class="row"><div class="cover" style="width:36px;height:36px"></div><div class="t"><b>Faro</b><span>Delta Kino · ambient</span></div><span class="ico">▶</span></div>
+            <div class="row"><div class="cover" style="width:36px;height:36px"></div><div class="t"><b>Vidrio</b><span>Mar Abierto · ambient</span></div><span class="ico">▶</span></div>
+          </div>
+          <div class="nav"><span>Inicio</span><span class="act">Biblioteca</span><span>Mis listas</span></div>
+        </div>
+        <div class="cap"><h3>7 · Biblioteca</h3><p>Los filtros salen de los atributos del dominio, así que con películas cambian solos.</p></div>
+      </div>
+
+      <div class="screen-card">
+        <div class="phone"><div class="sb"><span>9:41</span><span>●●● 5G</span></div>
+          <div class="scr">
+            <div class="bar"><span class="ico">←</span><span class="ico">♡</span></div>
+            <div class="row" style="align-items:flex-end"><div class="cover" style="width:96px;height:96px"></div><div class="t"><b style="font-family:var(--font-display);font-size:17px;white-space:normal">Marea lenta</b><span>Lumen Drift · 2024</span></div></div>
+            <div class="row"><div class="btn pri" style="flex:1">▶ Reproducir</div><div class="btn sec">Añadir</div></div>
+            <div class="card">
+              <span class="label" style="font-size:9px">Atributos</span>
+              <div class="meter"><span>Energía</span><div class="track"><i style="width:22%"></i></div><span class="mono">0,22</span></div>
+              <div class="meter"><span>Voz</span><div class="track"><i style="width:4%"></i></div><span class="mono">0,04</span></div>
+              <div class="chips"><span class="chip">84 BPM</span><span class="chip">ambient</span><span class="chip">piano</span></div>
+            </div>
+            <span class="label" style="font-size:9px">Similares</span>
+            <div class="row"><div class="cover" style="width:44px;height:44px"></div><div class="cover" style="width:44px;height:44px"></div><div class="cover" style="width:44px;height:44px"></div><div class="cover" style="width:44px;height:44px"></div></div>
+          </div>
+        </div>
+        <div class="cap"><h3>7b · Ficha del elemento</h3><p>Enseña los mismos atributos que usa el motor para decidir.</p></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ESCRITORIO -->
+  <section id="escritorio">
+    <div class="sec-head">
+      <span class="label">Entregable 2 · escritorio (≥ 1024 px)</span>
+      <h2>Wireframes para escritorio</h2>
+      <p class="lead">Las mismas pantallas dentro de un marco común: navegación lateral a la izquierda, contenido en el centro, panel de contexto a la derecha y reproductor fijo abajo. La entrevista quita la navegación para centrar la atención.</p>
+    </div>
+
+    <h3>Entrevista</h3>
+    <div class="desk-box">
+      <div class="desk">
+        <div class="chrome"><i></i><i></i><i></i><span>sintonia.app/entrevista/7f3a</span></div>
+        <div class="body focus">
+          <main>
+            <div class="bar"><span class="btn ghost">✕ Salir</span><span class="label">Pregunta 4 · máx. 10</span><span class="btn ghost">↶ Deshacer</span></div>
+            <div class="center">
+              <div class="dial"><div class="ticks"><i style="left:58%"></i></div><div class="lbl"><span>Te voy conociendo</span><span>58 %</span></div></div>
+              <div class="q-big">¿Quieres que la música tenga voz?</div>
+              <p class="hint">Lo pregunto porque dijiste que es para concentrarte.</p>
+              <div class="answers"><div class="ans yes">Sí</div><div class="ans no">No</div></div>
+              <div class="btn ghost">No lo sé · atajos: S, N, espacio</div>
+            </div>
+          </main>
+          <aside class="panel">
+            <span class="label">Perfil en directo</span>
+            <div class="meter"><span>Energía</span><div class="track"><i style="width:30%"></i></div><span class="mono">0,30</span></div>
+            <div class="meter"><span>Positividad</span><div class="track"><i style="width:60%"></i></div><span class="mono">0,60</span></div>
+            <div class="meter"><span>Concentración</span><div class="track"><i style="width:80%"></i></div><span class="mono">0,80</span></div>
+            <div class="meter"><span>Acústico</span><div class="track"><i style="width:50%"></i></div><span class="mono">0,50</span></div>
+            <span class="label">Tus respuestas</span>
+            <div class="steps">
+              <div><span class="ok">Sí</span>¿Es para trabajar o estudiar?</div>
+              <div><span style="color:var(--no);font-weight:700">No</span>¿Te apetece moverte?</div>
+              <div><span class="ok">Sí</span>¿Prefieres sonidos suaves?</div>
+            </div>
+          </aside>
+        </div>
+        <div></div>
+      </div>
+    </div>
+
+    <h3>Resultado con reproductor</h3>
+    <div class="desk-box">
+      <div class="desk">
+        <div class="chrome"><i></i><i></i><i></i><span>sintonia.app/resultado/7f3a</span></div>
+        <div class="body">
+          <aside class="nav-d"><div class="brand">Sintonía</div><span class="act">Inicio</span><span>Biblioteca</span><span>Mis listas</span><span style="margin-top:16px" class="btn pri">Nueva entrevista</span></aside>
+          <main>
+            <span class="ex">Ejemplo</span>
+            <div class="bar"><div><div class="w-h" style="font-size:30px">Tarde de concentración</div><p class="w-p">12 canciones · 47 min · creada a partir de 6 respuestas</p></div><div class="row"><span class="btn pri">▶ Reproducir</span><span class="btn sec">Guardar</span></div></div>
+            <div class="chips"><span class="label" style="align-self:center">Afinar</span><span class="chip">+ energía</span><span class="chip">+ calma</span><span class="chip">con voz</span><span class="chip">más cortas</span></div>
+            <div class="list-row sel"><span class="n">1</span><div class="cover"></div><div class="t"><b>Marea lenta</b><span>Lumen Drift</span></div><span class="g">ambient · piano</span><span class="d">3:48</span><span class="match">94 %</span></div>
+            <div class="list-row"><span class="n">2</span><div class="cover"></div><div class="t"><b>Papel y lluvia</b><span>Okra Trio</span></div><span class="g">jazz suave</span><span class="d">4:12</span><span class="match">91 %</span></div>
+            <div class="list-row"><span class="n">3</span><div class="cover"></div><div class="t"><b>Norte</b><span>Alba Ruiz</span></div><span class="g">folk instrumental</span><span class="d">3:05</span><span class="match">88 %</span></div>
+            <div class="list-row"><span class="n">4</span><div class="cover"></div><div class="t"><b>Faro</b><span>Delta Kino</span></div><span class="g">ambient</span><span class="d">5:20</span><span class="match">86 %</span></div>
+          </main>
+          <aside class="panel">
+            <span class="label">Por qué esta canción</span>
+            <div class="cover" style="width:100%;aspect-ratio:1.6;max-width:100%"></div>
+            <b style="font-family:var(--font-display);font-size:18px">Marea lenta</b>
+            <div class="why"><b>Encaja en un 94 %.</b> Es instrumental, tiene un tempo lento (84 BPM) y un tono cálido. Pediste algo para concentrarte sin voz, y esta acompaña sin distraer.</div>
+            <div class="meter"><span>Energía</span><div class="track"><i style="width:22%"></i></div><span class="mono">0,22</span></div>
+            <div class="meter"><span>Voz</span><div class="track"><i style="width:4%"></i></div><span class="mono">0,04</span></div>
+          </aside>
+        </div>
+        <div class="playerbar">
+          <div class="row"><div class="cover" style="width:40px;height:40px"></div><div class="t"><b>Marea lenta</b><span>Lumen Drift</span></div></div>
+          <div style="display:grid;gap:6px"><div class="ctrls"><span class="ico">⏮</span><span class="play">❚❚</span><span class="ico">⏭</span></div><div class="row mono" style="font-size:10px;color:var(--muted)"><span>1:12</span><div class="track" style="flex:1"><i style="width:32%"></i></div><span>3:48</span></div></div>
+          <div class="row" style="justify-content:flex-end"><span class="ico">≡</span><span class="ico">🔈</span></div>
+        </div>
+      </div>
+    </div>
+    <ul class="notes">
+      <li>Inicio, Dominio y Biblioteca usan el mismo marco; la biblioteca muestra una rejilla de portadas en vez de lista.</li>
+      <li>A partir de 768 px la navegación inferior pasa a ser lateral y el mini-reproductor se convierte en la barra inferior.</li>
+    </ul>
+  </section>
+
+  <!-- COMPONENTES -->
+  <section id="componentes">
+    <div class="sec-head">
+      <span class="label">Entregable 3 · base de Storybook</span>
+      <h2>Inventario de componentes</h2>
+      <p class="lead">Organizado por niveles de diseño atómico. Los nombres serán los de los ficheros y las historias de Storybook. Los componentes hablan de "elementos" y no de "canciones" para que sirvan a cualquier dominio.</p>
+    </div>
+    <div class="atomic">
+      <div class="level"><h3>Atoms <span class="mono">14</span></h3><ul>
+        <li><code>Button</code><span>primary, secondary, ghost; tamaños sm, md, lg</span></li>
+        <li><code>AnswerButton</code><span>sí y no, con color semántico y atajo de teclado</span></li>
+        <li><code>IconButton</code><span>redondo, con etiqueta accesible obligatoria</span></li>
+        <li><code>Icon</code><span>set único (Lucide)</span></li>
+        <li><code>Heading</code>, <code>Text</code><span>escala tipográfica de los tokens</span></li>
+        <li><code>Chip</code><span>neutral, activo, hipótesis (borde discontinuo)</span></li>
+        <li><code>MatchBadge</code><span>porcentaje de encaje</span></li>
+        <li><code>Cover</code><span>portada con placeholder y carga diferida</span></li>
+        <li><code>ProgressBar</code><span>barra fina de atributo o de progreso</span></li>
+        <li><code>Dial</code><span>medidor de confianza con marcas</span></li>
+        <li><code>Skeleton</code>, <code>Spinner</code></li>
+        <li><code>Input</code><span>texto y búsqueda</span></li>
+        <li><code>Slider</code><span>posición y volumen</span></li>
+        <li><code>Logo</code></li>
+      </ul></div>
+      <div class="level"><h3>Molecules <span class="mono">12</span></h3><ul>
+        <li><code>AnswerPair</code><span>Sí, No y "No lo sé"</span></li>
+        <li><code>QuestionCard</code><span>pregunta y motivo</span></li>
+        <li><code>InterviewProgress</code><span>número de pregunta, dial, salir y deshacer</span></li>
+        <li><code>AttributeMeter</code><span>etiqueta, barra y valor</span></li>
+        <li><code>ItemRow</code><span>portada, título, subtítulo, duración y encaje</span></li>
+        <li><code>Explanation</code><span>bloque "Por qué"</span></li>
+        <li><code>SearchBar</code></li>
+        <li><code>FilterChips</code><span>generados desde los atributos del dominio</span></li>
+        <li><code>RefineChips</code><span>+ energía, + calma…</span></li>
+        <li><code>PlaybackControls</code>, <code>SeekBar</code></li>
+        <li><code>DomainCard</code><span>activo, seleccionado, próximamente</span></li>
+        <li><code>EmptyState</code>, <code>Toast</code></li>
+      </ul></div>
+      <div class="level"><h3>Organisms <span class="mono">11</span></h3><ul>
+        <li><code>AppHeader</code></li>
+        <li><code>BottomNav</code> / <code>SideNav</code><span>según el ancho</span></li>
+        <li><code>InterviewPanel</code><span>pregunta, respuestas y progreso</span></li>
+        <li><code>MoodProfile</code><span>lista de AttributeMeter</span></li>
+        <li><code>PipelineSteps</code><span>pasos de la pantalla Afinando</span></li>
+        <li><code>ResultList</code><span>ItemRow desplegables con Explanation</span></li>
+        <li><code>MiniPlayer</code> / <code>PlayerBar</code></li>
+        <li><code>FullPlayer</code></li>
+        <li><code>CatalogBrowser</code><span>búsqueda, filtros y lista o rejilla</span></li>
+        <li><code>ItemDetail</code></li>
+        <li><code>DomainPicker</code></li>
+      </ul></div>
+      <div class="level"><h3>Templates <span class="mono">5</span></h3><ul>
+        <li><code>AppShell</code><span>navegación y reproductor persistente</span></li>
+        <li><code>FocusTemplate</code><span>sin navegación, para entrevista y Afinando</span></li>
+        <li><code>ListDetailTemplate</code><span>lista y panel lateral: resultado y biblioteca</span></li>
+        <li><code>DetailTemplate</code><span>ficha del elemento</span></li>
+        <li><code>LandingTemplate</code><span>inicio y dominio</span></li>
+      </ul></div>
+      <div class="level"><h3>Pages <span class="mono">8</span></h3><ul>
+        <li><code>HomePage</code></li>
+        <li><code>DomainPage</code></li>
+        <li><code>InterviewPage</code></li>
+        <li><code>TuningPage</code><span>Afinando</span></li>
+        <li><code>ResultPage</code></li>
+        <li><code>PlayerPage</code></li>
+        <li><code>LibraryPage</code></li>
+        <li><code>ItemPage</code></li>
+      </ul></div>
+    </div>
+    <div class="callout">
+      <b>Cómo encaja con el motor multidominio</b>
+      <ul>
+        <li>La configuración del dominio dice qué atributos hay (energía, voz, BPM…), cómo se llaman y cómo se muestran. <code class="mono">AttributeMeter</code>, <code class="mono">FilterChips</code> y <code class="mono">ItemDetail</code> se pintan a partir de ella.</li>
+        <li><code class="mono">ItemRow</code> recibe un elemento genérico (título, subtítulo, portada, duración) que rellena cada adaptador de importación.</li>
+        <li>El reproductor es intercambiable por dominio: audio para música, tráiler y ficha para películas.</li>
+        <li>Storybook: una historia por variante y estado (cargando, vacío, error), con los dos temas mediante un selector en la barra de herramientas.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- IDENTIDAD -->
+  <section id="identidad">
+    <div class="sec-head">
+      <span class="label">Entregable 4</span>
+      <h2>Identidad visual</h2>
+      <p class="lead">La idea es la de sintonizar una emisora: un azul cobalto para la interfaz y un naranja de "señal" que solo aparece cuando algo encaja (porcentaje de encaje, aguja del dial, motivo de la pregunta). Los neutros tiran hacia el azul para que no parezcan grises por defecto. Usa el botón "Cambiar tema" de arriba para ver el modo oscuro.</p>
+    </div>
+
+    <h3>Nombre provisional</h3>
+    <div class="names">
+      <div class="name-c pick"><span class="label">Propuesta</span><b>Sintonía</b><span>Estar en sintonía con alguien y sintonizar una emisora. Funciona igual para música y películas.</span></div>
+      <div class="name-c"><span class="label">Alternativa</span><b>Afín</b><span>Corto y directo: lo que te propone es afín a ti.</span></div>
+      <div class="name-c"><span class="label">Alternativa</span><b>Intuye</b><span>Verbo y promesa: la app intuye lo que te apetece.</span></div>
+    </div>
+
+    <div class="ident">
+      <div style="display:grid;gap:10px;align-content:start;min-width:0">
+        <h3>Paleta (cambia con el tema)</h3>
+        <div class="swatches">
+          <div class="sw"><div class="c" style="background:var(--bg)"></div><div><b>bg</b><code>fondo</code></div></div>
+          <div class="sw"><div class="c" style="background:var(--surface)"></div><div><b>surface</b><code>tarjetas, barras</code></div></div>
+          <div class="sw"><div class="c" style="background:var(--fg)"></div><div><b>fg</b><code>texto</code></div></div>
+          <div class="sw"><div class="c" style="background:var(--muted)"></div><div><b>muted</b><code>texto secundario</code></div></div>
+          <div class="sw"><div class="c" style="background:var(--accent)"></div><div><b>accent</b><code>cobalto · acciones</code></div></div>
+          <div class="sw"><div class="c" style="background:var(--signal)"></div><div><b>signal</b><code>encaje, dial</code></div></div>
+          <div class="sw"><div class="c" style="background:var(--yes)"></div><div><b>yes</b><code>respuesta sí</code></div></div>
+          <div class="sw"><div class="c" style="background:var(--no)"></div><div><b>no</b><code>respuesta no</code></div></div>
+        </div>
+      </div>
+      <div style="display:grid;gap:10px;align-content:start;min-width:0">
+        <h3>Tipografía</h3>
+        <div class="type-sample">
+          <div><span class="label">Display · Bricolage Grotesque 800</span><div class="d1">¿Te apetece moverte?</div></div>
+          <div><span class="label">Texto · Atkinson Hyperlegible</span><div class="d2">Diseñada para leerse bien a cualquier tamaño, algo útil en una PWA que se usa con el móvil en la mano.</div></div>
+          <div><span class="label">Datos · JetBrains Mono</span><div class="d3">94 % · 84 BPM · 3:48 · 0,65</div></div>
+        </div>
+        <div class="scale"><span>Escala: 12 · 14 · 16 · 20 · 25 · 31 · 39 px (razón 1,25)</span><span>Espaciado: 4 · 8 · 12 · 16 · 24 · 32 · 48</span><span>Radios: 6 · 12 · 20 · pill</span></div>
+      </div>
+    </div>
+
+    <h3>Tokens de diseño</h3>
+    <pre class="tokens">{
+  "color": {
+    "bg":       { "light": "#F3F4F8", "dark": "#0E1020" },
+    "surface":  { "light": "#FFFFFF", "dark": "#171A2E" },
+    "surface2": { "light": "#E8EAF2", "dark": "#20243C" },
+    "line":     { "light": "#D3D7E4", "dark": "#2E3350" },
+    "fg":       { "light": "#131628", "dark": "#ECEEF8" },
+    "muted":    { "light": "#5A607A", "dark": "#9AA0BD" },
+    "accent":   { "light": "#3D4BF0", "dark": "#8290FF" },
+    "signal":   { "light": "#E86A1C", "dark": "#FFA060" },
+    "yes":      { "light": "#17855A", "dark": "#3CCB92" },
+    "no":       { "light": "#C93A55", "dark": "#FF6E86" }
+  },
+  "font":   { "display": "Bricolage Grotesque", "body": "Atkinson Hyperlegible", "mono": "JetBrains Mono" },
+  "size":   { "xs": 12, "sm": 14, "md": 16, "lg": 20, "xl": 25, "2xl": 31, "3xl": 39 },
+  "space":  { "1": 4, "2": 8, "3": 12, "4": 16, "5": 24, "6": 32, "7": 48 },
+  "radius": { "sm": 6, "md": 12, "lg": 20, "pill": 999 },
+  "motion": { "fast": "120ms", "base": "200ms", "ease": "cubic-bezier(.2,.8,.2,1)" }
+}</pre>
+    <ul class="notes">
+      <li>Los tokens vivirán en un paquete del monorepo (<code class="mono">packages/tokens</code>) y se exportarán como variables CSS; el tema se elige con <code class="mono">data-theme</code> y por defecto sigue al sistema.</li>
+      <li>Sí y No no dependen solo del color: llevan texto y posición fija (Sí a la izquierda).</li>
+      <li>Contraste objetivo: AA (4,5:1) para texto en ambos temas.</li>
+    </ul>
+  </section>
+
+  <!-- DECIDIR -->
+  <section id="decidir">
+    <div class="sec-head">
+      <span class="label">Para aprobar</span>
+      <h2>Lo que necesito que decidas</h2>
+      <p class="lead">Lo demás lo doy por bueno salvo que digas lo contrario.</p>
+    </div>
+    <div class="qs">
+      <div class="qitem"><b>1. Nombre</b><p>Propongo <strong>Sintonía</strong>. ¿Te vale, prefieres Afín o Intuye, o seguimos con Proyecto X?</p></div>
+      <div class="qitem"><b>2. Respuestas de la entrevista</b><p>Propongo <strong>Sí, No y "No lo sé"</strong> (este último poco visible). La tercera opción evita respuestas forzadas y Jev la trata como "sin información".</p></div>
+      <div class="qitem"><b>3. Duración de la entrevista</b><p>Propongo <strong>entre 4 y 10 preguntas</strong>: el motor termina en cuanto la confianza pasa de un umbral, con un máximo de 10.</p></div>
+      <div class="qitem"><b>4. Paleta y tipografía</b><p>Cobalto y naranja de señal sobre neutros azulados. ¿Te convence la dirección o quieres probar otra?</p></div>
+      <div class="qitem"><b>5. Películas</b><p>TMDB no ofrece las películas completas, así que el "reproductor" de ese dominio será <strong>tráiler y ficha</strong>. La tarjeta aparece ya como "Próximamente".</p></div>
+      <div class="qitem"><b>6. Cuentas de usuario</b><p>Propongo <strong>sin registro</strong> en el MVP: las listas se guardan en el dispositivo. Ahorra tiempo para el lunes.</p></div>
+    </div>
+  </section>
+</div>
+<footer><div class="wrap">Proyecto X · Fase 0 · propuesta del 23/10/2026. Los títulos de canciones y artistas son ejemplos inventados.</div></footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var btn = document.getElementById('theme-btn');
+  function current() {
+    var t = root.getAttribute('data-theme');
+    if (t) return t;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  function label() { btn.textContent = current() === 'dark' ? 'Ver modo claro' : 'Ver modo oscuro'; }
+  btn.addEventListener('click', function () {
+    root.setAttribute('data-theme', current() === 'dark' ? 'light' : 'dark');
+    label();
+  });
+  label();
+})();
+</script>

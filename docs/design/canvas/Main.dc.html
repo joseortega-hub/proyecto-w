@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Mapa de pantallas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+.sx{--bg:#F3F4F8;--card:#FFFFFF;--subtle:#E8EAF2;--border:#D3D7E4;--fg:#131628;--muted:#5A607A;--primary:#3D4BF0;--on-primary:#FFFFFF;--accent:#E3E6FF;--accent-fg:#2F3BC4;--signal:#E86A1C;--signal-fg:#A5480C;--signal-bg:#FFE9DA;--yes:#17855A;--no:#C93A55;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;color:var(--fg);background:var(--bg);box-sizing:border-box}
+.sx[data-theme="dark"]{--bg:#0E1020;--card:#171A2E;--subtle:#20243C;--border:#2E3350;--fg:#ECEEF8;--muted:#9AA0BD;--primary:#8290FF;--on-primary:#0E1020;--accent:#252A57;--accent-fg:#C3C9FF;--signal:#FFA060;--signal-fg:#FFA060;--signal-bg:#3A2A22;--yes:#3CCB92;--no:#FF6E86}
+.sx *{box-sizing:border-box}
+.d{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;letter-spacing:-0.01em}
+.m{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.lb{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+a{color:#3D4BF0}a:hover{color:#2F3BC4}
+</style>
+</helmet>
+<div class="sx" data-theme="{{theme}}" style="width: 2740px; height: 720px; padding: 56px 64px; display: flex; flex-direction: column; gap: 40px">
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 40px">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span class="lb">Proyecto X · Fase 0 · mapa de pantallas</span>
+      <h1 class="d" style="margin: 0; font-size: 64px; line-height: 1">Sintonía, un catálogo que te entiende</h1>
+      <p style="margin: 0; font-size: 20px; color: var(--muted); max-width: 70ch">El camino principal va de izquierda a derecha. La entrevista se repite pregunta a pregunta hasta que el perfil tiene confianza suficiente, con un mínimo de 4 preguntas y un máximo de 10.</p>
+    </div>
+    <div style="display: flex; gap: 10px">
+      <span class="m" style="padding: 8px 14px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); font-size: 14px">PWA · primero móvil</span>
+      <span class="m" style="padding: 8px 14px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); font-size: 14px">shadcn/ui · Tailwind v4</span>
+      <span class="m" style="padding: 8px 14px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); font-size: 14px">Tokens W3C DTCG</span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(11, auto); align-items: stretch; gap: 14px">
+    <div style="width: 360px; background: var(--card); border: 1.5px solid var(--border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+      <span class="m" style="font-size: 14px; color: var(--accent-fg)">/</span>
+      <span class="d" style="font-size: 28px">Inicio</span>
+      <span style="font-size: 16px; color: var(--muted)">Qué hace la app, botón Empezar y la última lista guardada.</span>
+      <span class="m" style="margin-top: auto; font-size: 13px; color: var(--muted)">IA: nada</span>
+    </div>
+    <div style="display: grid; place-items: center; color: var(--muted)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg></div>
+    <div style="width: 360px; background: var(--card); border: 1.5px solid var(--border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+      <span class="m" style="font-size: 14px; color: var(--accent-fg)">/dominio</span>
+      <span class="d" style="font-size: 28px">Dominio</span>
+      <span style="font-size: 16px; color: var(--muted)">Música o películas. Se salta si solo hay un dominio activo.</span>
+      <span class="m" style="margin-top: auto; font-size: 13px; color: var(--muted)">IA: nada</span>
+    </div>
+    <div style="display: grid; place-items: center; color: var(--muted)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg></div>
+    <div style="width: 360px; background: var(--accent); border: 1.5px solid var(--primary); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+      <span class="m" style="font-size: 14px; color: var(--accent-fg)">/entrevista/:sesion</span>
+      <span class="d" style="font-size: 28px">Entrevista</span>
+      <span style="font-size: 16px; color: var(--muted)">Una pregunta de sí o no cada vez, con el motivo de la pregunta.</span>
+      <span class="m" style="margin-top: auto; font-size: 13px; color: var(--accent-fg)">IA: Jev choice elige · Gemini redacta</span>
+      <span class="m" style="font-size: 13px; color: var(--signal-fg)">↻ se repite: 4 a 10 preguntas</span>
+    </div>
+    <div style="display: grid; place-items: center; color: var(--muted)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg></div>
+    <div style="width: 360px; background: var(--card); border: 1.5px solid var(--border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+      <span class="m" style="font-size: 14px; color: var(--accent-fg)">estado de /resultado</span>
+      <span class="d" style="font-size: 28px">Afinando</span>
+      <span style="font-size: 16px; color: var(--muted)">Muestra el perfil de ánimo y cada paso del proceso mientras espera.</span>
+      <span class="m" style="margin-top: auto; font-size: 13px; color: var(--accent-fg)">IA: Jev score · pgvector · Jev noul</span>
+    </div>
+    <div style="display: grid; place-items: center; color: var(--muted)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg></div>
+    <div style="width: 360px; background: var(--accent); border: 1.5px solid var(--primary); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+      <span class="m" style="font-size: 14px; color: var(--accent-fg)">/resultado/:id</span>
+      <span class="d" style="font-size: 28px">Resultado</span>
+      <span style="font-size: 16px; color: var(--muted)">Lista con el encaje y el porqué de cada elección. Chips para afinar.</span>
+      <span class="m" style="margin-top: auto; font-size: 13px; color: var(--accent-fg)">IA: Gemini explica cada elección</span>
+    </div>
+    <div style="display: grid; place-items: center; color: var(--muted)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg></div>
+    <div style="width: 360px; background: var(--card); border: 1.5px solid var(--border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+      <span class="m" style="font-size: 14px; color: var(--accent-fg)">/reproductor</span>
+      <span class="d" style="font-size: 28px">Reproductor</span>
+      <span style="font-size: 16px; color: var(--muted)">Pantalla completa. En el resto, mini-reproductor o barra inferior.</span>
+      <span class="m" style="margin-top: auto; font-size: 13px; color: var(--muted)">IA: muestra el porqué de lo que suena</span>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: stretch; gap: 14px; padding-top: 28px; border-top: 1.5px dashed var(--border)">
+    <div style="width: 360px; display: flex; flex-direction: column; justify-content: center; gap: 6px">
+      <span class="lb">Siempre accesible</span>
+      <span style="font-size: 16px; color: var(--muted)">Desde la navegación inferior en móvil y lateral en escritorio.</span>
+    </div>
+    <div style="width: 360px; background: var(--card); border: 1.5px solid var(--border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+      <span class="m" style="font-size: 14px; color: var(--accent-fg)">/biblioteca</span>
+      <span class="d" style="font-size: 28px">Biblioteca</span>
+      <span style="font-size: 16px; color: var(--muted)">Catálogo completo con búsqueda y filtros por atributo.</span>
+    </div>
+    <div style="width: 360px; background: var(--card); border: 1.5px solid var(--border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+      <span class="m" style="font-size: 14px; color: var(--accent-fg)">/biblioteca/:itemId</span>
+      <span class="d" style="font-size: 28px">Ficha del elemento</span>
+      <span style="font-size: 16px; color: var(--muted)">Atributos, reproducir y similares por embedding.</span>
+    </div>
+    <div style="width: 360px; background: var(--card); border: 1.5px solid var(--border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+      <span class="m" style="font-size: 14px; color: var(--accent-fg)">/listas</span>
+      <span class="d" style="font-size: 28px">Mis listas</span>
+      <span style="font-size: 16px; color: var(--muted)">Resultados guardados en este dispositivo, sin registro.</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":2740,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-23T16:10:00Z" },
+  "title": "Sintonía · Wireframes",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 2740, "h": 720, "title": "Mapa de pantallas" },
+    "Inicio.dc.html": { "x": 0, "y": 1120, "w": 390, "h": 844, "title": "1 · Inicio", "radius": 36 },
+    "Dominio.dc.html": { "x": 470, "y": 1120, "w": 390, "h": 844, "title": "2 · Dominio", "radius": 36 },
+    "Entrevista.dc.html": { "x": 940, "y": 1120, "w": 390, "h": 844, "title": "3 · Entrevista (interactiva)", "radius": 36, "is_interactive": true },
+    "Afinando.dc.html": { "x": 1410, "y": 1120, "w": 390, "h": 844, "title": "4 · Afinando", "radius": 36 },
+    "Resultado.dc.html": { "x": 1880, "y": 1120, "w": 390, "h": 844, "title": "5 · Resultado", "radius": 36 },
+    "Reproductor.dc.html": { "x": 2350, "y": 1120, "w": 390, "h": 844, "title": "6 · Reproductor", "radius": 36 },
+    "Biblioteca.dc.html": { "x": 0, "y": 2564, "w": 390, "h": 844, "title": "7 · Biblioteca", "radius": 36 },
+    "Ficha.dc.html": { "x": 470, "y": 2564, "w": 390, "h": 844, "title": "7b · Ficha del elemento", "radius": 36 },
+    "EscritorioEntrevista.dc.html": { "x": 0, "y": 4008, "w": 1440, "h": 900, "title": "Escritorio · Entrevista", "expand": "fill" },
+    "EscritorioResultado.dc.html": { "x": 1520, "y": 4008, "w": 1440, "h": 900, "title": "Escritorio · Resultado y reproductor", "expand": "fill" },
+    "Componentes.dc.html": { "x": 0, "y": 5508, "w": 1840, "h": 1900, "title": "Componentes · shadcn/ui en diseño atómico" },
+    "Identidad.dc.html": { "x": 1920, "y": 5508, "w": 1200, "h": 1600, "title": "Identidad visual y tokens" }
+  },
+  "order": [
+    "Main.dc.html",
+    "Inicio.dc.html",
+    "Dominio.dc.html",
+    "Entrevista.dc.html",
+    "Afinando.dc.html",
+    "Resultado.dc.html",
+    "Reproductor.dc.html",
+    "Biblioteca.dc.html",
+    "Ficha.dc.html",
+    "EscritorioEntrevista.dc.html",
+    "EscritorioResultado.dc.html",
+    "Componentes.dc.html",
+    "Identidad.dc.html"
+  ],
+  "notes": {
+    "t-mapa": { "x": 0, "y": -300, "text": "Sintonía · Fase 0", "kind": "title1", "maxW": 2740 },
+    "t-movil": { "x": 0, "y": 820, "text": "Móvil · flujo principal (pulsa Play para navegar)", "kind": "title1", "maxW": 2740 },
+    "t-biblio": { "x": 0, "y": 2264, "text": "Móvil · biblioteca y ficha", "kind": "title1", "maxW": 2740 },
+    "s-biblio": { "x": 960, "y": 2564, "w": 420, "text": "La biblioteca y Mis listas se abren desde la navegación inferior en cualquier momento. Los filtros salen de los atributos del dominio: con películas cambian solos.", "fill": "blue", "size": "m" },
+    "t-desk": { "x": 0, "y": 3708, "text": "Escritorio (≥ 1024 px)", "kind": "title1", "maxW": 2960 },
+    "t-comp": { "x": 0, "y": 5208, "text": "Componentes, identidad y tokens", "kind": "title1", "maxW": 3120 }
+  },
+  "designSystems": []
+}

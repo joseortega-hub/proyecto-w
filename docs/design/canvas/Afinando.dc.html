@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Afinando</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+.sx{--bg:#F3F4F8;--card:#FFFFFF;--subtle:#E8EAF2;--border:#D3D7E4;--fg:#131628;--muted:#5A607A;--primary:#3D4BF0;--on-primary:#FFFFFF;--accent:#E3E6FF;--accent-fg:#2F3BC4;--signal:#E86A1C;--signal-fg:#A5480C;--signal-bg:#FFE9DA;--yes:#17855A;--no:#C93A55;font-family:"Atkinson Hyperlegible",system-ui,sans-serif;color:var(--fg);background:var(--bg);box-sizing:border-box}
+.sx[data-theme="dark"]{--bg:#0E1020;--card:#171A2E;--subtle:#20243C;--border:#2E3350;--fg:#ECEEF8;--muted:#9AA0BD;--primary:#8290FF;--on-primary:#0E1020;--accent:#252A57;--accent-fg:#C3C9FF;--signal:#FFA060;--signal-fg:#FFA060;--signal-bg:#3A2A22;--yes:#3CCB92;--no:#FF6E86}
+.sx *{box-sizing:border-box}
+.d{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;letter-spacing:-0.01em}
+.m{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.lb{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mt{display:grid;grid-template-columns:112px minmax(0,1fr) 40px;gap:10px;align-items:center;font-size:15px}
+.tr{height:6px;border-radius:3px;background:var(--subtle);overflow:hidden}
+.tr span{display:block;height:100%;border-radius:3px;background:var(--primary)}
+a{color:#3D4BF0}a:hover{color:#2F3BC4}
+</style>
+</helmet>
+<div class="sx" data-theme="{{theme}}" style="width: 390px; height: 844px; display: flex; flex-direction: column; justify-content: center; padding: 24px; gap: 22px">
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <span class="lb">Un momento</span>
+    <h1 class="d" style="margin: 0; font-size: 34px; line-height: 1.08">Afinando tu lista…</h1>
+  </div>
+  <section aria-label="Tu perfil de ánimo" style="background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+    <span class="lb">Tu perfil de ánimo</span>
+    <div class="mt"><span>Energía</span><div class="tr"><span style="width: 30%"></span></div><span class="m" style="font-size: 13px; color: var(--muted); text-align: right">0,30</span></div>
+    <div class="mt"><span>Positividad</span><div class="tr"><span style="width: 65%"></span></div><span class="m" style="font-size: 13px; color: var(--muted); text-align: right">0,65</span></div>
+    <div class="mt"><span>Concentración</span><div class="tr"><span style="width: 85%"></span></div><span class="m" style="font-size: 13px; color: var(--muted); text-align: right">0,85</span></div>
+    <div class="mt"><span>Acústico</span><div class="tr"><span style="width: 70%"></span></div><span class="m" style="font-size: 13px; color: var(--muted); text-align: right">0,70</span></div>
+    <div class="mt"><span>Voz</span><div class="tr"><span style="width: 8%"></span></div><span class="m" style="font-size: 13px; color: var(--muted); text-align: right">0,08</span></div>
+  </section>
+  <ol aria-label="Progreso" style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; font-size: 16px">
+    <li style="display: flex; gap: 12px; align-items: center"><span style="width: 24px; height: 24px; border-radius: 999px; background: var(--yes); color: var(--card); display: grid; place-items: center; flex: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>Perfil calculado</li>
+    <li style="display: flex; gap: 12px; align-items: center"><span style="width: 24px; height: 24px; border-radius: 999px; background: var(--yes); color: var(--card); display: grid; place-items: center; flex: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span><span><span class="m">40</span> candidatas entre <span class="m">1.240</span></span></li>
+    <li style="display: flex; gap: 12px; align-items: center; font-weight: 700; color: var(--accent-fg)"><span style="width: 24px; height: 24px; border-radius: 999px; border: 3px solid var(--primary); flex: none"></span><span>Comprobando si encajan <span class="m">(23/40)</span></span></li>
+    <li style="display: flex; gap: 12px; align-items: center; color: var(--muted)"><span style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid var(--border); flex: none"></span>Escribiendo el porqué de cada una</li>
+  </ol>
+  <a href="Resultado.dc.html" style="align-self: center; font-size: 14px; color: var(--muted)">Prototipo: saltar al resultado</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>

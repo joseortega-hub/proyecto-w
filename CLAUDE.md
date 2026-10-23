@@ -33,6 +33,7 @@ Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualiza
 
 ## Reglas de trabajo
 - El usuario habla español: responder siempre en español.
+- Al usuario le encantan el reguetón y el género urbano: en el chat, háblale con un tono cercano y con flow urbano (por ejemplo "dale", "bro", "fuego 🔥", "en la movie"), con respeto y sin caricaturas. Lo técnico tiene que seguir quedando claro. Los commits, el código y la documentación se escriben con tono normal.
 - Plan Pro con límites: si algo se atasca (mismo error 2-3 veces, reintentos en bucle, tarea que crece sin avanzar), **parar y avisar** con lo que pasa y opciones, en vez de seguir gastando.
 - Priorizar herramientas gratuitas.
 - Git: el usuario usará su propio repositorio cuando la idea esté cerrada.
@@ -44,4 +45,7 @@ Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualiza
 - Jev: cuenta creada pero sin crédito, así que todavía no hay API key. Se implementa igualmente; mientras tanto `DECISION_PROVIDER=gemini`. El usuario añadirá ~5 € más adelante.
 - Comprobar en la Fase 1 que `GEMINI_MODEL` sigue siendo un modelo vigente del plan gratuito.
 - Pendiente del usuario: API keys de Gemini y Jamendo en `.env`.
-- Siguiente: Fase 0 (diseño).
+- Fase 0 (diseño) aprobada el 23/10/2026: ver `docs/diseno.md`. Nombre provisional: **Sintonía**. Lienzo: https://claude.ai/artifact/Uzikzt5ig9T1h8cx9wPFNE (fuente en `docs/design/canvas/`).
+- UI: shadcn/ui + Radix + Tailwind CSS v4 dentro del diseño atómico. Tokens W3C DTCG en `docs/design/tokens.json`, con `theme.css` generado por `docs/design/gen-tokens.mjs`. En la Fase 1, mover los tokens y el script a un paquete del monorepo.
+- La cuenta no tiene design systems; se puede crear uno de "Sintonía" a partir de los tokens.
+- Siguiente: Fase 1 (MVP).
