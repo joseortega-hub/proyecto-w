@@ -15,7 +15,9 @@ import {
   answerChips,
   answered,
   applyRefinements,
+  characterWords,
   fallbackReason,
+  hasRawFigures,
   hybridRank,
   informedDimensions,
   matchHints,
@@ -288,14 +290,14 @@ export class TuningService {
           system: `${config.voice} Explicas por qué cada ${domain.itemNoun} encaja con el ánimo de la persona, sin repetir fórmulas.`,
           prompt: [
             `Lo que busca: ${profile.summary.join(', ') || 'sin preferencias claras'}.`,
-            `Perfil: ${this.describeProfile(profile, domain)}`,
+            `Carácter que le apetece: ${characterWords(profile.scales, config).join(', ') || 'sin preferencias marcadas'}.`,
             `${capitalize(domain.itemNounPlural)} ${config.gender === 'f' ? 'elegidas' : 'elegidos'}:`,
             ...missing.map((i) => {
               const hints = matchHints(list[i], profile, config);
               const likes = tasteHints(list[i], taste, config);
-              return `${i + 1}. ${this.describeItem(list[i], domain)}${hints.length ? ` Coincide en: ${hints.join(', ')}.` : ''}${likes.length ? ` Encaja con sus gustos de siempre: ${likes.join(', ')}.` : ''}`;
+              return `${i + 1}. ${this.describeItem(list[i], domain, { words: true })}${hints.length ? ` Coincide en: ${hints.join(', ')}.` : ''}${likes.length ? ` Encaja con sus gustos de siempre: ${likes.join(', ')}.` : ''}`;
             }),
-            `Devuelve ${attempt === 0 ? 'un título para la lista y ' : ''}exactamente ${missing.length} explicaciones, una por cada número de arriba (usa ese mismo número), en tono cercano. Apóyate en las coincidencias y cita datos concretos (${config.attributes.slice(0, 3).map((a) => a.label.toLowerCase()).join(', ')}), siempre con palabras: nunca escribas las cifras de 0 a 1.`,
+            `Devuelve ${attempt === 0 ? 'un título para la lista y ' : ''}exactamente ${missing.length} explicaciones, una por cada número de arriba (usa ese mismo número), en tono cercano y en español (en inglés, solo nombres propios y géneros). Apóyate en las coincidencias y en datos concretos (${config.attributes.slice(0, 3).map((a) => a.label.toLowerCase()).join(', ')}), siempre con palabras, sin cifras ni porcentajes.`,
           ].join('\n'),
           schema: explanationSchema,
         })
@@ -308,7 +310,8 @@ export class TuningService {
       if (attempt === 0 && written.title.trim()) title = written.title.trim();
       for (const r of written.reasons) {
         const i = r.n - 1;
-        if (missing.includes(i) && r.reason.trim()) reasons[i] = r.reason.trim();
+        // Una explicación con cifras internas ("tono casi 1.0") se vuelve a pedir.
+        if (missing.includes(i) && r.reason.trim() && !hasRawFigures(r.reason)) reasons[i] = r.reason.trim();
       }
     }
 
@@ -380,15 +383,21 @@ export class TuningService {
       .join(', ');
   }
 
-  private describeItem(item: ItemWithoutEmbedding, domain: DomainRow) {
-    const attrs = domain.config.attributes
-      .filter((a) => a.kind === 'scale' && item.attributes[a.key] !== undefined)
-      .map((a) => `${a.label.toLowerCase()} ${item.attributes[a.key].toFixed(2)}`)
-      .join(', ');
+  /**
+   * Elemento para un prompt. Las decisiones (`noul`) reciben los atributos con cifras; los
+   * textos para personas (`words`), con palabras, para que no acaben en las explicaciones.
+   */
+  private describeItem(item: ItemWithoutEmbedding, domain: DomainRow, { words = false } = {}) {
+    const attrs = words
+      ? characterWords(item.attributes, domain.config).join(', ')
+      : domain.config.attributes
+          .filter((a) => a.kind === 'scale' && item.attributes[a.key] !== undefined)
+          .map((a) => `${a.label.toLowerCase()} ${item.attributes[a.key].toFixed(2)}`)
+          .join(', ');
     const { creatorLabel, playable } = domain.config;
     // En música la descripción es el álbum; en el resto, la sinopsis ayuda a juzgar el encaje.
     const about = !playable && item.description ? ` Sinopsis: ${item.description.slice(0, 160)}.` : '';
-    return `«${item.title}» (${creatorLabel}: ${item.subtitle ?? 'desconocido'}). Etiquetas: ${item.tags.slice(0, 6).join(', ') || '—'}. ${attrs}.${about}`;
+    return `«${item.title}» (${creatorLabel}: ${item.subtitle ?? 'desconocido'}). Etiquetas: ${item.tags.slice(0, 6).join(', ') || '—'}.${attrs ? ` ${words ? 'Carácter: ' : ''}${attrs}.` : ''}${about}`;
   }
 }
 

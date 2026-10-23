@@ -2,7 +2,7 @@ import { musicDomain } from '../domains/music.domain.js';
 import { gamesDomain } from '../domains/games.domain.js';
 import { tasteOnlyProbes } from '../taste/taste.engine.js';
 import { minQuestions, mustFinish, profileConfidence, signalChips } from './interview.engine.js';
-import { askableProbes, assertNotAsked } from './interview.flow.js';
+import { askableProbes, assertNotAsked, autoAnswerExhausted } from './interview.flow.js';
 import type { InterviewTurn } from './interview.types.js';
 
 const config = musicDomain.config;
@@ -65,5 +65,25 @@ describe('preguntas que se pueden hacer', () => {
     expect(offered).toContain('story');
     const moodAsked = games.probes.filter((p) => !skip.has(p.id)).map((p) => turn(p.id, 'yes'));
     expect(askableProbes(moodAsked, games, { skip }).length).toBeGreaterThan(0);
+  });
+});
+
+describe('respuestas automáticas', () => {
+  const unknowns = (n: number) => Array.from({ length: n }, (_, i) => turn(`p${i}`, 'unknown'));
+
+  it('termina con dos "no lo sé" seguidos cuando ya se cubrió el mínimo', () => {
+    const min = minQuestions(config);
+    expect(autoAnswerExhausted(unknowns(min - 1), 'unknown', config)).toBe(true);
+  });
+
+  it('sigue preguntando antes del mínimo, tras un "no lo sé" suelto o con una respuesta clara', () => {
+    const min = minQuestions(config);
+    expect(autoAnswerExhausted(unknowns(min - 2), 'unknown', config)).toBe(false);
+    expect(autoAnswerExhausted([...unknowns(min - 2), turn('energy', 'yes')], 'unknown', config)).toBe(false);
+    expect(autoAnswerExhausted(unknowns(min), 'yes', config)).toBe(false);
+  });
+
+  it('el mínimo baja con lo que ya dejó claro el texto', () => {
+    expect(autoAnswerExhausted(unknowns(2), 'unknown', config, ['energy', 'vocal', 'mood'])).toBe(true);
   });
 });

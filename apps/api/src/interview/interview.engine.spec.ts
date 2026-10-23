@@ -2,7 +2,9 @@ import { musicDomain } from '../domains/music.domain.js';
 import {
   answerChips,
   applyRefinements,
+  characterWords,
   fallbackReason,
+  hasRawFigures,
   hybridRank,
   itemEmbeddingText,
   matchHints,
@@ -238,5 +240,29 @@ describe('preferencias previas', () => {
     const enough = [...Array(8)].map(() => lang('es')).concat([...Array(4)].map(() => lang('instrumental')));
     expect(preferenceNotice(enough, es, config, 'canciones', 12)).toBeNull();
     expect(preferenceNotice([], {}, config, 'canciones', 12)).toBeNull();
+  });
+});
+
+describe('explicaciones sin cifras', () => {
+  const config = musicDomain.config;
+
+  it('describe el carácter con palabras y omite los valores intermedios', () => {
+    const words = characterWords({ energy: 0.9, positivity: 0.5, vocal: 0.1, acoustic: 0.7 }, config);
+    expect(words).toEqual(['enérgica', 'acústica', 'instrumental']);
+    expect(words.join(' ')).not.toMatch(/\d/);
+  });
+
+  it('detecta las cifras internas que el modelo copia del prompt', () => {
+    expect(hasRawFigures('Tiene un tono casi 1.0, ideal para correr.')).toBe(true);
+    expect(hasRawFigures('Energía de 0,85 para darlo todo.')).toBe(true);
+    expect(hasRawFigures('Positividad .9 a tope.')).toBe(true);
+    expect(hasRawFigures('Encaja en un 90 % con lo que buscas.')).toBe(true);
+  });
+
+  it('deja pasar años, números de saga y cifras normales', () => {
+    expect(hasRawFigures('Un clásico de 1994 que sigue sonando fresco.')).toBe(false);
+    expect(hasRawFigures('Final Fantasy 7 en su versión 2.5 remasterizada.')).toBe(false);
+    expect(hasRawFigures('Partidas de 3,5 horas con 2 jugadores.')).toBe(false);
+    expect(hasRawFigures('Guitarras rápidas y una voz que empuja.')).toBe(false);
   });
 });

@@ -55,6 +55,12 @@ export class InterviewController {
     return this.interviews.answer(id, answer, step);
   }
 
+  /** Responde la pregunta pendiente a partir del texto inicial (clientes sin pantalla, como el MCP). */
+  @Post(':id/auto-answer')
+  autoAnswer(@Param('id') id: string) {
+    return this.interviews.autoAnswer(id);
+  }
+
   @Post(':id/undo')
   undo(@Param('id') id: string) {
     return this.interviews.undo(id);

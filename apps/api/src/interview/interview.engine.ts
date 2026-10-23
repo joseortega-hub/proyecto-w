@@ -160,6 +160,27 @@ function scaleWord(value: number, attr: DomainConfig['attributes'][number]): str
 }
 
 /**
+ * Carácter en palabras ("enérgica", "con voz") a partir de valores 0–1. Los valores
+ * intermedios no dicen nada y se omiten. Sirve para los prompts de texto: si el modelo no
+ * ve cifras, no las copia en las explicaciones.
+ */
+export function characterWords(values: Record<string, number>, config: DomainConfig): string[] {
+  return config.attributes.flatMap((a) => {
+    if (a.kind !== 'scale' || values[a.key] === undefined) return [];
+    const word = scaleWord(values[a.key], a);
+    return word ? [word] : [];
+  });
+}
+
+/**
+ * ¿La explicación cita cifras internas? Valores de 0 a 1 ("tono casi 1.0", "0,85") o
+ * porcentajes. Los años o los números de una saga ("1994", "Final Fantasy 7") pasan.
+ */
+export function hasRawFigures(text: string): boolean {
+  return /(^|[^\d.,])(0?[.,]\d+|1[.,]0+)(?![\d.,]*\d)/.test(text) || /\d\s?%/.test(text);
+}
+
+/**
  * Texto que representa a un elemento en el espacio de embeddings. Los atributos van
  * en palabras ("tranquila", "instrumental") para que se parezca a la consulta del perfil.
  */

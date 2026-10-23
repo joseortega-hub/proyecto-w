@@ -15,7 +15,7 @@
 2. **Afinando.** El perfil de ánimo se calcula con decisiones `score` (una por atributo) y `noul` (una por grupo de estilos). Después:
    - **Búsqueda híbrida.** El perfil se convierte en un texto de consulta con el mismo vocabulario que los elementos ("tranquila", "instrumental", "jazz, clásica y lounge"), se calcula su embedding y pgvector trae los vecinos más cercanos por similitud coseno (índice HNSW, siempre filtrando por dominio). Esa bolsa se une a los mejores por atributos y se ordena combinando ambos parecidos en percentiles. Si no hay embeddings, se usa solo el parecido por atributos.
    - **Encaje.** El `DecisionProvider` comprueba si encaja cada candidata (`noul`). El % mostrado (40-99) combina esa probabilidad con la relevancia relativa dentro de la lista.
-   - **Explicaciones.** Gemini escribe el porqué de cada elemento a partir de sus coincidencias con el perfil. Si se salta alguno, se le vuelve a pedir; si aun así falta, se usa una explicación de respaldo, así que ningún elemento se queda sin porqué.
+   - **Explicaciones.** El `TextProvider` escribe el porqué de cada elemento a partir de sus coincidencias con el perfil. El prompt describe el carácter con palabras ("enérgica", "con voz"), nunca con las cifras internas, y una explicación que cite cifras de 0 a 1 o porcentajes cuenta como no escrita. Si falta alguna, se vuelve a pedir; si aun así falta, se usa una explicación de respaldo, así que ningún elemento se queda sin porqué.
    - La pantalla muestra estos pasos en directo mediante Server-Sent Events.
 3. **Resultado.** La lista lleva el % de encaje y la explicación de cada elemento y ajustes rápidos ("+ energía", "+ historia", "más corto") que relanzan la búsqueda sin repetir la entrevista. En música hay un reproductor global con mini-reproductor y la Media Session API para la pantalla de bloqueo; en el resto de temáticas cada elemento abre su ficha, que enlaza a la fuente con su atribución.
 
@@ -25,6 +25,7 @@
 apps/
   api/   NestJS 12 (REST + SSE), Drizzle ORM, AI SDK v7
   web/   React 19 + Vite 8, PWA, Tailwind CSS v4 + shadcn/ui, Storybook 10
+  mcp/   Servidor MCP (stdio) para usar Sintonía desde Claude
 packages/
   tokens/  Tokens W3C DTCG → theme.css para Tailwind (pnpm tokens)
 docs/      Diseño aprobado de la Fase 0 (docs/diseno.md) y fuente del lienzo
@@ -82,6 +83,8 @@ Endpoints del catálogo: `GET /api/domains/:id/items?q=&tags=&offset=&limit=` (b
 - *Punto de partida*: antes de las preguntas puedes escribir o dictar (Web Speech API; el 🎤 se oculta si el navegador no la tiene) cómo estás. Lo que deje claro no se pregunta. No se guarda ni el texto ni el audio.
 
 **Preferencias previas.** Cada dominio puede declarar filtros duros que se eligen antes de la entrevista (en música, el idioma de la letra: español, inglés o me da igual). Se guardan en `items.facets`, filtran la búsqueda (SQL y pgvector) y, si dejan pocos elementos, el resultado lo avisa. Las instrumentales pasan siempre el filtro de idioma. El texto inicial de la persona solo se guarda mientras dura la entrevista.
+
+**Sintonía dentro de Claude (MCP).** `apps/mcp` es un servidor MCP con el SDK oficial que reutiliza la API REST: temáticas, biblioteca, ficha, "Mis gustos" y listas a partir de una petición en texto ("hazme una lista para el gimnasio"), con % de encaje y explicaciones. La petición es el punto de partida de la entrevista y cada pregunta restante se responde a partir de ella (`POST /api/sessions/:id/auto-answer`, o "no lo sé" si no lo dice). También se puede jugar la entrevista de sí/no dentro del chat. Cómo conectarlo a Claude Desktop y guion de la demo: [`apps/mcp/README.md`](apps/mcp/README.md).
 
 Otros comandos: `pnpm storybook` (en :6006), `pnpm test` (pruebas del motor), `pnpm typecheck` y `pnpm tokens`.
 

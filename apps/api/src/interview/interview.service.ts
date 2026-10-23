@@ -31,7 +31,7 @@ import {
   profileConfidence,
   signalChips,
 } from './interview.engine.js';
-import { askableProbes, assertNotAsked, type InterviewFacts } from './interview.flow.js';
+import { askableProbes, assertNotAsked, autoAnswerExhausted, type InterviewFacts } from './interview.flow.js';
 import { NextQuestionPrefetch } from './interview.prefetch.js';
 import { QuestionBankService } from './question-bank.service.js';
 import type { Answer, InterviewTurn, TextSignals } from './interview.types.js';
@@ -41,6 +41,8 @@ const FINISH = 'finish';
 const FIRST_QUESTION_TTL_MS = 30 * 60_000;
 /** Confianza mínima para dar por resuelta una dimensión a partir del texto inicial. */
 const SIGNAL_CONFIDENCE = 0.75;
+/** Por debajo de esta confianza, la respuesta automática se queda en "no lo sé". */
+const AUTO_CONFIDENCE = 0.6;
 const contextDefaults = () => ({ timeZone: env.contextTimeZone, latitude: env.contextLatitude, longitude: env.contextLongitude });
 
 const questionSchema = z.object({
@@ -77,6 +79,13 @@ export interface SessionView {
   fromText: string[];
   /** Gustos de largo plazo que se están teniendo en cuenta. */
   taste: string[];
+}
+
+export interface AutoAnswer {
+  question: string;
+  answer: Answer;
+  confidence: number | null;
+  session: SessionView;
 }
 
 @Injectable()
@@ -134,7 +143,7 @@ export class InterviewService implements OnModuleInit {
    * Responde la pregunta pendiente. `step` (el número de pregunta que ve el cliente)
    * protege contra dobles envíos: si ya no coincide, la respuesta llegó tarde.
    */
-  async answer(id: string, answer: Answer, step?: number): Promise<SessionView> {
+  async answer(id: string, answer: Answer, step?: number, { finish = false } = {}): Promise<SessionView> {
     const row = await this.load(id);
     const domain = await this.domains.get(row.domainId);
     const current = pending(row.turns);
@@ -145,6 +154,10 @@ export class InterviewService implements OnModuleInit {
     }
 
     const base = row.turns.map((t) => (t === current ? { ...t, answer } : t));
+    if (finish) {
+      this.prefetch.forget(row.id);
+      return this.view(await this.save(row, { turns: base, status: 'ready' }), domain);
+    }
     const started = Date.now();
     const prefetched = this.prefetch.take(row.id, answeredCount, answer);
     const turns = prefetched
@@ -156,6 +169,43 @@ export class InterviewService implements OnModuleInit {
     const saved = await this.save(row, { turns, status });
     if (status === 'asking') this.schedulePrefetch(saved, domain);
     return this.view(saved, domain);
+  }
+
+  /**
+   * Responde la pregunta pendiente a partir del texto inicial, como lo haría la persona
+   * (para clientes sin pantalla, como el servidor MCP). Lo decide la cadena rápida de la
+   * entrevista con un `choice` de sí / no / no lo sé; el texto va en el `state` como dato.
+   * Si el texto no lo deja claro, responde "no lo sé", que no inventa nada en el perfil.
+   */
+  async autoAnswer(id: string): Promise<AutoAnswer> {
+    const row = await this.load(id);
+    const current = pending(row.turns);
+    if (row.status !== 'asking' || !current) throw new ConflictException('Esta entrevista no tiene una pregunta pendiente');
+    if (!row.initialText) throw new BadRequestException('Para responder sola, la entrevista necesita un texto inicial');
+    const domain = await this.domains.get(row.domainId);
+    const probe = domain.config.probes.find((p) => p.id === current.probeId);
+
+    const { answer: decided } = await this.decisions.decide(
+      {
+        pregunta: current.text,
+        siSignifica: probe?.intent ?? current.text,
+        ...stateExtras(row, domain.config),
+      },
+      {
+        answer: {
+          type: 'choice',
+          instructions: `Responde a la pregunta como lo haría esta persona según su texto inicial, pensando en lo que le apetece ${domain.config.verb} ahora. Si el texto no da pistas suficientes, elige "unknown".`,
+          criteria: { yes: 'Sí', no: 'No', unknown: 'No lo sé: el texto no lo deja claro' },
+        },
+      },
+    );
+    const confidence = decided.confidence ?? null;
+    const answer: Answer =
+      decided.choice === 'yes' || decided.choice === 'no' ? (confidence !== null && confidence < AUTO_CONFIDENCE ? 'unknown' : decided.choice) : 'unknown';
+    const step = answered(row.turns).length + 1;
+    const finish = autoAnswerExhausted(row.turns, answer, domain.config, Object.keys(row.textSignals ?? {}));
+    this.logger.log(`Respuesta automática ${step}: ${current.probeId} → ${answer}${confidence !== null ? ` (${confidence})` : ''}${finish ? ', fin' : ''}`);
+    return { question: current.text, answer, confidence, session: await this.answer(id, answer, step, { finish }) };
   }
 
   /** Deshace la última respuesta: esa pregunta vuelve a quedar pendiente. */

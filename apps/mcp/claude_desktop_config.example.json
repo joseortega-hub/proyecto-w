@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "sintonia": {
+      "command": "C:\Program Files\nodejs\node.exe",
+      "args": ["C:\Proyecto X\apps\mcp\src\index.ts"],
+      "env": {
+        "SINTONIA_API_URL": "http://localhost:3001/api",
+        "SINTONIA_WEB_URL": "http://localhost:5173"
+      }
+    }
+  }
+}

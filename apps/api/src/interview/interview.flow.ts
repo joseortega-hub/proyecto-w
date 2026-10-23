@@ -1,7 +1,7 @@
 // Qué se puede preguntar a continuación. Lógica pura, sin IA ni base de datos.
 import type { DomainConfig, Probe } from '../domains/domain.types.js';
-import { informedDimensions, remainingProbes } from './interview.engine.js';
-import type { InterviewTurn } from './interview.types.js';
+import { informedDimensions, minQuestions, remainingProbes } from './interview.engine.js';
+import type { Answer, InterviewTurn } from './interview.types.js';
 
 /** Lo que ya se sabe antes de preguntar. */
 export interface InterviewFacts {
@@ -37,4 +37,14 @@ export function assertNotAsked(turns: InterviewTurn[], probeId: string) {
   if (turns.some((t) => t.probeId === probeId)) {
     throw new Error(`La pregunta "${probeId}" ya se hizo en esta entrevista`);
   }
+}
+
+/**
+ * Respuestas automáticas a partir del texto inicial (clientes sin pantalla, como el MCP):
+ * si el texto ya no da para más (dos "no lo sé" seguidos con el mínimo de preguntas
+ * cubierto), seguir preguntando solo gasta cupo y se termina con lo que hay.
+ */
+export function autoAnswerExhausted(turns: InterviewTurn[], answer: Answer, config: DomainConfig, known: string[] = []): boolean {
+  const done = turns.filter((t) => t.answer !== null);
+  return answer === 'unknown' && done.at(-1)?.answer === 'unknown' && done.length + 1 >= minQuestions(config, known);
 }
