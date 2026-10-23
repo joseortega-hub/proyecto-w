@@ -19,8 +19,11 @@ import {
   matchHints,
   matchPercent,
   percentiles,
+  preferenceFilters,
+  preferenceNotice,
   profileQueryText,
   rankCandidates,
+  type FacetFilter,
   type HybridCandidate,
 } from './interview.engine.js';
 import { stateExtras } from './interview.context.js';
@@ -78,8 +81,10 @@ export class TuningService {
     const profile = applyRefinements(base, refinements, config);
     yield { step: 'profile', profile };
 
-    const catalog = await this.items.catalog(domain.id);
-    const candidates = await this.findCandidates(session, domain, profile, catalog);
+    // Las preferencias previas (p. ej. idioma) filtran el catálogo antes de buscar, no después.
+    const filters = preferenceFilters(session.preferences, config);
+    const catalog = await this.items.catalog(domain.id, filters);
+    const candidates = await this.findCandidates(session, domain, profile, catalog, filters);
     yield {
       step: 'candidates',
       count: candidates.length,
@@ -138,8 +143,16 @@ export class TuningService {
       finalists.map((f) => f.item),
     );
 
+    const notice = preferenceNotice(
+      finalists.map((f) => f.item),
+      session.preferences,
+      config,
+      domain.itemNounPlural,
+      config.result.size,
+    );
     const result: SessionResult = {
       title,
+      notice,
       entries: finalists.map(({ item, match, fit: p }, i) => ({
         itemId: item.id,
         match,
@@ -153,7 +166,7 @@ export class TuningService {
     };
     await this.db
       .update(interviewSessions)
-      .set({ profile: base, result, status: 'done', updatedAt: new Date() })
+      .set({ profile: base, result, status: 'done', initialText: null, updatedAt: new Date() })
       .where(eq(interviewSessions.id, session.id));
     this.logger.log(`Lista "${result.title}" lista con ${result.entries.length} elementos`);
     yield { step: 'done', sessionId: session.id };
@@ -180,6 +193,8 @@ export class TuningService {
         label,
       })),
       appliedRefinements: session.result.refinements,
+      preferences: session.preferences,
+      notice: session.result.notice ?? null,
       candidates: session.result.candidates,
       catalogSize: session.result.catalogSize,
       entries: session.result.entries.flatMap((e) => {
@@ -207,6 +222,7 @@ export class TuningService {
     domain: DomainRow,
     profile: MoodProfile,
     catalog: ItemWithoutEmbedding[],
+    filters: FacetFilter[],
   ): Promise<HybridCandidate<ItemWithoutEmbedding>[]> {
     const { config } = domain;
     const byAttributes = rankCandidates(catalog, profile, config, SEMANTIC_POOL / 2);
@@ -227,7 +243,7 @@ export class TuningService {
       );
     }
 
-    const nearest = await this.items.nearest(domain.id, vector, SEMANTIC_POOL);
+    const nearest = await this.items.nearest(domain.id, vector, SEMANTIC_POOL, { filters });
     const pool = new Map<string, { item: ItemWithoutEmbedding; semantic: number | null }>(
       nearest.map(({ semantic, ...item }) => [item.id, { item, semantic: Number(semantic) }]),
     );
@@ -334,7 +350,11 @@ export class TuningService {
       ),
       summary: answerChips(session.turns, config),
     };
-    await this.db.update(interviewSessions).set({ profile }).where(eq(interviewSessions.id, session.id));
+    // Privacidad: con el perfil ya calculado, el texto inicial deja de hacer falta y se borra.
+    await this.db
+      .update(interviewSessions)
+      .set({ profile, initialText: null })
+      .where(eq(interviewSessions.id, session.id));
     return profile;
   }
 

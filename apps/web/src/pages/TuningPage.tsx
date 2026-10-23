@@ -3,17 +3,19 @@ import { Button, Heading, Text } from '@/components/atoms'
 import { EmptyState } from '@/components/molecules'
 import { MoodProfile, PipelineSteps, type PipelineProgress } from '@/components/organisms'
 import { FocusTemplate } from '@/components/templates/FocusTemplate'
-import { api, type Attribute, type MoodProfile as Profile } from '@/lib/api'
+import { api, type Attribute, type MoodProfile as Profile, type TuningEvent } from '@/lib/api'
+import { applyPreferences, storedPreferences } from '@/lib/preferences'
 
 interface TuningPageProps {
   sessionId: string
+  domainId: string
   refine: string[]
   attributes: Attribute[]
   onDone: () => void
 }
 
 /** Afinando: estado de carga de /resultado con el progreso real del servidor (SSE). */
-export function TuningPage({ sessionId, refine, attributes, onDone }: TuningPageProps) {
+export function TuningPage({ sessionId, domainId, refine, attributes, onDone }: TuningPageProps) {
   const [profile, setProfile] = useState<Profile>()
   const [progress, setProgress] = useState<PipelineProgress>({ profile: false, explaining: false, done: false })
   const [error, setError] = useState<string>()
@@ -23,7 +25,7 @@ export function TuningPage({ sessionId, refine, attributes, onDone }: TuningPage
   useEffect(() => {
     setError(undefined)
     setProgress({ profile: false, explaining: false, done: false })
-    return api.tune(sessionId, refineKey ? refineKey.split(',') : [], (e) => {
+    const onEvent = (e: TuningEvent) => {
       switch (e.step) {
         case 'profile':
           setProfile(e.profile)
@@ -45,7 +47,20 @@ export function TuningPage({ sessionId, refine, attributes, onDone }: TuningPage
         case 'error':
           setError(e.message)
       }
-    })
+    }
+
+    let cancelled = false
+    let stop: (() => void) | undefined
+    // Primero las preferencias previas (idioma…), que filtran la búsqueda. Si fallan, se afina sin ellas.
+    applyPreferences(sessionId, storedPreferences(domainId))
+      .catch(() => undefined)
+      .then(() => {
+        if (!cancelled) stop = api.tune(sessionId, refineKey ? refineKey.split(',') : [], onEvent)
+      })
+    return () => {
+      cancelled = true
+      stop?.()
+    }
     // onDone cambia en cada render del padre; solo relanzamos al cambiar la sesión, los ajustes o al reintentar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, refineKey, attempt])

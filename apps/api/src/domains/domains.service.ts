@@ -24,6 +24,7 @@ export class DomainsService {
       itemCount: countBy.get(domain.id) ?? 0,
       attributes: domain.config.attributes,
       refinements: domain.config.refinements.map(({ key, label }) => ({ key, label })),
+      preferences: (domain.config.preferences ?? []).map(({ key, label, options, anyValue }) => ({ key, label, options, anyValue })),
       interview: domain.config.interview,
     }));
   }

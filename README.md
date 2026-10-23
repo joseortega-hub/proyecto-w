@@ -45,10 +45,13 @@ docker compose up -d        # PostgreSQL 17 + pgvector en el puerto 5434
 pnpm db:migrate
 pnpm seed                   # ~800 canciones de Jamendo
 pnpm embed                  # embeddings del catálogo (reanudable; --all recalcula todos)
+pnpm classify               # idioma de las pistas que Jamendo no trae (reanudable)
 pnpm dev                    # API en :3001 y web en http://localhost:5173
 ```
 
 `GET /api/items/:id/similar?limit=10` devuelve los elementos más parecidos por embedding (para la futura Ficha).
+
+**Preferencias previas.** Cada dominio puede declarar filtros duros que se eligen antes de la entrevista (en música, el idioma de la letra: español, inglés o me da igual). Se guardan en `items.facets`, filtran la búsqueda (SQL y pgvector) y, si dejan pocos elementos, el resultado lo avisa. Las instrumentales pasan siempre el filtro de idioma. El texto inicial de la persona solo se guarda mientras dura la entrevista.
 
 Otros comandos: `pnpm storybook` (en :6006), `pnpm test` (pruebas del motor), `pnpm typecheck` y `pnpm tokens`.
 

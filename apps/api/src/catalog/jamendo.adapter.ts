@@ -10,8 +10,11 @@ interface JamendoTrack {
   audio: string;
   shareurl: string;
   audiodownload_allowed: boolean;
+  lyrics?: string;
   musicinfo?: {
     vocalinstrumental?: 'vocal' | 'instrumental';
+    /** Idioma de la letra (ISO 639-1); vacío si Jamendo no lo sabe. */
+    lang?: string;
     speed?: 'verylow' | 'low' | 'medium' | 'high' | 'veryhigh';
     tags?: { genres?: string[]; instruments?: string[]; vartags?: string[] };
   };
@@ -104,6 +107,17 @@ export function deriveAttributes(info: JamendoTrack['musicinfo']): Record<string
   };
 }
 
+/**
+ * Faceta `language` del dominio música: es, en, other o instrumental. Devuelve null
+ * si la pista tiene voz pero Jamendo no da el idioma (se clasifica en el seed).
+ */
+export function languageFacet(info: JamendoTrack['musicinfo']): string | null {
+  if (info?.vocalinstrumental === 'instrumental') return 'instrumental';
+  const lang = info?.lang?.trim().toLowerCase();
+  if (!lang) return null;
+  return lang === 'es' || lang === 'en' ? lang : 'other';
+}
+
 export class JamendoAdapter implements CatalogAdapter {
   readonly domainId = 'music';
   readonly source = 'jamendo';
@@ -139,7 +153,7 @@ export class JamendoAdapter implements CatalogAdapter {
       format: 'json',
       limit: String(limit),
       [param]: tag,
-      include: 'musicinfo',
+      include: 'musicinfo lyrics',
       audioformat: 'mp32',
       imagesize: '300',
       order: 'popularity_total',
@@ -156,6 +170,7 @@ export class JamendoAdapter implements CatalogAdapter {
   private toItem(t: JamendoTrack, popularity: number): ImportedItem {
     const genres = t.musicinfo?.tags?.genres ?? [];
     const moods = t.musicinfo?.tags?.vartags ?? [];
+    const language = languageFacet(t.musicinfo);
     return {
       source: this.source,
       externalId: t.id,
@@ -169,6 +184,8 @@ export class JamendoAdapter implements CatalogAdapter {
       attributes: deriveAttributes(t.musicinfo),
       tags: [...new Set([...genres, ...moods])],
       popularity: Math.round(popularity * 100) / 100,
+      facets: language ? { language } : {},
+      classifyHints: t.lyrics ? `Letra: ${t.lyrics.replace(/\s+/g, ' ').slice(0, 300)}` : undefined,
     };
   }
 }

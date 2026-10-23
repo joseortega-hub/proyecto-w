@@ -1,6 +1,6 @@
 // Lógica pura de la entrevista y del ranking: sin IA ni base de datos, fácil de probar.
 import type { DomainConfig, Probe } from '../domains/domain.types.js';
-import type { InterviewTurn, MoodProfile } from './interview.types.js';
+import type { InterviewTurn, MoodProfile, SessionPreferences } from './interview.types.js';
 
 export const answered = (turns: InterviewTurn[]) => turns.filter((t) => t.answer !== null);
 export const pending = (turns: InterviewTurn[]) => turns.find((t) => t.answer === null) ?? null;
@@ -285,4 +285,50 @@ export function fallbackReason(item: Rankable, profile: MoodProfile, config: Dom
   }
   const list = hints.length === 1 ? hints[0] : `${hints.slice(0, -1).join(', ')} y ${hints.at(-1)}`;
   return `Está aquí porque es ${list}, justo lo que pediste.`;
+}
+
+// --- Preferencias previas (filtros duros) ---
+
+/** Filtro sobre `items.facets`: el elemento pasa si su valor está en `values`. */
+export interface FacetFilter {
+  key: string;
+  values: string[];
+}
+
+/** Filtros a aplicar en la búsqueda. "Me da igual" no filtra; los valores `alwaysPass` pasan siempre. */
+export function preferenceFilters(preferences: SessionPreferences, config: DomainConfig): FacetFilter[] {
+  return (config.preferences ?? []).flatMap((pref) => {
+    const chosen = preferences[pref.key]?.value;
+    if (!chosen || chosen === pref.anyValue || !pref.options.some((o) => o.value === chosen)) return [];
+    return [{ key: pref.key, values: [chosen, ...pref.alwaysPass] }];
+  });
+}
+
+/**
+ * Aviso cuando un filtro deja pocos elementos del valor elegido y la lista se completa
+ * con los que pasan siempre (p. ej. pocas en español → instrumentales). Nunca en silencio.
+ */
+export function preferenceNotice(
+  list: { facets: Record<string, string> }[],
+  preferences: SessionPreferences,
+  config: DomainConfig,
+  itemNounPlural: string,
+  size: number,
+): string | null {
+  for (const pref of config.preferences ?? []) {
+    const chosen = preferences[pref.key]?.value;
+    const option = pref.options.find((o) => o.value === chosen);
+    if (!option || chosen === pref.anyValue) continue;
+    const exact = list.filter((it) => it.facets[pref.key] === chosen).length;
+    const phrase = option.phrase ?? option.label.toLowerCase();
+    const Phrase = phrase.charAt(0).toUpperCase() + phrase.slice(1);
+    if (list.length < size) {
+      return `${Phrase} o ${pref.fillerLabel} solo he encontrado ${list.length} ${itemNounPlural} que encajen.`;
+    }
+    if (exact === 0) return `${Phrase} no tengo ${itemNounPlural} que encajen, así que te pongo ${pref.fillerLabel}.`;
+    if (exact < Math.ceil(size / 2)) {
+      return `${Phrase} solo tengo ${exact} ${itemNounPlural} que encajen, así que te completo la lista con ${pref.fillerLabel}.`;
+    }
+  }
+  return null;
 }

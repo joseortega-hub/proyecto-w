@@ -1,4 +1,6 @@
 // Cliente REST de la API de Sintonía. Vite redirige /api a la API en local.
+import type { Preference, SessionPreferences } from './preferences'
+
 export type Answer = 'yes' | 'no' | 'unknown'
 
 export interface SessionView {
@@ -30,6 +32,8 @@ export interface Item {
   attributes: Record<string, number>
   tags: string[]
   popularity: number
+  /** Valores categóricos para las preferencias previas (p. ej. `language: es`). */
+  facets?: Record<string, string>
 }
 
 export interface Attribute {
@@ -59,6 +63,8 @@ export interface DomainInfo {
   attributes: Attribute[]
   refinements: { key: string; label: string }[]
   interview: { minQuestions: number; maxQuestions: number; confidenceToFinish: number }
+  /** Preferencias previas (filtros duros) que se eligen antes de la entrevista. */
+  preferences: Preference[]
 }
 
 export interface ResultEntry {
@@ -81,6 +87,9 @@ export interface SessionResult {
   appliedRefinements: string[]
   candidates: number
   catalogSize: number
+  preferences: SessionPreferences
+  /** Aviso cuando un filtro deja pocos elementos (p. ej. pocas en español). */
+  notice: string | null
   entries: ResultEntry[]
 }
 

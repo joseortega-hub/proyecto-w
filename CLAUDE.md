@@ -42,6 +42,13 @@ Debe ser **multidominio**: cada dominio (música, películas…) = adaptador de 
 - **Punto de partida por texto o voz** (opcional, justo después del MVP): antes de la entrevista, el usuario puede escribir o decir cómo está o qué le apetece. Jev `score` (o Gemini) lo convierte en un perfil inicial con confianza por dimensión, y la entrevista solo pregunta por las dimensiones con poca confianza. Botón para saltarlo e ir directo a las preguntas.
   - Voz: Web Speech API del navegador (Chrome, Edge y Chrome Android; parcial en Safari iOS; Firefox no). Si no está disponible, ocultar el botón 🎤. Más adelante, plan B: enviar el audio a Gemini.
   - Privacidad: no guardar el texto ni el audio, solo el perfil resultante. El texto del usuario es dato, nunca instrucciones para el modelo (protección contra prompt injection).
+- **Perfil de gustos por usuario** (sesión nueva cuando termine la Fase 2; incluye la antigua idea "Aprende de ti"): separar los **gustos** (largo plazo, por dominio) del **estado de ánimo** (cada entrevista).
+  - Onboarding la primera vez en cada dominio: chips de géneros/etiquetas sacados del catálogo + texto libre ("me encantan Pokémon, Marvel y los juegos de mundo abierto") que Gemini normaliza a etiquetas del catálogo. También lo que no le gusta. Pantalla "Mis gustos" para editarlo o borrarlo.
+  - Guardar por dominio: etiquetas favoritas, etiquetas descartadas e idioma preferido (así el filtro de idioma ya viene marcado).
+  - Uso: el perfil va como dato en el `state` (la entrevista pregunta solo por el estado, no por los gustos) y en la búsqueda **sube la puntuación** de lo que encaja con los gustos sin excluir el resto (margen para descubrir).
+  - Aprendizaje: 👍/👎 por elemento que ajusta el perfil.
+  - Para el lunes, sin registro: perfil anónimo ligado a un id guardado en el navegador. Más adelante, inicio de sesión real.
+  - Ojo: Jamendo casi no tiene género urbano (reguetón, trap, dembow…). En la demo, lucirlo con videojuegos (RAWG) o, cuando exista, con la biblioteca propia de YouTube Music.
 - **Sintonía dentro de Claude (MCP)**: servidor MCP que expone el catálogo y la generación de listas, preparado como demo en directo desde Claude Desktop ("hazme una lista para el gimnasio").
 
 ### Cuando haya crédito en Jev
@@ -50,7 +57,6 @@ Debe ser **multidominio**: cada dominio (música, películas…) = adaptador de 
 ### Ideas futuras
 - **Portada generada con IA** para cada lista (comprobar primero si hay plan gratuito de generación de imágenes).
 - **Modo fiesta**: varias personas responden desde su móvil y se genera una lista de consenso.
-- **Aprende de ti**: 👍/👎 por elemento y memoria de preferencias para las siguientes entrevistas.
 - **DJ con voz**: locución generada por IA entre canciones.
 - **Evals automáticos**: comprobar la calidad de las preguntas y las listas con un LLM como juez.
 - **CI con revisión por IA**: GitHub Actions con tests y revisión de pull requests con Claude.
@@ -93,7 +99,6 @@ Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualiza
   - Banco de preguntas pregenerado (tabla `question_bank`, `pnpm questions`; la API completa lo que falte al arrancar): 3 variantes por sonda y dominio. El DecisionProvider solo elige la sonda y se toma la variante que menos palabras repite: una sola llamada por pregunta. Sin banco, se redacta en vivo como respaldo.
   - Precarga de la siguiente pregunta para "sí" y "no" mientras se lee la actual (`INTERVIEW_PREFETCH=false` la desactiva) y primera pregunta cacheada por dominio.
   - Medido (6 s de lectura por pregunta, Gemini gratis saturado): primera pregunta 0,1-1,6 s; con la precarga a tiempo, 27-42 ms; si no llega a tiempo, la espera es la de la decisión (1-5 s con Gemini sano, hasta 20 s saturado; con Jev debería bajar de 1 s). Antes del banco, la redacción en vivo añadía 1-20 s por pregunta.
-  - Pendiente: subir la migración `0004_question_bank`, que va detrás de la `0003_preferences_facets` de la Fase 2 (aún sin commitear). Mientras no esté, en una BD limpia las preguntas se redactan en vivo.
 - **Fase 2 (embeddings + pgvector + explicaciones) terminada el 23/10/2026.**
   - `pnpm embed` calcula los embeddings del catálogo con `gemini-embedding-001` (768 dimensiones) y los guarda en `items.embedding`. Se puede reanudar (solo procesa los que faltan; `--all` los recalcula) y va en lotes de 50 con pausas.
     - El plan gratuito cuenta cada texto del lote como una petición (≈ 100 por minuto), así que el script limita a 80 textos por minuto y reintenta si recibe un 429. Las 803 canciones tardan unos 10 minutos.
@@ -109,4 +114,13 @@ Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualiza
   - Verificado en local: Afinando sobre una entrevista real da una lista coherente con el perfil y con todas las explicaciones, y la pantalla de resultado la muestra bien.
   - Ojo: el plan gratuito de `gemini-3.1-flash-lite` admite 15 peticiones por minuto, y cada Afinando hace 3 (2 de `noul` y 1 de explicaciones) más la entrevista.
   - Pendiente: los ajustes rápidos mueven poco la consulta semántica, porque el resumen de respuestas no cambia con ellos.
+  - **Filtro de idioma** (preferencias previas, genéricas por dominio):
+    - `DomainConfig.preferences` define filtros duros que se eligen antes de la entrevista. En música: idioma de la letra (`es`, `en`, `any`). Los valores de cada elemento van en `items.facets` (JSONB, migración `0003_preferences_facets`), no en `attributes`, que son escalas 0-1.
+    - Datos: Jamendo da el idioma en `musicinfo.lang` (vacío si no lo sabe) y la letra con `include=lyrics`. El adaptador guarda `language: es | en | other | instrumental`. Las pistas con voz sin idioma se clasifican una sola vez con `choice` por lotes de 8 (durante `pnpm seed`, usando un trozo de la letra, o con `pnpm classify`, que se puede reanudar). La letra no se guarda.
+    - Catálogo (23/10/2026): 81 en español, 328 en inglés, 297 instrumentales, 77 en otros idiomas y 20 aún sin clasificar porque se agotó la cuota (`pnpm classify` las completa).
+    - El filtro va en la búsqueda (SQL del catálogo y de pgvector), no después. Las instrumentales pasan siempre. Si quedan pocas en el idioma elegido, el resultado lo dice (`notice`, p. ej. "En español solo tengo 3 canciones que encajen, así que te completo la lista con instrumentales").
+    - Web: botones "Español · Inglés · Me da igual" en Inicio, guardados en el dispositivo por dominio (`lib/preferences.ts`). Afinando los aplica a la sesión (`PUT /api/sessions/:id/preferences`) antes de buscar.
+    - Preselección: si hay texto inicial, `PreferencesService` deduce con `choice` las preferencias no elegidas, con su confianza. `POST /api/domains/:id/preferences/guess` lo hace sin guardar nada, para cuando exista el campo de texto en la web.
+  - **Privacidad del texto inicial**: se borra (`initial_text = null`) al calcular el perfil y al guardar la lista. `SessionCleanupService` lo borra cada hora en las sesiones con perfil y en las abandonadas (24 h sin cambios).
+  - Verificado en local: con "Español" la bolsa baja de 803 a ~380 candidatas y sale el aviso en la pantalla de resultado. La limpieza dejó a cero las sesiones con texto inicial.
 - Siguiente: Fase 3 (más dominios) o las "Ideas extra" de prioridad para el finde.

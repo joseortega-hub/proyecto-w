@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["dev"],
       "port": 5173
+    },
+    {
+      "name": "sintonia-api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@sintonia/api", "dev"],
+      "port": 3001
     }
   ]
 }

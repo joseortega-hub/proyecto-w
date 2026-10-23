@@ -14,6 +14,8 @@
     "db:migrate": "pnpm --filter @sintonia/api db:migrate",
     "seed": "pnpm --filter @sintonia/api seed",
     "embed": "pnpm --filter @sintonia/api embed",
+    "classify": "pnpm --filter @sintonia/api classify",
+    "questions": "pnpm --filter @sintonia/api questions",
     "storybook": "pnpm --filter @sintonia/web storybook",
     "tokens": "pnpm --filter @sintonia/tokens build",
     "typecheck": "pnpm -r typecheck",

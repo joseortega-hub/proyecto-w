@@ -1,8 +1,10 @@
 import { Link, useNavigate } from 'react-router'
 import { Button, Cover, Heading, IconButton, Text } from '@/components/atoms'
+import { PreferencePicker } from '@/components/molecules'
 import { Card } from '@/components/ui/card'
 import { useDomain } from '@/lib/domain'
 import { timeAgo } from '@/lib/format'
+import { usePreferences } from '@/lib/preferences'
 import { useSavedLists } from '@/lib/saved-lists'
 
 export function HomePage() {
@@ -10,6 +12,8 @@ export function HomePage() {
   const domain = useDomain()
   const { lists } = useSavedLists(domain.id)
   const last = lists[0]
+  const preferences = domain.info?.preferences ?? []
+  const { chosen, choose } = usePreferences(domain.id)
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-1 flex-col px-6 md:px-10">
@@ -18,6 +22,9 @@ export function HomePage() {
         <Text tone="muted" size="lead">
           Unas pocas preguntas de sí o no. Sin formularios ni registro.
         </Text>
+        {preferences.map((p) => (
+          <PreferencePicker key={p.key} preference={p} value={chosen[p.key]} onChange={(v) => choose(p.key, v)} />
+        ))}
         <Button block className="mt-2" onClick={() => navigate(domain.path('entrevista'))}>
           Empezar
         </Button>

@@ -29,8 +29,13 @@ export interface ResultEntry {
   reason: string;
 }
 
+/** Preferencia previa por clave: valor elegido, quién lo eligió y con qué confianza. */
+export type SessionPreferences = Record<string, { value: string; source: 'user' | 'guess'; confidence: number | null }>;
+
 export interface SessionResult {
   title: string;
+  /** Aviso para la persona cuando un filtro deja pocos elementos (p. ej. pocas en español). */
+  notice?: string | null;
   entries: ResultEntry[];
   candidates: number;
   catalogSize: number;

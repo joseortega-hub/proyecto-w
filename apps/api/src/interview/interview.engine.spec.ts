@@ -9,6 +9,8 @@ import {
   matchPercent,
   mustFinish,
   percentiles,
+  preferenceFilters,
+  preferenceNotice,
   profileQueryText,
   profileConfidence,
   rankCandidates,
@@ -203,5 +205,38 @@ describe('búsqueda semántica', () => {
     );
     expect(fallbackReason(calm, profile, config)).toMatch(/tranquila/);
     expect(fallbackReason(loud, profile, config).length).toBeGreaterThan(10);
+  });
+});
+
+describe('preferencias previas', () => {
+  const es = { language: { value: 'es', source: 'user' as const, confidence: null } };
+  const lang = (language: string) => ({ facets: { language } });
+
+  it('filtra por el valor elegido y deja pasar siempre las instrumentales', () => {
+    expect(preferenceFilters(es, config)).toEqual([{ key: 'language', values: ['es', 'instrumental'] }]);
+  });
+
+  it('"me da igual", un valor desconocido o nada elegido no filtran', () => {
+    const any = { language: { value: 'any', source: 'user' as const, confidence: null } };
+    const weird = { language: { value: 'xx', source: 'guess' as const, confidence: 0.4 } };
+    expect(preferenceFilters(any, config)).toEqual([]);
+    expect(preferenceFilters(weird, config)).toEqual([]);
+    expect(preferenceFilters({}, config)).toEqual([]);
+  });
+
+  it('avisa cuando hay pocas en el idioma elegido y se completa con instrumentales', () => {
+    const few = [...Array(3)].map(() => lang('es')).concat([...Array(9)].map(() => lang('instrumental')));
+    expect(preferenceNotice(few, es, config, 'canciones', 12)).toBe(
+      'En español solo tengo 3 canciones que encajen, así que te completo la lista con instrumentales.',
+    );
+    const none = [...Array(12)].map(() => lang('instrumental'));
+    expect(preferenceNotice(none, es, config, 'canciones', 12)).toMatch(/^En español no tengo canciones/);
+    expect(preferenceNotice(few.slice(0, 5), es, config, 'canciones', 12)).toMatch(/solo he encontrado 5/);
+  });
+
+  it('no avisa si hay suficientes o si no se filtró', () => {
+    const enough = [...Array(8)].map(() => lang('es')).concat([...Array(4)].map(() => lang('instrumental')));
+    expect(preferenceNotice(enough, es, config, 'canciones', 12)).toBeNull();
+    expect(preferenceNotice([], {}, config, 'canciones', 12)).toBeNull();
   });
 });

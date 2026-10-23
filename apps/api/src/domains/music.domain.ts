@@ -46,6 +46,21 @@ export const musicDomain: DomainDefinition = {
       { key: 'with-voice', label: 'con voz', attribute: 'vocal', delta: 0.35 },
       { key: 'instrumental', label: 'instrumental', attribute: 'vocal', delta: -0.35 },
     ],
+    preferences: [
+      {
+        key: 'language',
+        label: 'Idioma de la letra',
+        options: [
+          { value: 'es', label: 'Español', phrase: 'en español' },
+          { value: 'en', label: 'Inglés', phrase: 'en inglés' },
+          { value: 'any', label: 'Me da igual' },
+        ],
+        anyValue: 'any',
+        alwaysPass: ['instrumental'],
+        fillerLabel: 'instrumentales',
+        guessInstructions: '¿En qué idioma quiere que estén cantadas las canciones? Si no lo dice ni se deduce, elige "any".',
+      },
+    ],
     interview: { minQuestions: 4, maxQuestions: 10, confidenceToFinish: 0.8 },
     result: { candidates: 40, judged: 16, size: 12 },
   },

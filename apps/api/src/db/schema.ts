@@ -14,7 +14,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import type { DomainConfig } from '../domains/domain.types.js';
 import type { InterviewContext } from '../interview/interview.context.js';
-import type { InterviewTurn, MoodProfile, SessionResult } from '../interview/interview.types.js';
+import type { InterviewTurn, MoodProfile, SessionPreferences, SessionResult } from '../interview/interview.types.js';
 
 /** Un dominio del catálogo (música, películas…) con su configuración de entrevista. */
 export const domains = pgTable('domains', {
@@ -64,6 +64,8 @@ export const items = pgTable(
     /** Valores de escala (0–1) por clave de atributo. */
     attributes: jsonb('attributes').$type<Record<string, number>>().notNull().default({}),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+    /** Valores categóricos para las preferencias previas del dominio (p. ej. `language: es`). */
+    facets: jsonb('facets').$type<Record<string, string>>().notNull().default({}),
     popularity: real('popularity').notNull().default(0),
     /** Embedding del texto del elemento (`pnpm embed`); null hasta calcularlo. */
     embedding: vector('embedding', { dimensions: 768 }),
@@ -87,6 +89,8 @@ export const interviewSessions = pgTable('interview_sessions', {
   turns: jsonb('turns').$type<InterviewTurn[]>().notNull().default([]),
   /** Texto opcional con el que la persona describe cómo está antes de las preguntas. */
   initialText: text('initial_text'),
+  /** Preferencias previas elegidas (filtros duros), p. ej. `{ language: 'es' }`. */
+  preferences: jsonb('preferences').$type<SessionPreferences>().notNull().default({}),
   context: jsonb('context').$type<InterviewContext>().notNull().default({}),
   profile: jsonb('profile').$type<MoodProfile>(),
   result: jsonb('result').$type<SessionResult>(),

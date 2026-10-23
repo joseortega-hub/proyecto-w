@@ -3,6 +3,7 @@ import { and, asc, cosineDistance, eq, getTableColumns, inArray, isNotNull, ne, 
 import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
 import { items, type ItemRow } from '../db/schema.js';
+import type { FacetFilter } from '../interview/interview.engine.js';
 
 /** Columnas de un elemento sin el embedding (768 números que no hacen falta fuera de pgvector). */
 const { embedding: _embedding, ...itemColumns } = getTableColumns(items);
@@ -14,21 +15,30 @@ export function publicItem(item: ItemWithoutEmbedding & { embedding?: unknown })
   return rest;
 }
 
+/** Condición SQL para las preferencias previas: cada faceta debe tener uno de sus valores. */
+export const facetCondition = (filters: FacetFilter[] = []) =>
+  filters.length
+    ? and(...filters.map((f) => inArray(sql<string>`${items.facets} ->> ${f.key}`, f.values)))
+    : undefined;
+
 /** Búsquedas por similitud coseno con pgvector, siempre dentro de un dominio. */
 @Injectable()
 export class ItemsService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
   /** Catálogo de un dominio sin embeddings, para el ranking por atributos. */
-  catalog(domainId: string): Promise<ItemWithoutEmbedding[]> {
-    return this.db.select(itemColumns).from(items).where(eq(items.domainId, domainId));
+  catalog(domainId: string, filters?: FacetFilter[]): Promise<ItemWithoutEmbedding[]> {
+    return this.db
+      .select(itemColumns)
+      .from(items)
+      .where(and(eq(items.domainId, domainId), facetCondition(filters)));
   }
 
   /**
    * Los `limit` elementos más cercanos al vector, con su similitud coseno (0–1).
    * Usa el índice HNSW; `iterative_scan` evita quedarse corto al filtrar por dominio.
    */
-  nearest(domainId: string, vector: number[], limit: number, excludeId?: string) {
+  nearest(domainId: string, vector: number[], limit: number, options: { excludeId?: string; filters?: FacetFilter[] } = {}) {
     const distance = cosineDistance(items.embedding, vector);
     return this.db.transaction(async (tx) => {
       await tx.execute(sql`SET LOCAL hnsw.iterative_scan = relaxed_order`);
@@ -40,7 +50,8 @@ export class ItemsService {
           and(
             eq(items.domainId, domainId),
             isNotNull(items.embedding),
-            excludeId ? ne(items.id, excludeId) : undefined,
+            options.excludeId ? ne(items.id, options.excludeId) : undefined,
+            facetCondition(options.filters),
           ),
         )
         .orderBy(asc(distance))
@@ -73,7 +84,7 @@ export class ItemsService {
       .where(eq(items.id, id));
     if (!item) throw new NotFoundException('Elemento no encontrado');
     if (!item.embedding) return { itemId: id, items: [] };
-    const rows = await this.nearest(item.domainId, item.embedding, limit, id);
+    const rows = await this.nearest(item.domainId, item.embedding, limit, { excludeId: id });
     return {
       itemId: id,
       items: rows.map(({ semantic, ...row }) => ({

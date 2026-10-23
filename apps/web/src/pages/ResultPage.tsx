@@ -38,6 +38,7 @@ export function ResultPage() {
     return (
       <TuningPage
         sessionId={id}
+        domainId={domain.id}
         refine={refine}
         attributes={attributes}
         onDone={async () => {
@@ -86,6 +87,11 @@ export function ResultPage() {
           <Text tone="muted" size="sm">
             {data.entries.length} {domain.nounPlural} · {totalMinutes(data.entries.map((e) => e.item.durationSec))} min · a partir de {data.answeredCount} respuestas
           </Text>
+          {data.notice && (
+            <Text size="sm" role="status">
+              {data.notice}
+            </Text>
+          )}
         </div>
         <div className="flex gap-2.5">
           <Button className="flex-1" onClick={() => play(playingThisList ? player.index : 0)}>
