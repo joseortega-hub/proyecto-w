@@ -12,6 +12,7 @@ interface PlayerState {
   index: number
   listTitle: string
   listId: string | null
+  domainId: string | null
   playing: boolean
   position: number
   duration: number
@@ -19,7 +20,7 @@ interface PlayerState {
 
 interface PlayerApi extends PlayerState {
   current: QueueEntry | null
-  playList: (entries: QueueEntry[], opts: { title: string; id: string; start?: number }) => void
+  playList: (entries: QueueEntry[], opts: { title: string; id: string; domainId: string; start?: number }) => void
   toggle: () => void
   next: () => void
   previous: () => void
@@ -36,6 +37,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     index: 0,
     listTitle: '',
     listId: null,
+    domainId: null,
     playing: false,
     position: 0,
     duration: 0,
@@ -85,8 +87,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [goTo])
 
   const playList = useCallback<PlayerApi['playList']>(
-    (entries, { title, id, start = 0 }) => {
-      setState((s) => ({ ...s, queue: entries, index: start, listTitle: title, listId: id, position: 0, duration: 0 }))
+    (entries, { title, id, domainId, start = 0 }) => {
+      setState((s) => ({ ...s, queue: entries, index: start, listTitle: title, listId: id, domainId, position: 0, duration: 0 }))
       load(entries[start])
     },
     [load],

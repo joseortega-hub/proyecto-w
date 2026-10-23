@@ -1,9 +1,11 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import type { SessionResult } from './api'
 
 /** Sin registro en el MVP: las listas guardadas viven en este dispositivo. */
 export interface SavedList {
   id: string
+  /** Cada dominio tiene sus propias listas. */
+  domainId: string
   title: string
   count: number
   cover: string | null
@@ -40,11 +42,14 @@ const subscribe = (cb: () => void) => {
 }
 const empty: SavedList[] = []
 
-export function useSavedLists() {
-  const lists = useSyncExternalStore(subscribe, read, () => empty)
+/** Listas de un dominio. Las guardadas antes de existir varios dominios cuentan como música. */
+export function useSavedLists(domainId: string) {
+  const all = useSyncExternalStore(subscribe, read, () => empty)
+  const lists = useMemo(() => all.filter((l) => (l.domainId ?? 'music') === domainId), [all, domainId])
   const save = useCallback((result: SessionResult) => {
     const entry: SavedList = {
       id: result.id,
+      domainId: result.domainId,
       title: result.title,
       count: result.entries.length,
       cover: result.entries[0]?.item.imageUrl ?? null,

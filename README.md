@@ -23,6 +23,7 @@ docs/      Diseño aprobado de la Fase 0 (docs/diseno.md) y fuente del lienzo
   - Con `DECISION_PROVIDER=gemini`, las decisiones usan `experimental_decide` del AI SDK con `google.decisionModel()`.
   - Con `DECISION_PROVIDER=jev`, se usa Jev (`@typesafe-ai/sdk`), y Gemini queda de respaldo si Jev falla.
 - **Multidominio** (`apps/api/src/domains`): un dominio es un adaptador de importación (`CatalogAdapter`) más una configuración con atributos, grupos de estilos, sondas y ajustes. El motor (`interview.engine.ts`) no sabe qué es una canción.
+- **Rutas por dominio** (`apps/web/src/lib/domain.ts`): biblioteca, listas, entrevistas y resultados cuelgan de `/:domain/` (por ahora solo `/music`), y las listas guardadas en el dispositivo van separadas por dominio.
 - **Diseño atómico** (`apps/web/src/components`):
   - `ui/` es el código generado por shadcn.
   - `atoms/` y `molecules/` lo envuelven con las variantes de Sintonía y tienen historias de Storybook.

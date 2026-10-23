@@ -50,6 +50,17 @@ export interface MoodProfile {
   summary: string[]
 }
 
+export interface DomainInfo {
+  id: string
+  name: string
+  itemNoun: string
+  itemNounPlural: string
+  itemCount: number
+  attributes: Attribute[]
+  refinements: { key: string; label: string }[]
+  interview: { minQuestions: number; maxQuestions: number; confidenceToFinish: number }
+}
+
 export interface ResultEntry {
   match: number
   /** Probabilidad de encaje (0–1) que dio el DecisionProvider. */
@@ -102,8 +113,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  getDomains: () => request<DomainInfo[]>('/domains'),
   /** `initialText` es el punto de partida opcional (texto o voz) antes de las preguntas. */
-  startSession: (domainId = 'music', initialText?: string) =>
+  startSession: (domainId: string, initialText?: string) =>
     request<SessionView>('/sessions', { method: 'POST', body: JSON.stringify({ domainId, initialText }) }),
   getSession: (id: string) => request<SessionView>(`/sessions/${id}`),
   answer: (id: string, answer: Answer) =>

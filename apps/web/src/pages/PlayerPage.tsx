@@ -8,12 +8,12 @@ import { usePlayer } from '@/player/player-context'
 export function PlayerPage() {
   const navigate = useNavigate()
   const player = usePlayer()
-  const close = () => (window.history.length > 1 ? navigate(-1) : navigate(player.listId ? `/resultado/${player.listId}` : '/'))
+  const close = () => (window.history.length > 1 ? navigate(-1) : navigate(player.listId && player.domainId ? `/${player.domainId}/resultado/${player.listId}` : '/'))
 
   if (!player.current) {
     return (
       <FocusTemplate className="justify-center">
-        <EmptyState icon="play" title="No suena nada todavía" description="Haz una entrevista y te preparo una lista." action={<Button onClick={() => navigate('/entrevista')}>Empezar</Button>} />
+        <EmptyState icon="play" title="No suena nada todavía" description="Haz una entrevista y te preparo una lista." action={<Button onClick={() => navigate('/')}>Empezar</Button>} />
       </FocusTemplate>
     )
   }

@@ -83,6 +83,7 @@ Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualiza
   - Para no sumar dos esperas por pregunta, la decisión y la redacción de las preguntas candidatas van en paralelo.
   - Verificado en local: entrevista completa con Gemini, Afinando por SSE, lista con explicaciones y reproducción de audio en móvil y escritorio. Tests del motor: `pnpm test`.
   - Preparado para las "Ideas extra": cada elemento guarda `fit` (probabilidad de encaje del DecisionProvider), `POST /api/sessions` acepta `initialText` opcional, la sesión tiene `context` (vacío hasta conectar Open-Meteo, ver `interview.context.ts`) y el perfil incluye `confidence` por dimensión. El texto y el contexto viajan siempre en el `state`, nunca en las instrucciones.
+  - Separación por dominio lista para la Fase 3: los elementos y las sesiones (con su perfil) llevan `domain_id`; los atributos de cada elemento van en JSONB (`items.attributes`) y su definición en `domain_attributes` y `domains.config`. En la web, todas las rutas cuelgan de `/:domain/` (`/music`, `/music/entrevista`, `/music/listas`, `/music/biblioteca`, `/music/resultado/:id`); `/` redirige a `/music` hasta que haya selector de dominio. Las listas guardadas llevan `domainId` y los textos ("canciones") salen de la configuración del dominio. El reproductor es global.
   - Limitaciones conocidas:
     - El % de encaje sale poco disperso (≈ 69-75 %).
     - Biblioteca y Ficha son marcadores de posición.

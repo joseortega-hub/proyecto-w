@@ -7,19 +7,21 @@ import { EmptyState, InterviewProgress } from '@/components/molecules'
 import { InterviewPanel } from '@/components/organisms'
 import { FocusTemplate } from '@/components/templates/FocusTemplate'
 import { api, type Answer, type SessionView } from '@/lib/api'
+import { useDomain } from '@/lib/domain'
 
-/** /entrevista crea la sesión y redirige a /entrevista/:sesion. */
+/** /:domain/entrevista crea la sesión y redirige a /:domain/entrevista/:sesion. */
 export function InterviewPage() {
   const { sesion } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const started = useRef(false)
+  const domain = useDomain()
 
   const start = useMutation({
-    mutationFn: () => api.startSession(),
+    mutationFn: () => api.startSession(domain.id),
     onSuccess: (s) => {
       queryClient.setQueryData(['session', s.id], s)
-      navigate(`/entrevista/${s.id}`, { replace: true })
+      navigate(domain.path(`entrevista/${s.id}`), { replace: true })
     },
   })
 
@@ -45,10 +47,10 @@ export function InterviewPage() {
   const thinking = start.isPending || answer.isPending || undo.isPending || (!data && !session.isError)
   const failed = start.isError || session.isError
 
-  const exit = () => navigate('/')
+  const exit = () => navigate(domain.path())
   const restart = () => {
     started.current = false
-    navigate('/entrevista', { replace: true })
+    navigate(domain.path('entrevista'), { replace: true })
   }
 
   if (failed) {
@@ -85,7 +87,7 @@ export function InterviewPage() {
         chips={data?.chips ?? []}
         thinking={thinking}
         onAnswer={(a) => answer.mutate(a)}
-        onFinish={() => navigate(`/resultado/${sesion}`)}
+        onFinish={() => navigate(domain.path(`resultado/${sesion}`))}
         onRestart={restart}
       />
     </FocusTemplate>

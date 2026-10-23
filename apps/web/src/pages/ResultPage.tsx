@@ -4,22 +4,22 @@ import { toast } from 'sonner'
 import { Button, Chip, Heading, Icon, IconButton, Skeleton, Text } from '@/components/atoms'
 import { EmptyState, RefineChips } from '@/components/molecules'
 import { MoodProfile, ResultList } from '@/components/organisms'
-import { ApiError, api, type SessionResult } from '@/lib/api'
+import { ApiError, api } from '@/lib/api'
 import { totalMinutes } from '@/lib/format'
+import { useDomain } from '@/lib/domain'
 import { useSavedLists } from '@/lib/saved-lists'
 import { usePlayer } from '@/player/player-context'
 import { TuningPage } from './TuningPage'
 
-const domains = () => fetch('/api/domains').then((r) => r.json() as Promise<{ id: string; attributes: SessionResult['attributes'] }[]>)
-
-/** /resultado/:id. Sin lista todavía (o con ?afinar=…) muestra Afinando. */
+/** /:domain/resultado/:id. Sin lista todavía (o con ?afinar=…) muestra Afinando. */
 export function ResultPage() {
   const { id = '' } = useParams()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const player = usePlayer()
-  const { save, isSaved } = useSavedLists()
+  const domain = useDomain()
+  const { save, isSaved } = useSavedLists(domain.id)
 
   const refineParam = params.get('afinar')
   const tuning = refineParam !== null
@@ -31,11 +31,10 @@ export function ResultPage() {
     enabled: !tuning,
     retry: (count, e) => !(e instanceof ApiError && e.status === 400) && count < 2,
   })
-  const domainList = useQuery({ queryKey: ['domains'], queryFn: domains, staleTime: Infinity })
 
   const notReady = result.error instanceof ApiError && result.error.status === 400
   if (tuning || notReady) {
-    const attributes = result.data?.attributes ?? domainList.data?.[0]?.attributes ?? []
+    const attributes = result.data?.attributes ?? domain.info?.attributes ?? []
     return (
       <TuningPage
         sessionId={id}
@@ -50,7 +49,7 @@ export function ResultPage() {
   }
 
   if (result.isError) {
-    return <EmptyState icon="retry" title="No encuentro esta lista" description={result.error.message} action={<Button onClick={() => navigate('/')}>Volver al inicio</Button>} />
+    return <EmptyState icon="retry" title="No encuentro esta lista" description={result.error.message} action={<Button onClick={() => navigate(domain.path())}>Volver al inicio</Button>} />
   }
 
   const data = result.data
@@ -68,7 +67,7 @@ export function ResultPage() {
   const playingThisList = player.listId === data.id
   const play = (start = 0) => {
     if (playingThisList && player.index === start) return player.toggle()
-    player.playList(queue, { title: data.title, id: data.id, start })
+    player.playList(queue, { title: data.title, id: data.id, domainId: data.domainId, start })
   }
   const saved = isSaved(data.id)
 
@@ -76,8 +75,8 @@ export function ResultPage() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 py-5 md:flex-row md:px-10 md:py-8">
       <div className="flex min-w-0 flex-1 flex-col gap-3.5">
         <header className="flex items-center justify-between">
-          <IconButton icon="back" label="Volver al inicio" onClick={() => navigate('/')} />
-          <Button variant="ghost" size="md" onClick={() => navigate('/entrevista')}>
+          <IconButton icon="back" label="Volver al inicio" onClick={() => navigate(domain.path())} />
+          <Button variant="ghost" size="md" onClick={() => navigate(domain.path('entrevista'))}>
             Nueva entrevista
           </Button>
         </header>
@@ -85,7 +84,7 @@ export function ResultPage() {
           <Text font="label">Tu lista</Text>
           <Heading>{data.title}</Heading>
           <Text tone="muted" size="sm">
-            {data.entries.length} canciones · {totalMinutes(data.entries.map((e) => e.item.durationSec))} min · a partir de {data.answeredCount} respuestas
+            {data.entries.length} {domain.nounPlural} · {totalMinutes(data.entries.map((e) => e.item.durationSec))} min · a partir de {data.answeredCount} respuestas
           </Text>
         </div>
         <div className="flex gap-2.5">

@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AppShell } from '@/components/templates/AppShell'
+import { DomainGate } from '@/components/templates/DomainGate'
 import { Toaster } from '@/components/ui/sonner'
+import { DEFAULT_DOMAIN } from '@/lib/domain'
 import { HomePage } from '@/pages/HomePage'
 import { InterviewPage } from '@/pages/InterviewPage'
 import { LibraryPage } from '@/pages/LibraryPage'
@@ -20,15 +22,22 @@ export function App() {
       <PlayerProvider>
         <BrowserRouter>
           <Routes>
-            <Route element={<AppShell />}>
-              <Route index element={<HomePage />} />
-              <Route path="resultado/:id" element={<ResultPage />} />
-              <Route path="listas" element={<ListsPage />} />
-              <Route path="biblioteca" element={<LibraryPage />} />
+            {/* Con un solo dominio, "/" entra directamente; con varios, aquí irá el selector de dominio. */}
+            <Route index element={<Navigate to={`/${DEFAULT_DOMAIN}`} replace />} />
+            {/* Cada temática tiene su biblioteca, sus listas y sus entrevistas. */}
+            <Route path=":domain" element={<DomainGate />}>
+              <Route element={<AppShell />}>
+                <Route index element={<HomePage />} />
+                <Route path="resultado/:id" element={<ResultPage />} />
+                <Route path="listas" element={<ListsPage />} />
+                <Route path="biblioteca" element={<LibraryPage />} />
+              </Route>
+              <Route path="entrevista" element={<InterviewPage key="nueva" />} />
+              <Route path="entrevista/:sesion" element={<InterviewPage key="sesion" />} />
             </Route>
-            <Route path="entrevista" element={<InterviewPage key="nueva" />} />
-            <Route path="entrevista/:sesion" element={<InterviewPage key="sesion" />} />
+            {/* El reproductor es global: la música sigue al cambiar de dominio. */}
             <Route path="reproductor" element={<PlayerPage />} />
+            <Route path="*" element={<Navigate to={`/${DEFAULT_DOMAIN}`} replace />} />
           </Routes>
         </BrowserRouter>
         <Toaster position="top-center" />

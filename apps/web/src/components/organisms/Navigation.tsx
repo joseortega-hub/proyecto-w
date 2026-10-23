@@ -1,23 +1,31 @@
 import { NavLink } from 'react-router'
 import { Heading, Icon, IconButton, type IconName } from '@/components/atoms'
+import { useDomain } from '@/lib/domain'
 import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
 const LINKS: { to: string; label: string; icon: IconName }[] = [
-  { to: '/', label: 'Inicio', icon: 'home' },
-  { to: '/biblioteca', label: 'Biblioteca', icon: 'library' },
-  { to: '/listas', label: 'Mis listas', icon: 'lists' },
+  { to: '', label: 'Inicio', icon: 'home' },
+  { to: 'biblioteca', label: 'Biblioteca', icon: 'library' },
+  { to: 'listas', label: 'Mis listas', icon: 'lists' },
 ]
+
+/** Los enlaces se quedan dentro del dominio actual. */
+function useLinks() {
+  const { path } = useDomain()
+  return LINKS.map((l) => ({ ...l, to: path(l.to), end: l.to === '' }))
+}
 
 /** Navegación inferior del móvil (< 768 px). */
 export function BottomNav() {
+  const links = useLinks()
   return (
     <nav aria-label="Principal" className="grid grid-cols-3 border-t border-border bg-card pt-2 pb-[max(env(safe-area-inset-bottom),14px)] md:hidden">
-      {LINKS.map((l) => (
+      {links.map((l) => (
         <NavLink
           key={l.to}
           to={l.to}
-          end={l.to === '/'}
+          end={l.end}
           className={({ isActive }) =>
             cn(
               'flex min-h-11 flex-col items-center gap-[3px] p-1 text-xs',
@@ -36,16 +44,17 @@ export function BottomNav() {
 /** Navegación lateral a partir de 768 px. */
 export function SideNav() {
   const { theme, toggle } = useTheme()
+  const links = useLinks()
   return (
     <nav aria-label="Principal" className="hidden w-60 flex-none flex-col gap-1 border-r border-border bg-card p-4 md:flex">
       <Heading as="span" size="brand" className="px-3 pt-2 pb-6">
         Sintonía
       </Heading>
-      {LINKS.map((l) => (
+      {links.map((l) => (
         <NavLink
           key={l.to}
           to={l.to}
-          end={l.to === '/'}
+          end={l.end}
           className={({ isActive }) =>
             cn(
               'flex min-h-11 items-center gap-3 rounded-md px-3 text-[15px] transition-colors',
