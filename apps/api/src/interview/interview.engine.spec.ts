@@ -44,6 +44,7 @@ describe('ranking', () => {
     scales: { energy: 0.2, positivity: 0.5, focus: 0.9, acoustic: 0.7, vocal: 0.05, dance: 0.2 },
     tagGroups: { urban: 0.1, calm: 0.9 },
     informed: ['energy', 'focus', 'vocal'],
+    confidence: {},
     summary: [],
   };
   const item = (id: string, subtitle: string, attributes: Record<string, number>, tags: string[] = []) => ({

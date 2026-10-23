@@ -4,7 +4,11 @@ import { z } from 'zod';
 import { InterviewService } from './interview.service.js';
 import { TuningService } from './tuning.service.js';
 
-const startSchema = z.object({ domainId: z.string().default('music') });
+const startSchema = z.object({
+  domainId: z.string().default('music'),
+  /** Punto de partida opcional (texto o voz transcrita). Se trata como dato, nunca como instrucción. */
+  initialText: z.string().max(500).optional(),
+});
 const answerSchema = z.object({ answer: z.enum(['yes', 'no', 'unknown']) });
 
 function parse<S extends z.ZodType>(schema: S, body: unknown): z.infer<S> {
@@ -22,7 +26,8 @@ export class InterviewController {
 
   @Post()
   start(@Body() body: unknown) {
-    return this.interviews.start(parse(startSchema, body).domainId);
+    const { domainId, initialText } = parse(startSchema, body);
+    return this.interviews.start(domainId, initialText);
   }
 
   @Get(':id')

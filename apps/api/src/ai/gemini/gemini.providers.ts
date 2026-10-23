@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { createGoogleGenerativeAI, type GoogleGenerativeAIProvider } from '@ai-sdk/google';
 import { embedMany, experimental_decide, generateText, Output } from 'ai';
 import type { z } from 'zod';
@@ -5,9 +6,32 @@ import type { DecisionAnswer, DecisionProvider, DecisionQuestion } from '../deci
 import type { EmbeddingProvider } from '../embedding-provider.js';
 import type { TextProvider } from '../text-provider.js';
 
-/** El plan gratuito a veces se queda colgado: mejor fallar rápido y reintentar una vez. */
-const CALL_TIMEOUT_MS = 30_000;
-const MAX_RETRIES = 1;
+/**
+ * El plan gratuito a veces se satura (503 "high demand") o se queda colgado. En vez de
+ * reintentar el mismo modelo, se falla rápido y se pasa al siguiente de la cadena.
+ */
+const CALL_TIMEOUT_MS = 20_000;
+const logger = new Logger('Gemini');
+
+const isTransient = (error: unknown) =>
+  (error as Error)?.name === 'TimeoutError' ||
+  /high demand|overloaded|unavailable|resource.?exhausted|rate limit|timeout|aborted|(429|500|503)/i.test(
+    String((error as Error)?.message ?? error),
+  );
+
+async function withModelFallback<T>(models: string[], call: (model: string) => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      return await call(model);
+    } catch (error) {
+      if (!isTransient(error)) throw error;
+      lastError = error;
+      logger.warn(`${model} no disponible (${(error as Error).message?.slice(0, 80)}); pruebo el siguiente`);
+    }
+  }
+  throw lastError;
+}
 
 export function createGemini(apiKey: string) {
   if (!apiKey) throw new Error('Falta GEMINI_API_KEY en .env');
@@ -23,21 +47,24 @@ export class GeminiDecisionProvider implements DecisionProvider {
 
   constructor(
     private readonly google: GoogleGenerativeAIProvider,
-    private readonly model: string,
+    /** El primero es el preferido; los demás, el respaldo si está saturado. */
+    private readonly models: string[],
   ) {
-    this.name = `gemini:${model}`;
+    this.name = `gemini:${models[0]}`;
   }
 
   async decide<Q extends Record<string, DecisionQuestion>>(state: string | Record<string, unknown>, questions: Q) {
-    const { answers } = await experimental_decide({
-      model: this.google.decisionModel(this.model),
-      maxRetries: MAX_RETRIES,
-      abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS * (MAX_RETRIES + 1)),
-      state: state as Parameters<typeof experimental_decide>[0]['state'],
-      questions: Object.fromEntries(
-        Object.entries(questions).map(([id, q]) => [id, q.type === 'noul' ? { type: 'boolean', instructions: q.instructions } : q]),
-      ),
-    });
+    const { answers } = await withModelFallback(this.models, (model) =>
+      experimental_decide({
+        model: this.google.decisionModel(model),
+        maxRetries: 0,
+        abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+        state: state as Parameters<typeof experimental_decide>[0]['state'],
+        questions: Object.fromEntries(
+          Object.entries(questions).map(([id, q]) => [id, q.type === 'noul' ? { type: 'boolean', instructions: q.instructions } : q]),
+        ),
+      }),
+    );
 
     const out: Record<string, DecisionAnswer> = {};
     for (const [id, q] of Object.entries(questions)) {
@@ -61,21 +88,25 @@ export class GeminiTextProvider implements TextProvider {
 
   constructor(
     private readonly google: GoogleGenerativeAIProvider,
-    private readonly model: string,
+    /** El primero es el preferido; los demás, el respaldo si está saturado. */
+    private readonly models: string[],
   ) {
-    this.name = `gemini:${model}`;
+    this.name = `gemini:${models[0]}`;
   }
 
   async write<S extends z.ZodType>({ system, prompt, schema }: { system: string; prompt: string; schema: S }) {
-    const { output } = await generateText({
-      model: this.google(this.model),
-      system,
-      prompt,
-      output: Output.object({ schema }),
-      reasoning: 'none',
-      maxRetries: MAX_RETRIES,
-      timeout: CALL_TIMEOUT_MS,
-    });
+    const { output } = await withModelFallback(this.models, (model) =>
+      generateText({
+        model: this.google(model),
+        system,
+        prompt,
+        output: Output.object({ schema }),
+        reasoning: 'none',
+        maxRetries: 0,
+        // Los textos largos (explicaciones de toda la lista) necesitan algo más de margen.
+        timeout: CALL_TIMEOUT_MS * 1.5,
+      }),
+    );
     return output as z.infer<S>;
   }
 }

@@ -17,6 +17,11 @@ export const config = {
   jevModel: optional('JEV_MODEL', 'jev-latest'),
   geminiApiKey: optional('GEMINI_API_KEY'),
   geminiModel: optional('GEMINI_MODEL', 'gemini-3.1-flash-lite'),
+  /** Modelos de respaldo, en orden, si el principal está saturado. */
+  geminiFallbackModels: optional('GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash,gemini-3.5-flash-lite')
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean),
   geminiEmbeddingModel: optional('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001'),
   jamendoClientId: optional('JAMENDO_CLIENT_ID'),
 };

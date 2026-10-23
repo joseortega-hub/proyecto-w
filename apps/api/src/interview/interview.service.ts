@@ -17,6 +17,7 @@ import {
   profileConfidence,
   remainingProbes,
 } from './interview.engine.js';
+import { collectContext, stateExtras } from './interview.context.js';
 import type { Answer, InterviewTurn } from './interview.types.js';
 
 const ANSWER_TEXT: Record<Answer, string> = { yes: 'sí', no: 'no', unknown: 'no lo sé' };
@@ -57,10 +58,11 @@ export class InterviewService {
     private readonly domains: DomainsService,
   ) {}
 
-  async start(domainId: string): Promise<SessionView> {
+  async start(domainId: string, initialText?: string): Promise<SessionView> {
     const domain = await this.domains.get(domainId);
-    const turns = await this.advance([], domain);
-    const [row] = await this.db.insert(interviewSessions).values({ domainId, turns }).returning();
+    const seed = { context: await collectContext(), initialText: initialText?.trim() || null };
+    const turns = await this.advance([], domain, seed);
+    const [row] = await this.db.insert(interviewSessions).values({ domainId, turns, ...seed }).returning();
     return this.view(row, domain);
   }
 
@@ -78,6 +80,7 @@ export class InterviewService {
     const turns = await this.advance(
       row.turns.map((t) => (t === current ? { ...t, answer } : t)),
       domain,
+      row,
     );
     const status = pending(turns) ? 'asking' : 'ready';
     return this.save(row.id, { turns, status }, domain);
@@ -104,7 +107,11 @@ export class InterviewService {
    * Decide la siguiente pregunta (o terminar) y la redacta. La decisión la toma el
    * DecisionProvider (Jev o Gemini); el texto, el TextProvider (Gemini).
    */
-  private async advance(turns: InterviewTurn[], domain: DomainRow): Promise<InterviewTurn[]> {
+  private async advance(
+    turns: InterviewTurn[],
+    domain: DomainRow,
+    session: Pick<SessionRow, 'context' | 'initialText'>,
+  ): Promise<InterviewTurn[]> {
     const { config } = domain;
     if (answered(turns).length && mustFinish(turns, config)) return turns;
 
@@ -127,6 +134,7 @@ export class InterviewService {
           atributosConInformacion: config.attributes.filter((a) => informed.has(a.key)).map((a) => a.label),
           atributosSinInformacion: config.attributes.filter((a) => !informed.has(a.key)).map((a) => a.label),
           confianzaDelPerfil: profileConfidence(turns, config),
+          ...stateExtras(session),
         },
         {
           next: {

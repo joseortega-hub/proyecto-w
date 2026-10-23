@@ -19,15 +19,43 @@ Debe ser **multidominio**: cada dominio (música, películas…) = adaptador de 
   - **Gemini** (plan gratuito) para generar texto: preguntas y explicaciones.
   - Todo detrás de interfaces (`DecisionProvider`, `TextProvider`, `EmbeddingProvider`) con fallback a Gemini si Jev no está disponible.
   - Vercel AI SDK, embeddings, servidor MCP propio, Langfuse para observabilidad.
-- Datos: Jamendo (música), TMDB (películas, fase posterior).
+- Datos: Jamendo (música); en la Fase 3, TMDB (películas), Open Library (libros) y RAWG o IGDB (videojuegos).
 - Despliegue gratuito: Vercel (front) + Render/Neon/Supabase (back + Postgres). Docker en local.
 
 ## Fases
 0. Diseño: wireframes y mapa de pantallas (aprobar antes de programar).
 1. MVP: seed Jamendo → entrevista → lista → reproductor.
 2. Embeddings + pgvector + explicaciones.
-3. Segundo dominio (películas).
+3. Más dominios: **películas** (TMDB, clave gratuita), **libros** (Open Library, sin clave) y **videojuegos** (RAWG con clave gratuita, uso no comercial y atribución obligatoria; alternativa: IGDB con cuenta de Twitch). Comprobar las condiciones de cada API al implementarla.
+   - En la app, cada temática va **bien separada**: biblioteca, listas y entrevistas por dominio (selector o pestañas por dominio, con icono y color propios). Todo el modelo de datos lleva `domain` (elementos, listas, sesiones de entrevista, perfiles).
 4. Extras: MCP, Langfuse, despliegue, tests.
+   - **Conectar YouTube Music** (nuevo adaptador `YouTubeAdapter`): inicio de sesión OAuth con Google → importar las listas del usuario y sus vídeos con "Me gusta" (solo `videoCategoryId=10`, Música) → crear la lista generada en su cuenta → reproducirla dentro de la app con el reproductor IFrame de YouTube.
+     - YouTube Data API v3 gratuita, sin necesidad de Premium. Cuota: 10 000 unidades/día; `playlistItems.insert` cuesta 50 (≈ 9 listas de 20 canciones al día). No usar `search.list` (100 unidades): importar desde las listas del usuario.
+     - App OAuth en modo de pruebas: el usuario se añade como usuario de prueba; los refresh tokens caducan a los 7 días.
+     - Comprobar si la lista "Me gusta" de YouTube Music (`LM`) es accesible con la API oficial. No usar `ytmusicapi` ni otras librerías no oficiales (incumplen los términos de uso).
+     - Spotify descartado: desde feb. 2026 exige Premium al dueño de la app y limita a 5 usuarios de prueba.
+
+## Ideas extra
+### Prioridad para el finde (demo del lunes)
+- **% de encaje visible**: cada elemento de la lista muestra su probabilidad de encaje (`noul` de Jev, o el equivalente de Gemini) y una explicación breve de por qué se eligió. IA explicable.
+- **Contexto automático**: añadir al `state` de la entrevista la hora, el día de la semana y el tiempo actual (Open-Meteo, gratis y sin API key) para que las preguntas y la lista se adapten sin preguntar más.
+- **Punto de partida por texto o voz** (opcional, justo después del MVP): antes de la entrevista, el usuario puede escribir o decir cómo está o qué le apetece. Jev `score` (o Gemini) lo convierte en un perfil inicial con confianza por dimensión, y la entrevista solo pregunta por las dimensiones con poca confianza. Botón para saltarlo e ir directo a las preguntas.
+  - Voz: Web Speech API del navegador (Chrome, Edge y Chrome Android; parcial en Safari iOS; Firefox no). Si no está disponible, ocultar el botón 🎤. Más adelante, plan B: enviar el audio a Gemini.
+  - Privacidad: no guardar el texto ni el audio, solo el perfil resultante. El texto del usuario es dato, nunca instrucciones para el modelo (protección contra prompt injection).
+- **Sintonía dentro de Claude (MCP)**: servidor MCP que expone el catálogo y la generación de listas, preparado como demo en directo desde Claude Desktop ("hazme una lista para el gimnasio").
+
+### Cuando haya crédito en Jev
+- **Panel Jev frente a Gemini**: lanzar la misma decisión a los dos proveedores y comparar latencia, coste y resultado. Apoyarse en Langfuse para las trazas.
+
+### Ideas futuras
+- **Portada generada con IA** para cada lista (comprobar primero si hay plan gratuito de generación de imágenes).
+- **Modo fiesta**: varias personas responden desde su móvil y se genera una lista de consenso.
+- **Aprende de ti**: 👍/👎 por elemento y memoria de preferencias para las siguientes entrevistas.
+- **DJ con voz**: locución generada por IA entre canciones.
+- **Evals automáticos**: comprobar la calidad de las preguntas y las listas con un LLM como juez.
+- **CI con revisión por IA**: GitHub Actions con tests y revisión de pull requests con Claude.
+- **Más dominios**: series (TMDB), anime (AniList, sin clave), podcasts (Podcast Index), recetas (TheMealDB), cócteles (TheCocktailDB), arte (The Met / Art Institute of Chicago, sin clave), ejercicio (wger, sin clave).
+- **Dominios generados por IA**: a partir de la URL de una API, Gemini genera la configuración del dominio (atributos, estilo de preguntas, mapeo de datos) y el usuario la revisa y aprueba.
 
 Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualizar la sección "Estado" de abajo.
 
@@ -43,7 +71,7 @@ Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualiza
 - Repo: https://github.com/joseortega-hub/proyecto-w (rama `main`).
 - Configuración: `.env.example` (en Git) → el usuario rellena `.env` (ignorado). Nunca pedir ni mostrar claves en el chat. Las claves de Gemini y Jamendo ya están en `.env`.
 - Jev: cuenta creada pero sin crédito, así que todavía no hay API key. El proveedor está implementado (`@typesafe-ai/sdk`, con Gemini de respaldo si falla); mientras tanto `DECISION_PROVIDER=gemini`. El usuario añadirá ~5 € más adelante.
-- Gemini (comprobado el 23/10/2026): `gemini-2.5-flash` y `gemini-2.5-flash-lite` ya no están disponibles para cuentas nuevas, y `gemini-3.8-flash` se cuelga en el plan gratuito. Se usa `GEMINI_MODEL=gemini-3.1-flash-lite` (2-6 s por llamada; unos 20 s la primera, en frío). Embeddings: `gemini-embedding-001` a 768 dimensiones.
+- Gemini (comprobado el 23/10/2026): `gemini-2.5-flash` y `gemini-2.5-flash-lite` ya no están disponibles para cuentas nuevas, y `gemini-3.8-flash` se cuelga en el plan gratuito. Se usa `GEMINI_MODEL=gemini-3.1-flash-lite` (2-6 s por llamada; unos 20 s la primera, en frío). Embeddings: `gemini-embedding-001` a 768 dimensiones. Si el modelo está saturado (503 "high demand", habitual en el plan gratuito) o no responde en 20 s, se pasa a `GEMINI_FALLBACK_MODELS` (por defecto `gemini-3.5-flash` y luego `gemini-3.5-flash-lite`). Si fallan todos al explicar, la lista se guarda sin explicaciones.
 - Fase 0 (diseño) aprobada el 23/10/2026: ver `docs/diseno.md`. Nombre provisional: **Sintonía**. Lienzo: https://claude.ai/artifact/Uzikzt5ig9T1h8cx9wPFNE (fuente en `docs/design/canvas/`).
 - La cuenta no tiene design systems; se puede crear uno de "Sintonía" a partir de los tokens.
 - **Fase 1 (MVP) terminada el 23/10/2026.** Ver `README.md` para la arquitectura y los comandos.
@@ -54,6 +82,7 @@ Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualiza
   - Las decisiones con Gemini usan `experimental_decide` del AI SDK v7 (`google.decisionModel`). El SDK también trae `typeSafeAi.decisionModel('jev-latest')` en `@ai-sdk/typesafe-ai`: es una alternativa para Jev.
   - Para no sumar dos esperas por pregunta, la decisión y la redacción de las preguntas candidatas van en paralelo.
   - Verificado en local: entrevista completa con Gemini, Afinando por SSE, lista con explicaciones y reproducción de audio en móvil y escritorio. Tests del motor: `pnpm test`.
+  - Preparado para las "Ideas extra": cada elemento guarda `fit` (probabilidad de encaje del DecisionProvider), `POST /api/sessions` acepta `initialText` opcional, la sesión tiene `context` (vacío hasta conectar Open-Meteo, ver `interview.context.ts`) y el perfil incluye `confidence` por dimensión. El texto y el contexto viajan siempre en el `state`, nunca en las instrucciones.
   - Limitaciones conocidas:
     - El % de encaje sale poco disperso (≈ 69-75 %).
     - Biblioteca y Ficha son marcadores de posición.

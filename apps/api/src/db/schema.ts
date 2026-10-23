@@ -13,6 +13,7 @@ import {
   vector,
 } from 'drizzle-orm/pg-core';
 import type { DomainConfig } from '../domains/domain.types.js';
+import type { InterviewContext } from '../interview/interview.context.js';
 import type { InterviewTurn, MoodProfile, SessionResult } from '../interview/interview.types.js';
 
 /** Un dominio del catálogo (música, películas…) con su configuración de entrevista. */
@@ -83,6 +84,9 @@ export const interviewSessions = pgTable('interview_sessions', {
     .references(() => domains.id, { onDelete: 'cascade' }),
   status: text('status').$type<'asking' | 'ready' | 'done'>().notNull().default('asking'),
   turns: jsonb('turns').$type<InterviewTurn[]>().notNull().default([]),
+  /** Texto opcional con el que la persona describe cómo está antes de las preguntas. */
+  initialText: text('initial_text'),
+  context: jsonb('context').$type<InterviewContext>().notNull().default({}),
   profile: jsonb('profile').$type<MoodProfile>(),
   result: jsonb('result').$type<SessionResult>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

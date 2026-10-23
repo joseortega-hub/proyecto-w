@@ -45,11 +45,15 @@ export interface MoodProfile {
   scales: Record<string, number>
   tagGroups: Record<string, number>
   informed: string[]
+  /** Confianza 0–1 por dimensión. */
+  confidence?: Record<string, number>
   summary: string[]
 }
 
 export interface ResultEntry {
   match: number
+  /** Probabilidad de encaje (0–1) que dio el DecisionProvider. */
+  fit: number | null
   reason: string
   item: Item
 }
@@ -98,8 +102,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  startSession: (domainId = 'music') =>
-    request<SessionView>('/sessions', { method: 'POST', body: JSON.stringify({ domainId }) }),
+  /** `initialText` es el punto de partida opcional (texto o voz) antes de las preguntas. */
+  startSession: (domainId = 'music', initialText?: string) =>
+    request<SessionView>('/sessions', { method: 'POST', body: JSON.stringify({ domainId, initialText }) }),
   getSession: (id: string) => request<SessionView>(`/sessions/${id}`),
   answer: (id: string, answer: Answer) =>
     request<SessionView>(`/sessions/${id}/answers`, { method: 'POST', body: JSON.stringify({ answer }) }),

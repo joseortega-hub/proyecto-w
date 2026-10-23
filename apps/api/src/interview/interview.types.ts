@@ -15,12 +15,17 @@ export interface MoodProfile {
   tagGroups: Record<string, number>;
   /** Atributos sobre los que la entrevista dio información. */
   informed: string[];
+  /** Confianza 0–1 por dimensión: la entrevista podrá preguntar solo por las dudosas. */
+  confidence: Record<string, number>;
   summary: string[];
 }
 
 export interface ResultEntry {
   itemId: string;
+  /** Encaje mostrado, 0–100: parecido por atributos + probabilidad de encaje. */
   match: number;
+  /** Probabilidad de encaje (0–1) según el DecisionProvider (`noul`). */
+  fit: number | null;
   reason: string;
 }
 

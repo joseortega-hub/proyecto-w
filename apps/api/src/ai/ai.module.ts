@@ -13,6 +13,7 @@ import { JevDecisionProvider } from './jev/jev-decision.provider.js';
 import { TEXT_PROVIDER } from './text-provider.js';
 
 const GEMINI = Symbol('Gemini');
+const geminiModels = [config.geminiModel, ...config.geminiFallbackModels.filter((m) => m !== config.geminiModel)];
 
 @Global()
 @Module({
@@ -22,7 +23,7 @@ const GEMINI = Symbol('Gemini');
       provide: DECISION_PROVIDER,
       inject: [GEMINI],
       useFactory: (google: ReturnType<typeof createGemini>): DecisionProvider => {
-        const gemini = new GeminiDecisionProvider(google, config.geminiModel);
+        const gemini = new GeminiDecisionProvider(google, geminiModels);
         let provider: DecisionProvider = gemini;
         if (config.decisionProvider === 'jev') {
           if (config.typesafeApiKey) {
@@ -38,7 +39,7 @@ const GEMINI = Symbol('Gemini');
     {
       provide: TEXT_PROVIDER,
       inject: [GEMINI],
-      useFactory: (google: ReturnType<typeof createGemini>) => new GeminiTextProvider(google, config.geminiModel),
+      useFactory: (google: ReturnType<typeof createGemini>) => new GeminiTextProvider(google, geminiModels),
     },
     {
       provide: EMBEDDING_PROVIDER,
