@@ -6,7 +6,7 @@ import { Button, IconButton, Text } from '@/components/atoms'
 import { EmptyState, InterviewProgress } from '@/components/molecules'
 import { InterviewPanel } from '@/components/organisms'
 import { FocusTemplate } from '@/components/templates/FocusTemplate'
-import { api, type Answer, type SessionView } from '@/lib/api'
+import { ApiError, api, type Answer, type SessionView } from '@/lib/api'
 import { useDomain } from '@/lib/domain'
 
 /** /:domain/entrevista crea la sesión y redirige a /:domain/entrevista/:sesion. */
@@ -39,12 +39,32 @@ export function InterviewPage() {
   })
 
   const update = (s: SessionView) => queryClient.setQueryData(['session', s.id], s)
-  const onError = (e: Error) => toast.error('No he podido seguir', { description: e.message })
-  const answer = useMutation({ mutationFn: (a: Answer) => api.answer(sesion!, a), onSuccess: update, onError })
+  const onError = (e: Error) => {
+    // 409: la sesión ya avanzó (doble toque, otra pestaña). Se recarga en silencio.
+    if (e instanceof ApiError && e.status === 409) {
+      void queryClient.invalidateQueries({ queryKey: ['session', sesion] })
+      return
+    }
+    toast.error('No he podido seguir', { description: e.message })
+  }
+  const answer = useMutation({
+    mutationFn: ({ a, step }: { a: Answer; step: number }) => api.answer(sesion!, a, step),
+    onSuccess: update,
+    onError,
+  })
   const undo = useMutation({ mutationFn: () => api.undo(sesion!), onSuccess: update, onError })
 
   const data = session.data
   const thinking = start.isPending || answer.isPending || undo.isPending || (!data && !session.isError)
+  // Respuesta optimista: su etiqueta aparece al instante mientras llega la siguiente pregunta.
+  const pendingAnswer = answer.isPending ? answer.variables?.a : undefined
+  const optimisticChip = pendingAnswer && pendingAnswer !== 'unknown' ? data?.question?.chips[pendingAnswer] : undefined
+  const chips = [...(data?.chips ?? []), ...(optimisticChip ? [optimisticChip] : [])]
+  const onAnswer = (a: Answer) => {
+    // Un solo envío por pregunta, aunque se toque dos veces antes de que se repinte.
+    if (!data?.question || answer.isPending) return
+    answer.mutate({ a, step: data.step })
+  }
   const failed = start.isError || session.isError
 
   const exit = () => navigate(domain.path())
@@ -84,9 +104,9 @@ export function InterviewPage() {
       <InterviewProgress confidence={data?.confidence ?? 0.1} />
       <InterviewPanel
         question={answer.isPending ? null : (data?.question ?? null)}
-        chips={data?.chips ?? []}
+        chips={chips}
         thinking={thinking}
-        onAnswer={(a) => answer.mutate(a)}
+        onAnswer={onAnswer}
         onFinish={() => navigate(domain.path(`resultado/${sesion}`))}
         onRestart={restart}
       />

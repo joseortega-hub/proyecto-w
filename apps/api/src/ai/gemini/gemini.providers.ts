@@ -9,25 +9,46 @@ import type { TextProvider } from '../text-provider.js';
 /**
  * El plan gratuito a veces se satura (503 "high demand") o se queda colgado. En vez de
  * reintentar el mismo modelo, se falla rápido y se pasa al siguiente de la cadena.
+ * El modelo que falla queda apartado unos minutos ("cortacircuitos"): así las llamadas
+ * siguientes no vuelven a esperar a que se agote su timeout.
  */
-const CALL_TIMEOUT_MS = 20_000;
+const CALL_TIMEOUT_MS = 12_000;
+const COOLDOWN_MS = 3 * 60_000;
 const logger = new Logger('Gemini');
+const cooldownUntil = new Map<string, number>();
 
-const isTransient = (error: unknown) =>
+export const isTransient = (error: unknown) =>
   (error as Error)?.name === 'TimeoutError' ||
-  /high demand|overloaded|unavailable|resource.?exhausted|rate limit|timeout|aborted|(429|500|503)/i.test(
+  /high demand|overloaded|unavailable|resource.?exhausted|quota|rate limit|timeout|aborted|\b(429|500|503)\b/i.test(
     String((error as Error)?.message ?? error),
   );
 
+/** Modelos disponibles primero (en su orden); los apartados, al final, por si fallan todos. */
+export function modelOrder(models: string[], now = Date.now()): string[] {
+  const ready = models.filter((m) => (cooldownUntil.get(m) ?? 0) <= now);
+  const cooling = models
+    .filter((m) => (cooldownUntil.get(m) ?? 0) > now)
+    .sort((a, b) => cooldownUntil.get(a)! - cooldownUntil.get(b)!);
+  return [...ready, ...cooling];
+}
+
+/** Aparta un modelo hasta `until` (lo usa `withModelFallback` y los tests). */
+export function coolDown(model: string, until = Date.now() + COOLDOWN_MS) {
+  cooldownUntil.set(model, until);
+}
+
 async function withModelFallback<T>(models: string[], call: (model: string) => Promise<T>): Promise<T> {
   let lastError: unknown;
-  for (const model of models) {
+  for (const model of modelOrder(models)) {
     try {
-      return await call(model);
+      const result = await call(model);
+      cooldownUntil.delete(model);
+      return result;
     } catch (error) {
       if (!isTransient(error)) throw error;
       lastError = error;
-      logger.warn(`${model} no disponible (${(error as Error).message?.slice(0, 80)}); pruebo el siguiente`);
+      coolDown(model);
+      logger.warn(`${model} no disponible (${(error as Error).message?.slice(0, 80)}); lo aparto unos minutos`);
     }
   }
   throw lastError;

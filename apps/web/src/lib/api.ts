@@ -10,7 +10,7 @@ export interface SessionView {
   maxQuestions: number
   confidence: number
   chips: string[]
-  question: { text: string; reason: string; guess: string } | null
+  question: { text: string; reason: string; guess: string; chips: { yes: string; no: string } } | null
   canUndo: boolean
   decisionProvider: string
 }
@@ -84,6 +84,12 @@ export interface SessionResult {
   entries: ResultEntry[]
 }
 
+export interface SimilarItems {
+  itemId: string
+  /** Vecinos por embedding del mismo dominio, con su similitud coseno (0–1). */
+  items: { similarity: number; item: Item }[]
+}
+
 export type TuningEvent =
   | { step: 'profile'; profile: MoodProfile }
   | { step: 'candidates'; count: number; total: number }
@@ -118,10 +124,12 @@ export const api = {
   startSession: (domainId: string, initialText?: string) =>
     request<SessionView>('/sessions', { method: 'POST', body: JSON.stringify({ domainId, initialText }) }),
   getSession: (id: string) => request<SessionView>(`/sessions/${id}`),
-  answer: (id: string, answer: Answer) =>
-    request<SessionView>(`/sessions/${id}/answers`, { method: 'POST', body: JSON.stringify({ answer }) }),
+  /** `step` es el número de la pregunta que se responde: el servidor rechaza (409) los dobles envíos. */
+  answer: (id: string, answer: Answer, step?: number) =>
+    request<SessionView>(`/sessions/${id}/answers`, { method: 'POST', body: JSON.stringify({ answer, step }) }),
   undo: (id: string) => request<SessionView>(`/sessions/${id}/undo`, { method: 'POST' }),
   getResult: (id: string) => request<SessionResult>(`/sessions/${id}/result`),
+  getSimilar: (itemId: string, limit = 10) => request<SimilarItems>(`/items/${itemId}/similar?limit=${limit}`),
 
   /** Sigue el progreso de Afinando por Server-Sent Events. Devuelve la función para cancelar. */
   tune(id: string, refine: string[], onEvent: (e: TuningEvent) => void): () => void {

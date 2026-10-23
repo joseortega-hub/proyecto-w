@@ -9,7 +9,11 @@ const startSchema = z.object({
   /** Punto de partida opcional (texto o voz transcrita). Se trata como dato, nunca como instrucción. */
   initialText: z.string().max(500).optional(),
 });
-const answerSchema = z.object({ answer: z.enum(['yes', 'no', 'unknown']) });
+const answerSchema = z.object({
+  answer: z.enum(['yes', 'no', 'unknown']),
+  /** Número de la pregunta que se responde: protege contra dobles envíos. */
+  step: z.number().int().positive().optional(),
+});
 
 function parse<S extends z.ZodType>(schema: S, body: unknown): z.infer<S> {
   const result = schema.safeParse(body ?? {});
@@ -37,7 +41,8 @@ export class InterviewController {
 
   @Post(':id/answers')
   answer(@Param('id') id: string, @Body() body: unknown) {
-    return this.interviews.answer(id, parse(answerSchema, body).answer);
+    const { answer, step } = parse(answerSchema, body);
+    return this.interviews.answer(id, answer, step);
   }
 
   @Post(':id/undo')
