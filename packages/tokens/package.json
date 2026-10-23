@@ -1,0 +1,14 @@
+{
+  "name": "@sintonia/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tokens de diseño de Sintonía (W3C DTCG) y su traducción a Tailwind CSS v4",
+  "type": "module",
+  "exports": {
+    "./theme.css": "./theme.css",
+    "./tokens.json": "./tokens.json"
+  },
+  "scripts": {
+    "build": "node gen-tokens.mjs"
+  }
+}

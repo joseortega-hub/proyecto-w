@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+@import '@sintonia/tokens/theme.css';
+@import '@fontsource-variable/bricolage-grotesque';
+@import '@fontsource/atkinson-hyperlegible/400.css';
+@import '@fontsource/atkinson-hyperlegible/700.css';
+@import '@fontsource-variable/jetbrains-mono';
+
+@theme inline {
+  --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', 'Cascadia Mono', ui-monospace, monospace;
+  --font-sans: var(--font-body);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@utility label-caps {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}

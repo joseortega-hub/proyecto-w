@@ -1,0 +1,21 @@
+{
+  "name": "sintonia",
+  "private": true,
+  "description": "Sintonía: un catálogo que te entiende (Proyecto X)",
+  "type": "module",
+  "packageManager": "pnpm@10.34.7",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @sintonia/api --filter @sintonia/web dev",
+    "build": "pnpm -r build",
+    "db:up": "docker compose up -d",
+    "db:migrate": "pnpm --filter @sintonia/api db:migrate",
+    "seed": "pnpm --filter @sintonia/api seed",
+    "storybook": "pnpm --filter @sintonia/web storybook",
+    "tokens": "pnpm --filter @sintonia/tokens build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  }
+}

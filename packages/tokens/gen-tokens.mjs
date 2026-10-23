@@ -1,8 +1,10 @@
-// Genera docs/design/tokens.json (W3C DTCG 2025.10) y docs/design/theme.css (Tailwind v4 + shadcn/ui)
+// Genera tokens.json (W3C DTCG 2025.10) y theme.css (Tailwind v4 + shadcn/ui).
+// Uso: node gen-tokens.mjs [carpeta]  (por defecto, la carpeta de este paquete)
 import { writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const out = process.argv[2];
+const out = process.argv[2] ?? dirname(fileURLToPath(import.meta.url));
 mkdirSync(out, { recursive: true });
 
 const hexToColor = (hex, alpha = 1) => {

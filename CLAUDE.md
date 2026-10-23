@@ -41,11 +41,23 @@ Cada fase se trabaja en una conversación nueva. Al terminar una fase, actualiza
 ## Estado
 - Entorno: Node 24.22.1, npm 11, pnpm 10, Docker 27, Git 2.45, Python 3.12.
 - Repo: https://github.com/joseortega-hub/proyecto-w (rama `main`).
-- Configuración: `.env.example` (en Git) → el usuario rellena `.env` (ignorado). Nunca pedir ni mostrar claves en el chat.
-- Jev: cuenta creada pero sin crédito, así que todavía no hay API key. Se implementa igualmente; mientras tanto `DECISION_PROVIDER=gemini`. El usuario añadirá ~5 € más adelante.
-- Comprobar en la Fase 1 que `GEMINI_MODEL` sigue siendo un modelo vigente del plan gratuito.
-- Pendiente del usuario: API keys de Gemini y Jamendo en `.env`.
+- Configuración: `.env.example` (en Git) → el usuario rellena `.env` (ignorado). Nunca pedir ni mostrar claves en el chat. Las claves de Gemini y Jamendo ya están en `.env`.
+- Jev: cuenta creada pero sin crédito, así que todavía no hay API key. El proveedor está implementado (`@typesafe-ai/sdk`, con Gemini de respaldo si falla); mientras tanto `DECISION_PROVIDER=gemini`. El usuario añadirá ~5 € más adelante.
+- Gemini (comprobado el 23/10/2026): `gemini-2.5-flash` y `gemini-2.5-flash-lite` ya no están disponibles para cuentas nuevas, y `gemini-3.8-flash` se cuelga en el plan gratuito. Se usa `GEMINI_MODEL=gemini-3.1-flash-lite` (2-6 s por llamada; unos 20 s la primera, en frío). Embeddings: `gemini-embedding-001` a 768 dimensiones.
 - Fase 0 (diseño) aprobada el 23/10/2026: ver `docs/diseno.md`. Nombre provisional: **Sintonía**. Lienzo: https://claude.ai/artifact/Uzikzt5ig9T1h8cx9wPFNE (fuente en `docs/design/canvas/`).
-- UI: shadcn/ui + Radix + Tailwind CSS v4 dentro del diseño atómico. Tokens W3C DTCG en `docs/design/tokens.json`, con `theme.css` generado por `docs/design/gen-tokens.mjs`. En la Fase 1, mover los tokens y el script a un paquete del monorepo.
 - La cuenta no tiene design systems; se puede crear uno de "Sintonía" a partir de los tokens.
-- Siguiente: Fase 1 (MVP).
+- **Fase 1 (MVP) terminada el 23/10/2026.** Ver `README.md` para la arquitectura y los comandos.
+  - Monorepo pnpm: `apps/api` (NestJS 12 en ESM, Drizzle, AI SDK v7), `apps/web` (React 19, Vite 8, PWA, Tailwind v4 + shadcn/ui, Storybook 10) y `packages/tokens` (tokens DTCG + `gen-tokens.mjs` → `theme.css`; `pnpm tokens`).
+  - Puertos: Postgres en 5434 y API en 3001, porque 5432 y 3000 los ocupan otros proyectos Docker del usuario. Web en 5173, con proxy de `/api`.
+  - Esquema genérico: `domains`, `domain_attributes`, `items` (con columna `embedding vector(768)` aún vacía) e `interview_sessions`. Migraciones en `apps/api/drizzle/`.
+  - Seed: `pnpm seed` importa unas 800 canciones de Jamendo. Con `tags`, Jamendo a veces devuelve 0 resultados, así que se reintenta con `fuzzytags`. Además, `include=stats` vacía la respuesta, así que no se usa.
+  - Las decisiones con Gemini usan `experimental_decide` del AI SDK v7 (`google.decisionModel`). El SDK también trae `typeSafeAi.decisionModel('jev-latest')` en `@ai-sdk/typesafe-ai`: es una alternativa para Jev.
+  - Para no sumar dos esperas por pregunta, la decisión y la redacción de las preguntas candidatas van en paralelo.
+  - Verificado en local: entrevista completa con Gemini, Afinando por SSE, lista con explicaciones y reproducción de audio en móvil y escritorio. Tests del motor: `pnpm test`.
+  - Limitaciones conocidas:
+    - El % de encaje sale poco disperso (≈ 69-75 %).
+    - Biblioteca y Ficha son marcadores de posición.
+    - La navegación lateral es propia, no el Sidebar de shadcn.
+    - Los tipos de la API están duplicados en `apps/web/src/lib/api.ts`.
+    - `nest start --watch` tarda unos 30 s en arrancar.
+- Siguiente: Fase 2 (embeddings + pgvector + explicaciones).

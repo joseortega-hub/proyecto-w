@@ -10,9 +10,9 @@ Aprobado el 23/10/2026. Nombre provisional del producto: **Sintonía** (el repos
 | Ruta | Contenido |
 |---|---|
 | `docs/design/canvas/` | Fuente de los 13 tableros del lienzo (`canvas.json` + `*.dc.html`) |
-| `docs/design/tokens.json` | Tokens de diseño en formato W3C DTCG 2025.10 |
-| `docs/design/theme.css` | Los mismos tokens como variables de Tailwind CSS v4 (convención shadcn/ui) |
-| `docs/design/gen-tokens.mjs` | Script que genera `tokens.json` y `theme.css`: `node docs/design/gen-tokens.mjs docs/design` |
+| `packages/tokens/tokens.json` | Tokens de diseño en formato W3C DTCG 2025.10 (paquete `@sintonia/tokens` desde la Fase 1) |
+| `packages/tokens/theme.css` | Los mismos tokens como variables de Tailwind CSS v4 (convención shadcn/ui); lo importa `apps/web` |
+| `packages/tokens/gen-tokens.mjs` | Script que genera `tokens.json` y `theme.css`: `pnpm tokens` |
 | `docs/design/propuesta-v1.html` | Primera propuesta en una sola página |
 
 ## Decisiones aprobadas
