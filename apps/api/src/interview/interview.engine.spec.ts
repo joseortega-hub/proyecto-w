@@ -184,7 +184,7 @@ describe('búsqueda semántica', () => {
       profile,
       config,
       3,
-      0.8,
+      { semanticWeight: 0.8 },
     );
     expect(semanticFirst[0].item.id).toBe('mid');
     expect(semanticFirst.at(-1)?.item.id).toBe('loud');

@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, IconButton, Text } from '@/components/atoms'
-import { EmptyState, InterviewProgress } from '@/components/molecules'
+import { ContextBadge, EmptyState, InterviewProgress } from '@/components/molecules'
 import { InterviewPanel } from '@/components/organisms'
 import { FocusTemplate } from '@/components/templates/FocusTemplate'
 import { ApiError, api, type Answer, type SessionView } from '@/lib/api'
+import { clientContext } from '@/lib/context'
 import { useDomain } from '@/lib/domain'
 
 /** /:domain/entrevista crea la sesión y redirige a /:domain/entrevista/:sesion. */
@@ -16,9 +17,12 @@ export function InterviewPage() {
   const queryClient = useQueryClient()
   const started = useRef(false)
   const domain = useDomain()
+  // Punto de partida opcional (texto o voz) que llega desde Inicio en el estado de la navegación.
+  const location = useLocation()
+  const initialText = (location.state as { initialText?: string } | null)?.initialText
 
   const start = useMutation({
-    mutationFn: () => api.startSession(domain.id),
+    mutationFn: async () => api.startSession(domain.id, { initialText, client: await clientContext() }),
     onSuccess: (s) => {
       queryClient.setQueryData(['session', s.id], s)
       navigate(domain.path(`entrevista/${s.id}`), { replace: true })
@@ -102,6 +106,22 @@ export function InterviewPage() {
         <IconButton icon="undo" label="Deshacer la última respuesta" disabled={!data?.canUndo || thinking} onClick={() => undo.mutate()} />
       </header>
       <InterviewProgress confidence={data?.confidence ?? 0.1} />
+      {data && (data.context.diaSemana || data.taste.length > 0 || data.fromText.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2" aria-label="Lo que ya tengo en cuenta">
+          <ContextBadge context={data.context} />
+          {data.taste.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-domain-soft px-3 py-1 text-[13px]" title="Tus gustos guardados">
+              ♥ {data.taste.slice(0, 3).join(', ')}
+              {data.taste.length > 3 ? '…' : ''}
+            </span>
+          )}
+          {data.fromText.length > 0 && (
+            <span className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-[13px] text-muted-foreground">
+              Por lo que me has contado: {data.fromText.join(', ')}
+            </span>
+          )}
+        </div>
+      )}
       <InterviewPanel
         question={answer.isPending ? null : (data?.question ?? null)}
         chips={chips}

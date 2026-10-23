@@ -9,6 +9,7 @@ const LINKS: { to: string; label: string; icon: IconName }[] = [
   { to: '', label: 'Inicio', icon: 'home' },
   { to: 'biblioteca', label: 'Biblioteca', icon: 'library' },
   { to: 'listas', label: 'Mis listas', icon: 'lists' },
+  { to: 'gustos', label: 'Mis gustos', icon: 'heart' },
 ]
 
 /** Los enlaces se quedan dentro del dominio actual. */
@@ -21,7 +22,7 @@ function useLinks() {
 export function BottomNav() {
   const links = useLinks()
   return (
-    <nav aria-label="Principal" className="grid grid-cols-3 border-t border-border bg-card pt-2 pb-[max(env(safe-area-inset-bottom),14px)] md:hidden">
+    <nav aria-label="Principal" className="grid grid-cols-4 border-t border-border bg-card pt-2 pb-[max(env(safe-area-inset-bottom),14px)] md:hidden">
       {links.map((l) => (
         <NavLink
           key={l.to}

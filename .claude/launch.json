@@ -57,6 +57,35 @@
         "API_PROXY": "http://localhost:3002"
       },
       "port": 5174
+    },
+    {
+      "name": "sintonia-api-3003",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@sintonia/api",
+        "dev"
+      ],
+      "env": {
+        "PORT": "3003"
+      },
+      "port": 3003
+    },
+    {
+      "name": "sintonia-web-5175",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@sintonia/web",
+        "dev",
+        "--port",
+        "5175",
+        "--strictPort"
+      ],
+      "env": {
+        "API_PROXY": "http://localhost:3003"
+      },
+      "port": 5175
     }
   ]
 }

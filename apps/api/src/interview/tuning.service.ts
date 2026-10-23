@@ -9,6 +9,8 @@ import { DB } from '../db/db.module.js';
 import { interviewSessions, items, type SessionRow } from '../db/schema.js';
 import { DomainsService, type DomainRow } from '../domains/domains.service.js';
 import { ItemsService, publicItem, type ItemWithoutEmbedding } from '../items/items.service.js';
+import { hasTaste, tasteHints, type TasteProfile } from '../taste/taste.engine.js';
+import { TasteService } from '../taste/taste.service.js';
 import {
   answerChips,
   answered,
@@ -23,6 +25,7 @@ import {
   preferenceNotice,
   profileQueryText,
   rankCandidates,
+  signalChips,
   type FacetFilter,
   type HybridCandidate,
 } from './interview.engine.js';
@@ -65,6 +68,7 @@ export class TuningService {
     private readonly items: ItemsService,
     private readonly domains: DomainsService,
     private readonly interviews: InterviewService,
+    private readonly tastes: TasteService,
   ) {}
 
   /**
@@ -76,6 +80,10 @@ export class TuningService {
     if (session.status === 'asking') throw new BadRequestException('La entrevista aún no ha terminado');
     const domain = await this.domains.get(session.domainId);
     const { config } = domain;
+    // Gustos al día (incluye los últimos 👍/👎); sin persona, la copia del inicio de la entrevista.
+    const fresh = await this.tastes.profile(session.userId, domain.id).catch(() => null);
+    const taste = hasTaste(fresh) ? fresh : session.taste;
+    session.taste = taste;
 
     const base = session.profile ?? (await this.computeProfile(session, domain));
     const profile = applyRefinements(base, refinements, config);
@@ -84,7 +92,7 @@ export class TuningService {
     // Las preferencias previas (p. ej. idioma) filtran el catálogo antes de buscar, no después.
     const filters = preferenceFilters(session.preferences, config);
     const catalog = await this.items.catalog(domain.id, filters);
-    const candidates = await this.findCandidates(session, domain, profile, catalog, filters);
+    const candidates = await this.findCandidates(session, domain, profile, catalog, filters, taste);
     yield {
       step: 'candidates',
       count: candidates.length,
@@ -101,7 +109,7 @@ export class TuningService {
           {
             busca: profile.summary,
             perfil: this.describeProfile(profile, domain),
-            ...stateExtras(session),
+            ...stateExtras(session, config),
           },
           Object.fromEntries(
             batch.map(({ item }) => [
@@ -141,6 +149,7 @@ export class TuningService {
       profile,
       domain,
       finalists.map((f) => f.item),
+      taste,
     );
 
     const notice = preferenceNotice(
@@ -166,7 +175,7 @@ export class TuningService {
     };
     await this.db
       .update(interviewSessions)
-      .set({ profile: base, result, status: 'done', initialText: null, updatedAt: new Date() })
+      .set({ profile: base, result, status: 'done', initialText: null, taste, updatedAt: new Date() })
       .where(eq(interviewSessions.id, session.id));
     this.logger.log(`Lista "${result.title}" lista con ${result.entries.length} elementos`);
     yield { step: 'done', sessionId: session.id };
@@ -185,7 +194,7 @@ export class TuningService {
       domainId: session.domainId,
       title: session.result.title,
       answeredCount: answered(session.turns).length,
-      chips: answerChips(session.turns, domain.config),
+      chips: [...signalChips(session.textSignals ?? {}, domain.config), ...answerChips(session.turns, domain.config)],
       profile: applyRefinements(session.profile, session.result.refinements, domain.config),
       attributes: domain.config.attributes.filter((a) => a.kind === 'scale'),
       refinements: domain.config.refinements.map(({ key, label }) => ({
@@ -205,6 +214,8 @@ export class TuningService {
                 match: e.match,
                 fit: e.fit ?? null,
                 reason: e.reason,
+                /** Gustos de la persona con los que encaja ("rol y aventura"). */
+                likes: tasteHints(item, session.taste, domain.config),
                 item: publicItem(item),
               },
             ]
@@ -223,9 +234,10 @@ export class TuningService {
     profile: MoodProfile,
     catalog: ItemWithoutEmbedding[],
     filters: FacetFilter[],
+    taste: TasteProfile | null,
   ): Promise<HybridCandidate<ItemWithoutEmbedding>[]> {
     const { config } = domain;
-    const byAttributes = rankCandidates(catalog, profile, config, SEMANTIC_POOL / 2);
+    const byAttributes = rankCandidates(catalog, profile, config, SEMANTIC_POOL / 2, 2, taste);
     const query = profileQueryText(profile, config, domain.itemNounPlural, session.initialText);
     const vector = await this.embeddings
       .embed([query], 'query')
@@ -240,6 +252,7 @@ export class TuningService {
         profile,
         config,
         config.result.candidates,
+        { taste },
       );
     }
 
@@ -255,14 +268,14 @@ export class TuningService {
     );
     for (const item of missing) pool.set(item.id, { item, semantic: sims.get(item.id) ?? null });
     this.logger.log(`Consulta semántica: "${query}" → ${nearest.length} vecinos + ${missing.length} por atributos`);
-    return hybridRank([...pool.values()], profile, config, config.result.candidates);
+    return hybridRank([...pool.values()], profile, config, config.result.candidates, { taste });
   }
 
   /**
    * Título y una explicación por elemento. Si el modelo se salta alguna, se pide otra
    * vez solo por las que faltan; si aún faltan, se usa una explicación de respaldo.
    */
-  private async explain(profile: MoodProfile, domain: DomainRow, list: ItemWithoutEmbedding[]) {
+  private async explain(profile: MoodProfile, domain: DomainRow, list: ItemWithoutEmbedding[], taste: TasteProfile | null) {
     const { config } = domain;
     const reasons: (string | null)[] = list.map(() => null);
     let title = 'Tu lista';
@@ -279,7 +292,8 @@ export class TuningService {
             `${capitalize(domain.itemNounPlural)} ${config.gender === 'f' ? 'elegidas' : 'elegidos'}:`,
             ...missing.map((i) => {
               const hints = matchHints(list[i], profile, config);
-              return `${i + 1}. ${this.describeItem(list[i], domain)}${hints.length ? ` Coincide en: ${hints.join(', ')}.` : ''}`;
+              const likes = tasteHints(list[i], taste, config);
+              return `${i + 1}. ${this.describeItem(list[i], domain)}${hints.length ? ` Coincide en: ${hints.join(', ')}.` : ''}${likes.length ? ` Encaja con sus gustos de siempre: ${likes.join(', ')}.` : ''}`;
             }),
             `Devuelve ${attempt === 0 ? 'un título para la lista y ' : ''}exactamente ${missing.length} explicaciones, una por cada número de arriba (usa ese mismo número), en tono cercano. Apóyate en las coincidencias y cita datos concretos (${config.attributes.slice(0, 3).map((a) => a.label.toLowerCase()).join(', ')}), siempre con palabras: nunca escribas las cifras de 0 a 1.`,
           ].join('\n'),
@@ -330,8 +344,9 @@ export class TuningService {
       };
     }
 
-    const informed = informedDimensions(session.turns, config);
-    const result = await this.decisions.decide({ respuestas: answers, ...stateExtras(session) }, questions);
+    const known = Object.keys(session.textSignals ?? {});
+    const informed = informedDimensions(session.turns, config, known);
+    const result = await this.decisions.decide({ respuestas: answers, ...stateExtras(session, config) }, questions);
     const profile: MoodProfile = {
       scales: Object.fromEntries(
         scales.map((a) => [a.key, round((result[`scale_${a.key}`] as { score: number }).score)]),
@@ -340,15 +355,15 @@ export class TuningService {
         config.tagGroups.map((g) => [g.key, round((result[`tags_${g.key}`] as { probability: number }).probability)]),
       ),
       informed: [...informed],
-      // Con respuesta directa la dimensión es fiable; sin ella, el valor es una suposición.
-      // Cuando se use el texto inicial, aquí entrará la confianza que devuelva `score`.
+      // Con respuesta directa la dimensión es fiable; si salió del texto inicial, vale su
+      // confianza; sin nada, el valor es una suposición.
       confidence: Object.fromEntries(
         [...scales.map((a) => a.key), ...(config.tagGroups.length ? ['genres'] : [])].map((k) => [
           k,
-          informed.has(k) ? 0.9 : 0.3,
+          session.textSignals?.[k]?.confidence ?? (informed.has(k) ? 0.9 : 0.3),
         ]),
       ),
-      summary: answerChips(session.turns, config),
+      summary: [...signalChips(session.textSignals ?? {}, config), ...answerChips(session.turns, config)],
     };
     // Privacidad: con el perfil ya calculado, el texto inicial deja de hacer falta y se borra.
     await this.db

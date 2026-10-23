@@ -15,32 +15,49 @@ import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
 import { interviewSessions, type SessionRow } from '../db/schema.js';
 import { DomainsService, type DomainRow } from '../domains/domains.service.js';
+import { config as env } from '../config.js';
 import { domainDefinitions } from '../domains/index.js';
-import { collectContext, stateExtras, type InterviewContext } from './interview.context.js';
+import { hasTaste, tasteLabel, tasteOnlyProbes } from '../taste/taste.engine.js';
+import { TasteService } from '../taste/taste.service.js';
+import { collectContext, contextKey, stateExtras, type ContextRequest, type InterviewContext } from './interview.context.js';
 import {
   answerChips,
   answered,
   canFinishEarly,
   informedDimensions,
+  minQuestions,
   mustFinish,
   pending,
   profileConfidence,
+  signalChips,
 } from './interview.engine.js';
-import { askableProbes, assertNotAsked } from './interview.flow.js';
+import { askableProbes, assertNotAsked, type InterviewFacts } from './interview.flow.js';
 import { NextQuestionPrefetch } from './interview.prefetch.js';
 import { QuestionBankService } from './question-bank.service.js';
-import type { Answer, InterviewTurn } from './interview.types.js';
+import type { Answer, InterviewTurn, TextSignals } from './interview.types.js';
 
 const ANSWER_TEXT: Record<Answer, string> = { yes: 'sí', no: 'no', unknown: 'no lo sé' };
 const FINISH = 'finish';
 const FIRST_QUESTION_TTL_MS = 30 * 60_000;
+/** Confianza mínima para dar por resuelta una dimensión a partir del texto inicial. */
+const SIGNAL_CONFIDENCE = 0.75;
+const contextDefaults = () => ({ timeZone: env.contextTimeZone, latitude: env.contextLatitude, longitude: env.contextLongitude });
 
 const questionSchema = z.object({
   question: z.string().describe('Pregunta de sí o no, de 3 a 9 palabras, hablando de tú, sin negaciones'),
   reason: z.string().describe('Una frase corta que explica por qué preguntas esto ahora'),
 });
 
-type SessionSeed = Pick<SessionRow, 'context' | 'initialText'>;
+type SessionSeed = Pick<SessionRow, 'context' | 'initialText' | 'taste' | 'textSignals'>;
+
+export interface StartOptions {
+  /** Punto de partida opcional (texto o voz transcrita). Se trata como dato, nunca como instrucción. */
+  initialText?: string;
+  /** Persona anónima, para usar sus gustos. */
+  userId?: string | null;
+  /** Zona horaria y posición aproximada que manda el navegador. */
+  client?: ContextRequest;
+}
 
 export interface SessionView {
   id: string;
@@ -54,6 +71,12 @@ export interface SessionView {
   question: { text: string; reason: string; guess: string; chips: { yes: string; no: string } } | null;
   canUndo: boolean;
   decisionProvider: string;
+  /** Hora, día y tiempo con los que se adapta la entrevista. */
+  context: InterviewContext;
+  /** Lo que ya dejó claro el texto inicial ("tranquilo"): no se pregunta. */
+  fromText: string[];
+  /** Gustos de largo plazo que se están teniendo en cuenta. */
+  taste: string[];
 }
 
 @Injectable()
@@ -69,6 +92,7 @@ export class InterviewService implements OnModuleInit {
     @Inject(TEXT_PROVIDER) private readonly text: TextProvider,
     private readonly domains: DomainsService,
     private readonly bank: QuestionBankService,
+    private readonly tastes: TasteService,
   ) {}
 
   /** Carga el banco de preguntas y calienta la primera pregunta al arrancar, sin bloquear el arranque. */
@@ -78,18 +102,25 @@ export class InterviewService implements OnModuleInit {
         .get(d.id)
         .then(async (domain) => {
           await this.bank.load(domain);
-          return this.firstTurns(domain);
+          return this.firstTurns(domain, await collectContext({}, contextDefaults()));
         })
         .catch((error: Error) => this.logger.warn(`No he podido preparar la primera pregunta de ${d.id}: ${error.message}`));
     }
   }
 
-  async start(domainId: string, initialText?: string): Promise<SessionView> {
+  async start(domainId: string, { initialText, userId = null, client = {} }: StartOptions = {}): Promise<SessionView> {
     const domain = await this.domains.get(domainId);
-    const seed: SessionSeed = { context: await collectContext(), initialText: initialText?.trim() || null };
-    const generic = !seed.initialText && Object.keys(seed.context).length === 0;
-    const turns = generic ? await this.firstTurns(domain) : await this.advance([], domain, seed);
-    const [row] = await this.db.insert(interviewSessions).values({ domainId, turns, ...seed }).returning();
+    const text = initialText?.trim() || null;
+    const [context, taste, textSignals] = await Promise.all([
+      collectContext(client, contextDefaults()),
+      this.tastes.profile(userId, domainId),
+      text ? this.readSignals(domain, text) : ({} as TextSignals),
+    ]);
+    const seed: SessionSeed = { context, initialText: text, taste: hasTaste(taste) ? taste : null, textSignals };
+    // Sin texto ni gustos, la primera pregunta solo depende del contexto: se reutiliza.
+    const generic = !seed.initialText && !seed.taste;
+    const turns = generic ? await this.firstTurns(domain, context) : await this.advance([], domain, seed);
+    const [row] = await this.db.insert(interviewSessions).values({ domainId, turns, userId, ...seed }).returning();
     this.schedulePrefetch(row, domain);
     return this.view(row, domain);
   }
@@ -148,13 +179,60 @@ export class InterviewService implements OnModuleInit {
     return row;
   }
 
-  private firstTurns(domain: DomainRow): Promise<InterviewTurn[]> {
-    const cached = this.firstQuestion.get(domain.id);
+  /** Primera pregunta por dominio y contexto (franja, día y tiempo), reutilizable durante un rato. */
+  private firstTurns(domain: DomainRow, context: InterviewContext): Promise<InterviewTurn[]> {
+    const key = `${domain.id}|${contextKey(context)}`;
+    const cached = this.firstQuestion.get(key);
     if (cached && Date.now() - cached.at < FIRST_QUESTION_TTL_MS) return cached.turns;
-    const turns = this.advance([], domain, { context: {} as InterviewContext, initialText: null });
-    turns.catch(() => this.firstQuestion.delete(domain.id));
-    this.firstQuestion.set(domain.id, { turns, at: Date.now() });
+    const turns = this.advance([], domain, { context, initialText: null, taste: null, textSignals: {} });
+    turns.catch(() => this.firstQuestion.delete(key));
+    this.firstQuestion.set(key, { turns, at: Date.now() });
     return turns;
+  }
+
+  /**
+   * Lo que el texto inicial ya deja claro, una decisión `choice` por atributo de escala
+   * (con la cadena rápida de la entrevista). Solo se quedan las señales confiadas; si falla,
+   * la entrevista pregunta por todo, como sin texto.
+   */
+  private async readSignals(domain: DomainRow, text: string): Promise<TextSignals> {
+    const scales = domain.config.attributes.filter((a) => a.kind === 'scale');
+    const answers = await this.decisions
+      .decide(
+        { textoDeLaPersona: text.slice(0, 500) },
+        Object.fromEntries(
+          scales.map((a) => [
+            a.key,
+            {
+              type: 'choice' as const,
+              instructions: `Según el texto, ¿qué ${a.label.toLowerCase()} (${a.description.toLowerCase()}) le apetece para ${domain.config.verb} ahora? Si el texto no lo dice claramente, elige "unknown".`,
+              criteria: { low: a.lowLabel ?? 'Bajo', high: a.highLabel ?? 'Alto', unknown: 'El texto no lo dice' },
+            },
+          ]),
+        ),
+      )
+      .catch((error: Error) => {
+        this.logger.warn(`Sin señales del texto inicial: ${error.message.slice(0, 120)}`);
+        return null;
+      });
+    if (!answers) return {};
+    const signals: TextSignals = {};
+    for (const a of scales) {
+      const answer = answers[a.key];
+      const confidence = answer?.confidence ?? 0.7;
+      if (!answer || answer.choice === 'unknown' || confidence < SIGNAL_CONFIDENCE) continue;
+      signals[a.key] = { value: answer.choice === 'high' ? 0.85 : 0.15, confidence: Math.round(confidence * 100) / 100 };
+    }
+    this.logger.log(`Texto inicial → ${Object.keys(signals).join(', ') || 'nada claro'}`);
+    return signals;
+  }
+
+  /** Lo que ya se sabe antes de preguntar: dimensiones del texto y sondas de gustos que sobran. */
+  private facts(session: SessionSeed, domain: DomainRow): InterviewFacts {
+    return {
+      known: Object.keys(session.textSignals ?? {}),
+      skip: session.taste ? tasteOnlyProbes(domain.config) : undefined,
+    };
   }
 
   /** Mientras la persona lee la pregunta, prepara la siguiente para "sí" y para "no". */
@@ -176,15 +254,17 @@ export class InterviewService implements OnModuleInit {
    */
   private async advance(turns: InterviewTurn[], domain: DomainRow, session: SessionSeed): Promise<InterviewTurn[]> {
     const { config } = domain;
-    if (answered(turns).length && mustFinish(turns, config)) return turns;
+    const facts = this.facts(session, domain);
+    const known = facts.known ?? [];
+    if (answered(turns).length && mustFinish(turns, config, known)) return turns;
 
-    const options = askableProbes(turns, config);
+    const options = askableProbes(turns, config, facts);
     if (!options.length) return turns;
-    const informed = informedDimensions(turns, config);
+    const informed = informedDimensions(turns, config, known);
     const history = answered(turns).map((t) => ({ pregunta: t.text, respuesta: ANSWER_TEXT[t.answer!] }));
 
     const criteria: Record<string, string> = Object.fromEntries(options.map((p) => [p.id, `Preguntar ${p.intent.toLowerCase()}`]));
-    if (canFinishEarly(turns, config)) criteria[FINISH] = 'Terminar: ya hay información suficiente para recomendar bien';
+    if (canFinishEarly(turns, config, known)) criteria[FINISH] = 'Terminar: ya hay información suficiente para recomendar bien';
 
     const decisionStarted = Date.now();
     const { next } = await this.decisions.decide(
@@ -193,8 +273,8 @@ export class InterviewService implements OnModuleInit {
         respuestas: history,
         atributosConInformacion: config.attributes.filter((a) => informed.has(a.key)).map((a) => a.label),
         atributosSinInformacion: config.attributes.filter((a) => !informed.has(a.key)).map((a) => a.label),
-        confianzaDelPerfil: profileConfidence(turns, config),
-        ...stateExtras(session),
+        confianzaDelPerfil: profileConfidence(turns, config, known),
+        ...stateExtras(session, config),
       },
       {
         next: {
@@ -266,15 +346,16 @@ export class InterviewService implements OnModuleInit {
     const { config } = domain;
     const current = pending(row.turns);
     const probe = current && config.probes.find((p) => p.id === current.probeId);
+    const known = Object.keys(row.textSignals ?? {});
     return {
       id: row.id,
       domainId: row.domainId,
       status: row.status,
       step: answered(row.turns).length + (current ? 1 : 0),
-      minQuestions: config.interview.minQuestions,
+      minQuestions: minQuestions(config, known),
       maxQuestions: config.interview.maxQuestions,
-      confidence: profileConfidence(row.turns, config),
-      chips: answerChips(row.turns, config),
+      confidence: profileConfidence(row.turns, config, known),
+      chips: [...signalChips(row.textSignals ?? {}, config), ...answerChips(row.turns, config)],
       question: current
         ? {
             text: current.text,
@@ -285,6 +366,9 @@ export class InterviewService implements OnModuleInit {
         : null,
       canUndo: answered(row.turns).length > 0,
       decisionProvider: this.decisions.name,
+      context: row.context,
+      fromText: signalChips(row.textSignals ?? {}, config),
+      taste: (row.taste?.likes ?? []).map((l) => tasteLabel(l, config)),
     };
   }
 }

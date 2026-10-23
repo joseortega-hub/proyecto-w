@@ -25,6 +25,20 @@ import {
   LayoutGrid,
   Music,
   Search,
+  Heart,
+  ThumbsUp,
+  ThumbsDown,
+  Mic,
+  Square,
+  Trash2,
+  Sun,
+  Moon,
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  CloudLightning,
+  CloudFog,
+  Wand2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -55,6 +69,20 @@ const ICONS = {
   sparkles: Sparkles,
   theme: Contrast,
   undo: Undo2,
+  heart: Heart,
+  thumbsUp: ThumbsUp,
+  thumbsDown: ThumbsDown,
+  mic: Mic,
+  stop: Square,
+  trash: Trash2,
+  wand: Wand2,
+  sun: Sun,
+  moon: Moon,
+  cloud: Cloud,
+  rain: CloudRain,
+  snow: CloudSnow,
+  storm: CloudLightning,
+  fog: CloudFog,
 }
 
 export type IconName = keyof typeof ICONS

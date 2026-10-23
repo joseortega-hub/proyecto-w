@@ -1,13 +1,23 @@
-import { BadRequestException, Body, Controller, Get, MessageEvent, Param, Post, Query, Sse } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, MessageEvent, Param, Post, Query, Sse } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { z } from 'zod';
 import { InterviewService } from './interview.service.js';
 import { TuningService } from './tuning.service.js';
+import { USER_HEADER } from '../taste/taste.controller.js';
+import { optionalUserId } from '../taste/taste.service.js';
 
 const startSchema = z.object({
   domainId: z.string().default('music'),
   /** Punto de partida opcional (texto o voz transcrita). Se trata como dato, nunca como instrucción. */
   initialText: z.string().max(500).optional(),
+  /** Contexto del navegador: zona horaria y, si ya dio permiso, posición aproximada. */
+  client: z
+    .object({
+      timeZone: z.string().max(64).optional(),
+      latitude: z.number().min(-90).max(90).optional(),
+      longitude: z.number().min(-180).max(180).optional(),
+    })
+    .optional(),
 });
 const answerSchema = z.object({
   answer: z.enum(['yes', 'no', 'unknown']),
@@ -29,9 +39,9 @@ export class InterviewController {
   ) {}
 
   @Post()
-  start(@Body() body: unknown) {
-    const { domainId, initialText } = parse(startSchema, body);
-    return this.interviews.start(domainId, initialText);
+  start(@Body() body: unknown, @Headers(USER_HEADER) user?: string) {
+    const { domainId, initialText, client } = parse(startSchema, body);
+    return this.interviews.start(domainId, { initialText, client, userId: optionalUserId(user) });
   }
 
   @Get(':id')

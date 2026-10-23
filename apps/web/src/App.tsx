@@ -11,6 +11,7 @@ import { LibraryPage } from '@/pages/LibraryPage'
 import { ListsPage } from '@/pages/ListsPage'
 import { PlayerPage } from '@/pages/PlayerPage'
 import { ResultPage } from '@/pages/ResultPage'
+import { TastePage } from '@/pages/TastePage'
 import { PlayerProvider } from '@/player/player-context'
 
 const queryClient = new QueryClient({
@@ -31,6 +32,7 @@ export function App() {
                 <Route index element={<HomePage />} />
                 <Route path="resultado/:id" element={<ResultPage />} />
                 <Route path="listas" element={<ListsPage />} />
+                <Route path="gustos" element={<TastePage />} />
                 <Route path="biblioteca" element={<LibraryPage />} />
                 <Route path="biblioteca/:itemId" element={<ItemPage key="ficha" />} />
               </Route>

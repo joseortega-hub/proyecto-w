@@ -8,6 +8,7 @@ import { ApiError, api } from '@/lib/api'
 import { totalMinutes } from '@/lib/format'
 import { agree, useDomain } from '@/lib/domain'
 import { useSavedLists } from '@/lib/saved-lists'
+import { useFeedback, useTaste } from '@/lib/taste'
 import { usePlayer } from '@/player/player-context'
 import { TuningPage } from './TuningPage'
 
@@ -20,6 +21,8 @@ export function ResultPage() {
   const player = usePlayer()
   const domain = useDomain()
   const { save, isSaved } = useSavedLists(domain.id)
+  const taste = useTaste(domain.id)
+  const feedback = useFeedback(domain.id)
 
   const refineParam = params.get('afinar')
   const tuning = refineParam !== null
@@ -122,6 +125,16 @@ export function ResultPage() {
           opensDetail={!domain.playable}
           // Sin reproductor (películas, libros, videojuegos), el toque abre la ficha con el enlace a la fuente.
           onSelect={domain.playable ? play : (i) => navigate(domain.path(`biblioteca/${data.entries[i].item.id}`))}
+          feedback={taste.data?.feedback}
+          onFeedback={(itemId, value) =>
+            feedback.mutate(
+              { itemId, value },
+              {
+                onSuccess: () => value && toast.success(value === 'up' ? 'Apuntado: más como este' : 'Apuntado: menos como este', { duration: 1800 }),
+                onError: (e) => toast.error('No he podido guardarlo', { description: e.message }),
+              },
+            )
+          }
         />
         <RefineChips
           options={data.refinements}

@@ -57,6 +57,13 @@ export const config = {
   /** Modelos de respaldo, en orden, si el principal está saturado. */
   geminiFallbackModels: list('GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash'),
   geminiEmbeddingModel: optional('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001'),
+  /**
+   * Contexto automático: si el navegador no manda zona horaria o posición, se usan estas
+   * (Madrid). El tiempo sale de Open-Meteo, sin clave.
+   */
+  contextTimeZone: optional('CONTEXT_TIME_ZONE', 'Europe/Madrid'),
+  contextLatitude: Number(optional('CONTEXT_LATITUDE', '40.4168')),
+  contextLongitude: Number(optional('CONTEXT_LONGITUDE', '-3.7038')),
   jamendoClientId: optional('JAMENDO_CLIENT_ID'),
   rawgApiKey: optional('RAWG_API_KEY'),
   /** API Key (v3) o token de lectura (v4) de TMDB. */

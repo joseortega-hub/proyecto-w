@@ -12,10 +12,21 @@ import { QuestionBankService } from './interview/question-bank.service.js';
 import { TuningService } from './interview/tuning.service.js';
 import { ItemsController } from './items/items.controller.js';
 import { ItemsService } from './items/items.service.js';
+import { TasteController } from './taste/taste.controller.js';
+import { TasteService } from './taste/taste.service.js';
 
 @Module({
   imports: [DbModule, AiModule],
-  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController],
-  providers: [DomainsService, InterviewService, QuestionBankService, TuningService, ItemsService, SessionCleanupService, PreferencesService],
+  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController],
+  providers: [
+    DomainsService,
+    InterviewService,
+    QuestionBankService,
+    TuningService,
+    ItemsService,
+    SessionCleanupService,
+    PreferencesService,
+    TasteService,
+  ],
 })
 export class AppModule {}

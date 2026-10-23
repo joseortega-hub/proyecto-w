@@ -76,6 +76,11 @@ Endpoints del catálogo: `GET /api/domains/:id/items?q=&tags=&offset=&limit=` (b
 
 **Cupos gratuitos.** Los embeddings de Gemini admiten 1000 textos al día por modelo: con los cuatro catálogos (~1800 elementos) hacen falta dos días. `pnpm embed` lo detecta, se para y dice cuándo volver a lanzarlo; lo que ya se guardó se conserva. Sin embedding, la búsqueda tira de los atributos.
 
+**Gustos, contexto y punto de partida.**
+- *Mis gustos* (por temática): lo que te gusta y lo que no, marcado con chips o contado con tus palabras (la IA lo traduce a etiquetas del catálogo). Los 👍/👎 de cada lista ajustan un peso por etiqueta. Los gustos no filtran: suben la puntuación de lo que encaja (`similarity` y `hybridRank`) y la entrevista deja de preguntar por estilos. Sin registro: va ligado a un id anónimo del navegador (`x-sintonia-user`). Endpoints: `GET/PUT/DELETE /api/taste/:domain`, `POST /api/taste/:domain/feedback` y `POST /api/taste/:domain/interpret`.
+- *Contexto automático*: hora, día de la semana y tiempo actual de [Open-Meteo](https://open-meteo.com) (sin clave) viajan como dato en el `state` de cada decisión. Sin permiso de ubicación previo, se usa la posición de `CONTEXT_LATITUDE`/`CONTEXT_LONGITUDE`.
+- *Punto de partida*: antes de las preguntas puedes escribir o dictar (Web Speech API; el 🎤 se oculta si el navegador no la tiene) cómo estás. Lo que deje claro no se pregunta. No se guarda ni el texto ni el audio.
+
 **Preferencias previas.** Cada dominio puede declarar filtros duros que se eligen antes de la entrevista (en música, el idioma de la letra: español, inglés o me da igual). Se guardan en `items.facets`, filtran la búsqueda (SQL y pgvector) y, si dejan pocos elementos, el resultado lo avisa. Las instrumentales pasan siempre el filtro de idioma. El texto inicial de la persona solo se guarda mientras dura la entrevista.
 
 Otros comandos: `pnpm storybook` (en :6006), `pnpm test` (pruebas del motor), `pnpm typecheck` y `pnpm tokens`.

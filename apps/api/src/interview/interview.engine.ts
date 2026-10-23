@@ -1,16 +1,23 @@
 // Lógica pura de la entrevista y del ranking: sin IA ni base de datos, fácil de probar.
 import type { DomainConfig, Probe } from '../domains/domain.types.js';
-import type { InterviewTurn, MoodProfile, SessionPreferences } from './interview.types.js';
+import { tasteAffinity, type TasteProfile } from '../taste/taste.engine.js';
+import type { InterviewTurn, MoodProfile, SessionPreferences, TextSignals } from './interview.types.js';
+
+/** Cuánto suben los gustos el parecido por atributos (0–1) y la relevancia híbrida (0–1). */
+export const TASTE_WEIGHT = { similarity: 0.15, relevance: 0.15 };
 
 export const answered = (turns: InterviewTurn[]) => turns.filter((t) => t.answer !== null);
 export const pending = (turns: InterviewTurn[]) => turns.find((t) => t.answer === null) ?? null;
 
 const probeById = (config: DomainConfig) => new Map(config.probes.map((p) => [p.id, p]));
 
-/** Dimensiones (atributos o grupos de etiquetas) sobre las que ya hay información. */
-export function informedDimensions(turns: InterviewTurn[], config: DomainConfig): Set<string> {
+/**
+ * Dimensiones (atributos o grupos de etiquetas) sobre las que ya hay información: las
+ * de las respuestas y las que ya dejó claras el texto inicial (`known`).
+ */
+export function informedDimensions(turns: InterviewTurn[], config: DomainConfig, known: Iterable<string> = []): Set<string> {
   const probes = probeById(config);
-  const dims = new Set<string>();
+  const dims = new Set<string>(known);
   for (const t of answered(turns)) {
     if (t.answer === 'unknown') continue;
     probes.get(t.probeId)?.informs.forEach((d) => dims.add(d));
@@ -19,9 +26,9 @@ export function informedDimensions(turns: InterviewTurn[], config: DomainConfig)
 }
 
 /** Confianza del perfil, 0–1: arranca en 0,1 y crece con cada dimensión cubierta. */
-export function profileConfidence(turns: InterviewTurn[], config: DomainConfig): number {
+export function profileConfidence(turns: InterviewTurn[], config: DomainConfig, known: Iterable<string> = []): number {
   const total = config.attributes.length;
-  const covered = informedDimensions(turns, config).size;
+  const covered = informedDimensions(turns, config, known).size;
   return Math.round((0.1 + 0.85 * (covered / total)) * 100) / 100;
 }
 
@@ -35,22 +42,39 @@ export function answerChips(turns: InterviewTurn[], config: DomainConfig): strin
   });
 }
 
+/** Etiquetas de lo que dejó claro el texto inicial ("tranquilo", "en compañía"). */
+export function signalChips(signals: TextSignals, config: DomainConfig): string[] {
+  return config.attributes.flatMap((a) => {
+    const s = signals[a.key];
+    if (!s || a.kind !== 'scale') return [];
+    const word = s.value >= 0.5 ? a.highLabel : a.lowLabel;
+    return word ? [word] : [];
+  });
+}
+
 export function remainingProbes(turns: InterviewTurn[], config: DomainConfig): Probe[] {
   const asked = new Set(turns.map((t) => t.probeId));
   return config.probes.filter((p) => !asked.has(p.id));
 }
 
-/** Reglas duras de parada. La IA solo puede terminar antes entre el mínimo y el máximo. */
-export function mustFinish(turns: InterviewTurn[], config: DomainConfig): boolean {
+/**
+ * Reglas duras de parada. La IA solo puede terminar antes entre el mínimo y el máximo.
+ * Con texto inicial, el mínimo baja: lo que ya contó cuenta como respuestas.
+ */
+export function mustFinish(turns: InterviewTurn[], config: DomainConfig, known: string[] = []): boolean {
   const n = answered(turns).length;
-  const { minQuestions, maxQuestions, confidenceToFinish } = config.interview;
+  const { maxQuestions, confidenceToFinish } = config.interview;
   if (n >= maxQuestions || remainingProbes(turns, config).length === 0) return true;
-  return n >= minQuestions && profileConfidence(turns, config) >= confidenceToFinish;
+  return n >= minQuestions(config, known) && profileConfidence(turns, config, known) >= confidenceToFinish;
 }
 
+/** Mínimo de preguntas: cada dimensión que dejó clara el texto ahorra una, hasta un mínimo de 3. */
+export const minQuestions = (config: DomainConfig, known: string[] = []) =>
+  Math.max(3, config.interview.minQuestions - known.length);
+
 /** La IA puede proponer terminar a partir del mínimo de preguntas y con algo de confianza. */
-export const canFinishEarly = (turns: InterviewTurn[], config: DomainConfig) =>
-  answered(turns).length >= config.interview.minQuestions && profileConfidence(turns, config) >= 0.6;
+export const canFinishEarly = (turns: InterviewTurn[], config: DomainConfig, known: string[] = []) =>
+  answered(turns).length >= minQuestions(config, known) && profileConfidence(turns, config, known) >= 0.6;
 
 export interface Rankable {
   id: string;
@@ -75,9 +99,10 @@ export function applyRefinements(profile: MoodProfile, keys: string[], config: D
 
 /**
  * Parecido entre el perfil y un elemento, 0–1. Pesan más los atributos sobre los
- * que la persona respondió; los grupos de etiquetas suman o restan un poco.
+ * que la persona respondió; los grupos de etiquetas suman o restan un poco, y los
+ * gustos de largo plazo (si los hay) también, sin dejar fuera a nadie.
  */
-export function similarity(item: Rankable, profile: MoodProfile, config: DomainConfig): number {
+export function similarity(item: Rankable, profile: MoodProfile, config: DomainConfig, taste?: TasteProfile | null): number {
   let num = 0;
   let den = 0;
   for (const a of config.attributes) {
@@ -96,6 +121,7 @@ export function similarity(item: Rankable, profile: MoodProfile, config: DomainC
     if (item.tags.some((t) => g.tags.includes(t))) score += 0.4 * (p - 0.5);
   }
   score += 0.03 * item.popularity;
+  score += TASTE_WEIGHT.similarity * tasteAffinity(item, taste, config);
   return Math.min(1, Math.max(0, score));
 }
 
@@ -106,9 +132,10 @@ export function rankCandidates<T extends Rankable>(
   config: DomainConfig,
   limit: number,
   perArtist = 2,
+  taste?: TasteProfile | null,
 ): { item: T; score: number }[] {
   const scored = items
-    .map((item) => ({ item, score: similarity(item, profile, config) }))
+    .map((item) => ({ item, score: similarity(item, profile, config, taste) }))
     .sort((a, b) => b.score - a.score);
   const seen = new Map<string, number>();
   const out: { item: T; score: number }[] = [];
@@ -206,32 +233,42 @@ export interface HybridCandidate<T> {
   attr: number;
   /** Similitud coseno con la consulta, o null si el elemento no tiene embedding. */
   semantic: number | null;
-  /** Relevancia combinada, 0–1, relativa al resto de candidatos. */
+  /** Afinidad con los gustos de la persona, −1 a 1 (0 sin perfil de gustos). */
+  taste: number;
+  /** Relevancia combinada, relativa al resto de candidatos (los gustos la suben o bajan un poco). */
   relevance: number;
+}
+
+export interface HybridOptions {
+  semanticWeight?: number;
+  perArtist?: number;
+  /** Gustos de largo plazo: suben la relevancia de lo que encaja, sin excluir el resto. */
+  taste?: TasteProfile | null;
 }
 
 /**
  * Combina el parecido por atributos con la similitud semántica. Ambos se pasan a
  * percentiles dentro de la bolsa de candidatos para que pesen igual aunque las
- * similitudes coseno vivan en un rango estrecho (≈ 0,6–0,8).
+ * similitudes coseno vivan en un rango estrecho (≈ 0,6–0,8). Encima, los gustos
+ * suman (o restan) un empujón: lo que no encaja con ellos baja, pero no desaparece.
  */
 export function hybridRank<T extends Rankable>(
   pool: { item: T; semantic: number | null }[],
   profile: MoodProfile,
   config: DomainConfig,
   limit: number,
-  semanticWeight = 0.5,
-  perArtist = 2,
+  { semanticWeight = 0.5, perArtist = 2, taste = null }: HybridOptions = {},
 ): HybridCandidate<T>[] {
-  const attr = pool.map(({ item }) => similarity(item, profile, config));
+  const attr = pool.map(({ item }) => similarity(item, profile, config, taste));
   const attrPct = percentiles(attr);
   const withSemantic = pool.map((p, i) => ({ i, s: p.semantic })).filter((p) => p.s !== null);
   const semPct = new Map(percentiles(withSemantic.map((p) => p.s as number)).map((pct, k) => [withSemantic[k].i, pct]));
   const scored = pool
     .map(({ item, semantic }, i) => {
       const s = semPct.get(i);
-      const relevance = s === undefined ? attrPct[i] : (1 - semanticWeight) * attrPct[i] + semanticWeight * s;
-      return { item, attr: attr[i], semantic, relevance };
+      const base = s === undefined ? attrPct[i] : (1 - semanticWeight) * attrPct[i] + semanticWeight * s;
+      const affinity = tasteAffinity(item, taste, config);
+      return { item, attr: attr[i], semantic, taste: affinity, relevance: base + TASTE_WEIGHT.relevance * affinity };
     })
     .sort((a, b) => b.relevance - a.relevance || b.attr - a.attr);
 

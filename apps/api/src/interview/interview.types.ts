@@ -42,3 +42,9 @@ export interface SessionResult {
   refinements: string[];
   createdAt: string;
 }
+
+/**
+ * Lo que el texto inicial ya deja claro, por atributo de escala: nivel (0–1) y confianza.
+ * Solo se guardan las señales confiadas; la entrevista no pregunta por esas dimensiones.
+ */
+export type TextSignals = Record<string, { value: number; confidence: number }>;

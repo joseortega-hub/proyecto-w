@@ -1,5 +1,7 @@
 // Cliente REST de la API de Sintonía. Vite redirige /api a la API en local.
+import type { ClientContext, InterviewContext } from './context'
 import type { Preference, SessionPreferences } from './preferences'
+import { userHeaders } from './user'
 
 export type Answer = 'yes' | 'no' | 'unknown'
 
@@ -15,6 +17,12 @@ export interface SessionView {
   question: { text: string; reason: string; guess: string; chips: { yes: string; no: string } } | null
   canUndo: boolean
   decisionProvider: string
+  /** Hora, día y tiempo con los que se adapta la entrevista. */
+  context: InterviewContext
+  /** Lo que ya dejó claro el punto de partida ("tranquilo"): no se pregunta. */
+  fromText: string[]
+  /** Gustos guardados que se tienen en cuenta. */
+  taste: string[]
 }
 
 export interface Item {
@@ -83,6 +91,8 @@ export interface ResultEntry {
   /** Probabilidad de encaje (0–1) que dio el DecisionProvider. */
   fit: number | null
   reason: string
+  /** Gustos de la persona con los que encaja ("rol y aventura"). */
+  likes?: string[]
   item: Item
 }
 
@@ -123,6 +133,27 @@ export type TuningEvent =
   | { step: 'done'; sessionId: string }
   | { step: 'error'; message: string }
 
+export type Feedback = 'up' | 'down'
+
+/** Un gusto: etiqueta del catálogo o grupo (`@rpg`), con su nombre legible. */
+export interface TasteEntry {
+  id: string
+  label: string
+}
+
+export interface Taste {
+  domainId: string
+  /** Si ya pasó por el onboarding de esta temática (o lo saltó). */
+  onboarded: boolean
+  likes: TasteEntry[]
+  dislikes: TasteEntry[]
+  /** Lo aprendido con los 👍/👎 (peso −1 a 1). */
+  learned: (TasteEntry & { weight: number })[]
+  feedback: Record<string, Feedback>
+  preferences: Record<string, string>
+  vocabulary: { groups: TasteEntry[]; tags: (TasteEntry & { count: number })[] }
+}
+
 export class ApiError extends Error {
   readonly status: number
   constructor(status: number, message: string) {
@@ -134,7 +165,7 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...init,
-    headers: { 'content-type': 'application/json', ...init?.headers },
+    headers: { 'content-type': 'application/json', ...userHeaders(), ...init?.headers },
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -146,8 +177,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   getDomains: () => request<DomainInfo[]>('/domains'),
   /** `initialText` es el punto de partida opcional (texto o voz) antes de las preguntas. */
-  startSession: (domainId: string, initialText?: string) =>
-    request<SessionView>('/sessions', { method: 'POST', body: JSON.stringify({ domainId, initialText }) }),
+  startSession: (domainId: string, options: { initialText?: string; client?: ClientContext } = {}) =>
+    request<SessionView>('/sessions', { method: 'POST', body: JSON.stringify({ domainId, ...options }) }),
   getSession: (id: string) => request<SessionView>(`/sessions/${id}`),
   /** `step` es el número de la pregunta que se responde: el servidor rechaza (409) los dobles envíos. */
   answer: (id: string, answer: Answer, step?: number) =>
@@ -165,6 +196,20 @@ export const api = {
     qs.set('limit', String(options.limit ?? 24))
     return request<ItemPage>(`/domains/${domainId}/items?${qs}`)
   },
+
+  getTaste: (domainId: string) => request<Taste>(`/taste/${domainId}`),
+  saveTaste: (domainId: string, body: { likes: string[]; dislikes: string[]; preferences?: Record<string, string> }) =>
+    request<Taste>(`/taste/${domainId}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteTaste: (domainId: string) => request<{ deleted: boolean }>(`/taste/${domainId}`, { method: 'DELETE' }),
+  /** 👍/👎 sobre un elemento (`null` la quita). */
+  feedback: (domainId: string, itemId: string, value: Feedback | null) =>
+    request<Taste>(`/taste/${domainId}/feedback`, { method: 'POST', body: JSON.stringify({ itemId, value }) }),
+  /** Texto libre → gustos del catálogo. No guarda nada. */
+  interpretTaste: (domainId: string, text: string) =>
+    request<{ likes: TasteEntry[]; dislikes: TasteEntry[] }>(`/taste/${domainId}/interpret`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
 
   /** Sigue el progreso de Afinando por Server-Sent Events. Devuelve la función para cancelar. */
   tune(id: string, refine: string[], onEvent: (e: TuningEvent) => void): () => void {

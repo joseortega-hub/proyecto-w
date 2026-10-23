@@ -1,4 +1,7 @@
 import { musicDomain } from '../domains/music.domain.js';
+import { gamesDomain } from '../domains/games.domain.js';
+import { tasteOnlyProbes } from '../taste/taste.engine.js';
+import { minQuestions, mustFinish, profileConfidence, signalChips } from './interview.engine.js';
 import { askableProbes, assertNotAsked } from './interview.flow.js';
 import type { InterviewTurn } from './interview.types.js';
 
@@ -40,5 +43,27 @@ describe('preguntas que se pueden hacer', () => {
 
   it('assertNotAsked bloquea una sonda repetida', () => {
     expect(() => assertNotAsked([turn('vocal', 'yes')], 'vocal')).toThrow();
+  });
+
+  it('lo que ya dejó claro el texto inicial no se pregunta y adelanta el final', () => {
+    expect(ids([])).toContain('energy');
+    const known = ['energy', 'dance'];
+    const offered = askableProbes([], config, { known }).map((p) => p.id);
+    expect(offered).not.toContain('energy');
+    expect(offered).not.toContain('party');
+    expect(profileConfidence([], config, known)).toBeGreaterThan(profileConfidence([], config));
+    expect(minQuestions(config, known)).toBe(Math.max(3, config.interview.minQuestions - 2));
+    expect(mustFinish([], config, known)).toBe(false);
+    expect(signalChips({ energy: { value: 0.1, confidence: 0.9 } }, config)).toEqual(['tranquila']);
+  });
+
+  it('con gustos guardados no pregunta por estilos, salvo que no quede nada más', () => {
+    const games = gamesDomain.config;
+    const skip = tasteOnlyProbes(games);
+    const offered = askableProbes([], games, { skip }).map((p) => p.id);
+    expect(offered).not.toContain('rpg');
+    expect(offered).toContain('story');
+    const moodAsked = games.probes.filter((p) => !skip.has(p.id)).map((p) => turn(p.id, 'yes'));
+    expect(askableProbes(moodAsked, games, { skip }).length).toBeGreaterThan(0);
   });
 });
