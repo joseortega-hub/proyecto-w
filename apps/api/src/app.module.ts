@@ -12,6 +12,10 @@ import { UnderstandingService } from './interview/understanding.service.js';
 import { SessionCleanupService } from './interview/session-cleanup.service.js';
 import { QuestionBankService } from './interview/question-bank.service.js';
 import { TuningService } from './interview/tuning.service.js';
+import { HomeController } from './home/home.controller.js';
+import { HomeService } from './home/home.service.js';
+import { RouteIntentService } from './home/route-intent.service.js';
+import { StoryService } from './home/story.service.js';
 import { ItemsController } from './items/items.controller.js';
 import { ItemsService } from './items/items.service.js';
 import { TasteController } from './taste/taste.controller.js';
@@ -29,7 +33,7 @@ import { YouTubeService } from './youtube/youtube.service.js';
 
 @Module({
   imports: [DbModule, AiModule],
-  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController],
+  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController],
   providers: [
     DomainsService,
     AnchorsService,
@@ -47,6 +51,9 @@ import { YouTubeService } from './youtube/youtube.service.js';
     TraceService,
     OpsService,
     ThemesService,
+    HomeService,
+    RouteIntentService,
+    StoryService,
   ],
 })
 export class AppModule {}
