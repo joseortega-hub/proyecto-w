@@ -82,6 +82,8 @@ export const config = {
   tmdbApiKey: optional('TMDB_API_KEY'),
   /** Contacto opcional para el User-Agent de Open Library (sube el límite de 1 a 3 peticiones/s). */
   openLibraryContact: optional('OPEN_LIBRARY_CONTACT'),
+  /** Contacto para el User-Agent de MusicBrainz (lo exigen sus condiciones). */
+  musicBrainzContact: optional('MUSICBRAINZ_CONTACT'),
 };
 
 export type AppConfig = typeof config;

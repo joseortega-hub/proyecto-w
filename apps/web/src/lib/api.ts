@@ -146,6 +146,35 @@ export interface YouTubeStatus {
   channelTitle: string | null
   connectedAt: string | null
   expiresAt: string | null
+/** "Mi carpeta": lo que el servidor sabe de las canciones del dispositivo (nunca el audio). */
+export interface FolderStatus {
+  itemCount: number
+  /** Canciones "por revisar": el nombre no está confirmado. */
+  review: number
+  /** Sin atributos de IA todavía. */
+  unanalyzed: number
+  /** Sin embedding todavía. */
+  unembedded: number
+}
+
+export interface FolderTrack {
+  id: string
+  key: string
+  title: string
+  artist: string | null
+  review: boolean
+  manual: boolean
+  identified: string
+}
+
+export interface FolderTrackInput {
+  key: string
+  fileName: string
+  title?: string | null
+  artist?: string | null
+  durationSec?: number | null
+}
+
   itemCount: number
   import: YouTubeImport | null
 }
@@ -258,6 +287,8 @@ export const api = {
       body: JSON.stringify({ text }),
     }),
 
+  /** Detalles del elemento; en música completa los créditos desde MusicBrainz la primera vez. */
+  getDetails: (itemId: string) => request<ItemDetails>(`/items/${itemId}/details`),
   youtubeStatus: () => request<YouTubeStatus>('/youtube/status'),
   /** URL de consentimiento de Google; el `state` queda ligado a este navegador con una cookie. */
   youtubeAuth: () => request<{ url: string }>('/youtube/auth', { method: 'POST' }),
@@ -282,4 +313,14 @@ export const api = {
     }
     return () => source.close()
   },
+  folderStatus: () => request<FolderStatus>('/folder/status'),
+  folderKeys: () => request<string[]>('/folder/keys'),
+  folderTracks: () => request<FolderTrack[]>('/folder/tracks'),
+  folderAdd: (tracks: FolderTrackInput[]) =>
+    request<{ saved: number; review: number }>('/folder/tracks', { method: 'POST', body: JSON.stringify({ tracks }) }),
+  folderCorrect: (id: string, body: { title: string; artist: string | null }) =>
+    request<FolderTrack>(`/folder/tracks/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  folderResume: () => request<FolderStatus & { quota: boolean }>('/folder/resume', { method: 'POST' }),
+  folderForget: () => request<{ removed: number }>('/folder', { method: 'DELETE' }),
+
 }

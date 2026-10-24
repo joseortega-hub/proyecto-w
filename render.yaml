@@ -24,11 +24,11 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "24"
-      # Sin Ollaya en producción: Groq y, de respaldo, Gemini.
+      # Sin Ollaya en producción: Groq, Cerebras y OpenRouter (si tienen clave) y, de respaldo, Gemini.
       - key: DECISION_CHAIN
-        value: groq,gemini
+        value: groq,cerebras,openrouter,gemini
       - key: TEXT_CHAIN
-        value: groq,gemini
+        value: groq,cerebras,openrouter,gemini
       - key: DECISION_PROVIDER
         value: gemini
       - key: CONTEXT_TIME_ZONE
@@ -39,6 +39,11 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_API_KEY
+        sync: false
+      # Respaldos gratuitos cuando Groq y Gemini se quedan sin cupo (opcionales).
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
         sync: false
       # Búsqueda en directo de la intención explícita ("algo de Marvel"): las mismas claves del seed.
       - key: TMDB_API_KEY

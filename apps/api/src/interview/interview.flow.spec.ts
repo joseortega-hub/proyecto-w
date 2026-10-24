@@ -2,7 +2,7 @@ import { musicDomain } from '../domains/music.domain.js';
 import { gamesDomain } from '../domains/games.domain.js';
 import { tasteOnlyProbes } from '../taste/taste.engine.js';
 import { minQuestions, mustFinish, profileConfidence, signalChips } from './interview.engine.js';
-import { askableProbes, assertNotAsked, autoAnswerExhausted } from './interview.flow.js';
+import { anchorsDone, askableProbes, assertNotAsked, autoAnswerExhausted } from './interview.flow.js';
 import type { InterviewTurn } from './interview.types.js';
 
 const config = musicDomain.config;
@@ -85,5 +85,16 @@ describe('respuestas automáticas', () => {
 
   it('el mínimo baja con lo que ya dejó claro el texto', () => {
     expect(autoAnswerExhausted(unknowns(2), 'unknown', config, ['energy', 'vocal', 'mood'])).toBe(true);
+  });
+});
+
+describe('fin anticipado con anclas', () => {
+  it('termina cuando ya no hay preguntas que distingan lo pedido o no se pueden redactar', () => {
+    expect(anchorsDone(1, true, 0, 3, 'exhausted')).toBe(true);
+    expect(anchorsDone(1, true, 0, 2, 'exhausted')).toBe(false);
+    expect(anchorsDone(1, true, 2, 5, 'exhausted')).toBe(false);
+    expect(anchorsDone(1, false, 0, 2, 'unwritten')).toBe(true);
+    expect(anchorsDone(1, false, 0, 1, 'unwritten')).toBe(false);
+    expect(anchorsDone(0, true, 0, 9, 'exhausted')).toBe(false);
   });
 });

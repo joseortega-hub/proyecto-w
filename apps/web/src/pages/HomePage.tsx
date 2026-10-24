@@ -4,9 +4,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, Cover, DomainIcon, Heading, Icon, IconButton, Text } from '@/components/atoms'
 import { PreferencePicker, StartingPointField } from '@/components/molecules'
-import { YouTubePanel } from '@/components/organisms'
+import { FolderPanel, YouTubePanel } from '@/components/organisms'
 import { Card } from '@/components/ui/card'
 import { useDomain } from '@/lib/domain'
+import { chooseFolder, importFolder, reconnectFolder, restoreFolder, useFolderState, useFolderStatus, useForgetFolder } from '@/lib/folder'
+import { allLocalFiles, canRememberFolder } from '@/lib/local-files'
 import { timeAgo } from '@/lib/format'
 import { usePreferences } from '@/lib/preferences'
 import { useSavedLists } from '@/lib/saved-lists'
@@ -23,9 +25,12 @@ export function HomePage() {
   const taste = useTaste(domain.id)
   const skipTaste = useSaveTaste(domain.id)
   const [text, setText] = useState('')
-  const youtube = useYouTubeSection(domain.personal)
-  // En "Mi YouTube" no hay entrevista posible hasta tener canciones importadas.
-  const ready = !domain.personal || (youtube.status.data?.itemCount ?? 0) > 0
+  const isYouTube = domain.id === 'youtube'
+  const isFolder = domain.id === 'folder'
+  const youtube = useYouTubeSection(isYouTube)
+  const folder = useFolderSection(isFolder)
+  // En los catálogos personales no hay entrevista posible hasta tener canciones importadas.
+  const ready = !domain.personal || (isFolder ? (folder.status.data?.itemCount ?? 0) : (youtube.status.data?.itemCount ?? 0)) > 0
 
   // Las preferencias habituales guardadas con los gustos vienen marcadas en un dispositivo nuevo.
   useEffect(() => {
@@ -52,7 +57,24 @@ export function HomePage() {
         <Text tone="muted" size="lead">
           Unas pocas preguntas de sí o no. Sin formularios ni registro.
         </Text>
-        {domain.personal && (
+        {isFolder && (
+          <FolderPanel
+            state={folder.state}
+            itemCount={folder.status.data?.itemCount}
+            review={folder.status.data?.review}
+            pending={(folder.status.data?.unanalyzed ?? 0) + (folder.status.data?.unembedded ?? 0)}
+            canRemember={canRememberFolder()}
+            onChoose={folder.choose}
+            onReconnect={folder.reconnect}
+            onImport={folder.importNew}
+            onReview={() => navigate(domain.path('revisar'))}
+            onForget={() => {
+              if (!window.confirm('¿Olvidar la carpeta? Borro de Sintonía los datos de tus canciones (tus archivos no se tocan).')) return
+              folder.forget.mutate(undefined, { onSuccess: () => toast.success('Carpeta olvidada y datos borrados de Sintonía') })
+            }}
+          />
+        )}
+        {isYouTube && (
           <YouTubePanel
             status={youtube.status.data}
             busy={youtube.busy}
@@ -174,4 +196,34 @@ function useYouTubeSection(enabled: boolean) {
   }, [job, queryClient])
 
   return { status, connect, importNow, disconnect, busy: connect.isPending || importNow.isPending || disconnect.isPending }
+}
+
+/** Estado de "Mi carpeta" en Inicio: recupera la carpeta recordada y lanza la identificación. */
+function useFolderSection(enabled: boolean) {
+  const queryClient = useQueryClient()
+  const state = useFolderState()
+  const status = useFolderStatus(enabled)
+  const forget = useForgetFolder()
+
+  useEffect(() => {
+    if (enabled) void restoreFolder()
+  }, [enabled])
+
+  const fail = (e: unknown) => toast.error('No he podido leer la carpeta', { description: (e as Error).message })
+  return {
+    state,
+    status,
+    forget,
+    choose: () =>
+      chooseFolder().then((files) => {
+        if (!files) return
+        if (!files.length) return toast('No he encontrado canciones en esa carpeta', { description: 'Busco mp3, m4a, flac, ogg, opus y wav.' })
+        void importFolder(files, queryClient)
+      }, fail),
+    reconnect: () =>
+      reconnectFolder().then((ok) => {
+        if (ok) void importFolder(allLocalFiles(), queryClient)
+      }, fail),
+    importNew: () => void importFolder(allLocalFiles(), queryClient),
+  }
 }

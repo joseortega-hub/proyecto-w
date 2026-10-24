@@ -4,6 +4,7 @@ import { AppShell } from '@/components/templates/AppShell'
 import { DomainGate } from '@/components/templates/DomainGate'
 import { Toaster } from '@/components/ui/sonner'
 import { DomainPickerPage } from '@/pages/DomainPickerPage'
+import { FolderReviewPage } from '@/pages/FolderReviewPage'
 import { HomePage } from '@/pages/HomePage'
 import { InterviewPage } from '@/pages/InterviewPage'
 import { ItemPage } from '@/pages/ItemPage'
@@ -33,6 +34,7 @@ export function App() {
                 <Route path="resultado/:id" element={<ResultPage />} />
                 <Route path="listas" element={<ListsPage />} />
                 <Route path="gustos" element={<TastePage />} />
+                <Route path="revisar" element={<FolderReviewPage />} />
                 <Route path="biblioteca" element={<LibraryPage />} />
                 <Route path="biblioteca/:itemId" element={<ItemPage key="ficha" />} />
               </Route>

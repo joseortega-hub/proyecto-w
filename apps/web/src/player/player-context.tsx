@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Item } from '@/lib/api'
+import { toast } from 'sonner'
+import { localUrl } from '@/lib/local-files'
 import { VideoDock } from './VideoDock'
 import { loadYouTubeApi, YT_STATE, type YTPlayer } from './youtube-iframe'
 
@@ -42,7 +44,7 @@ const isVideo = (entry: QueueEntry | null | undefined) => entry?.item.source ===
 
 /**
  * Un único reproductor para toda la app: la música sigue sonando al cambiar de pantalla.
- * Dos motores detrás de la misma interfaz: un <audio> (Jamendo) y el IFrame de YouTube.
+ * Dos motores detrás de la misma interfaz: un <audio> (Jamendo o un archivo local de "Mi carpeta") y el IFrame de YouTube.
  */
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audio = useRef<HTMLAudioElement | null>(null)
@@ -111,6 +113,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return
       }
       yt.current?.pauseVideo()
+      if (entry?.item.source === 'local') {
+        // "Mi carpeta": el audio suena desde el dispositivo, nunca pasa por el servidor.
+        const url = localUrl(entry.item.externalId)
+        if (!url || !el) {
+          toast.error('No encuentro ese archivo en tu dispositivo', { description: 'Vuelve a elegir tu carpeta en Inicio.' })
+          return setState((s) => ({ ...s, playing: false }))
+        }
+        el.src = url
+        el.play().catch(() => setState((s) => ({ ...s, playing: false })))
+        return
+      }
       if (!el || !entry?.item.mediaUrl) return
       el.src = entry.item.mediaUrl
       el.play().catch(() => setState((s) => ({ ...s, playing: false })))

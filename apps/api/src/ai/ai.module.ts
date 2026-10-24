@@ -8,6 +8,7 @@ import {
   GeminiEmbeddingProvider,
   GeminiTextProvider,
 } from './gemini/gemini.providers.js';
+import { compatibleProviders, withCompatible } from './compatible.providers.js';
 import { createGroqClient, GroqDecisionProvider, GroqTextProvider } from './groq/groq.providers.js';
 import { JevDecisionProvider } from './jev/jev-decision.provider.js';
 import { LayaDecisionProvider } from './laya/laya-decision.provider.js';
@@ -32,6 +33,8 @@ const gemini = {
   text: new GeminiTextProvider(google, chain(config.geminiTextModel, config.geminiFallbackModels, config.geminiModel)),
 };
 const groq = config.groqApiKey ? createGroqClient(config.groqApiKey) : null;
+/** Respaldos gratuitos compatibles con la API de OpenAI (Cerebras, OpenRouter): solo si hay clave. */
+const compatible = compatibleProviders();
 const jev = config.typesafeApiKey
   ? new JevDecisionProvider({ apiKey: config.typesafeApiKey, model: config.jevModel, maxRetries: 0 })
   : null;
@@ -45,8 +48,15 @@ function mainDecisions(): DecisionProvider {
 
 /** Siguiente pregunta de la entrevista: la cadena de DECISION_CHAIN (por defecto Groq → Laya → Gemini). */
 function interviewDecisions(): DecisionProvider {
-  const providers = config.decisionChain.flatMap((name): DecisionProvider[] => {
+  const providers = withCompatible(config.decisionChain, compatible).flatMap((name): DecisionProvider[] => {
     switch (name) {
+      case 'cerebras':
+      case 'openrouter': {
+        const extra = compatible[name];
+        if (extra) return [extra.decisions];
+        logger.warn(`DECISION_CHAIN incluye ${name} pero falta su clave; se salta`);
+        return [];
+      }
       case 'laya': {
         const laya = new LayaDecisionProvider(config.layaBaseUrl, config.layaModel, config.layaTimeoutMs);
         void laya.warmUp();
@@ -72,8 +82,9 @@ function interviewDecisions(): DecisionProvider {
 
 /** Texto: la cadena de TEXT_CHAIN (por defecto Groq → Gemini). */
 function textProvider(): TextProvider {
-  const providers = config.textChain.flatMap((name): TextProvider[] => {
+  const providers = withCompatible(config.textChain, compatible).flatMap((name): TextProvider[] => {
     if (name === 'gemini') return [gemini.text];
+    if ((name === 'cerebras' || name === 'openrouter') && compatible[name]) return [compatible[name].text];
     if (name === 'groq' && groq) return [new GroqTextProvider(groq, chain(config.groqTextModel, config.groqFallbackModels, config.groqModel))];
     logger.warn(`TEXT_CHAIN: "${name}" no disponible; se salta`);
     return [];

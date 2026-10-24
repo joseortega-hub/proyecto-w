@@ -32,7 +32,7 @@ import {
   profileConfidence,
   signalChips,
 } from './interview.engine.js';
-import { askableProbes, assertNotAsked, autoAnswerExhausted, type InterviewFacts } from './interview.flow.js';
+import { anchorsDone, askableProbes, assertNotAsked, autoAnswerExhausted, type InterviewFacts } from './interview.flow.js';
 import { NextQuestionPrefetch } from './interview.prefetch.js';
 import { anchorExample, probeDirection } from './anchors.js';
 import { AnchorsService, START_COVERAGE_WAIT_MS, type AnchorFocus } from './anchors.service.js';
@@ -334,6 +334,11 @@ export class InterviewService implements OnModuleInit {
     const focusDims = (focus?.dimensions ?? []).filter((d) => !informed.has(d)).slice(0, 2);
     const focused = options.filter((p) => p.informs.some((d) => focusDims.includes(d)));
     if (focused.length) options = focused;
+    // Ya no queda nada que distinga a lo que pidió: mejor la lista que preguntas de relleno.
+    if (anchorsDone(session.anchors?.length ?? 0, focus !== null, focused.length, answered(turns).length, 'exhausted')) {
+      this.logger.log(`terminar: ya no quedan preguntas que distingan ${session.anchors.map((a) => a.label).join(', ')}`);
+      return turns;
+    }
     // Con algo concreto pedido, sobran las preguntas que solo preguntan por estilos ("¿carreras?").
     const tagDims = new Set(config.attributes.filter((a) => a.kind === 'tags').map((a) => a.key));
     const moodOnly = session.anchors?.length ? options.filter((p) => p.informs.some((d) => !tagDims.has(d))) : options;
@@ -385,6 +390,11 @@ export class InterviewService implements OnModuleInit {
       if (written) {
         this.logger.log(`siguiente: ${probe.id} (decisión ${decisionMs} ms, enfocada en ${session.anchors.map((a) => a.label).join(', ')})`);
         return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null }];
+      }
+      // Sin texto, la pregunta saldría del banco genérico y no hablaría de lo que pidió.
+      if (anchorsDone(session.anchors.length, focus !== null, focused.length, answered(turns).length, 'unwritten')) {
+        this.logger.log('terminar: sin redacción para una pregunta enfocada, saco la lista con lo que hay');
+        return turns;
       }
     }
 

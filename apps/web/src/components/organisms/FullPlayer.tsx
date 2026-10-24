@@ -49,6 +49,7 @@ export function FullPlayer({ entry, listTitle, onClose, videoSlot, ...p }: FullP
       <SeekBar position={p.position} duration={p.duration || item.durationSec || 0} onSeek={p.onSeek} />
       <PlaybackControls playing={p.playing} onToggle={p.onToggle} onPrevious={p.onPrevious} onNext={p.onNext} hasPrevious={p.hasPrevious} hasNext={p.hasNext} />
       {entry.reason && <Explanation reason={entry.reason} label="Por qué suena" collapsible={false} />}
+      {item.source === 'local' && <Text size="xs" tone="muted" className="text-center">Suena desde tu dispositivo · el archivo no sale de aquí</Text>}
       {item.externalUrl && (
         <a href={item.externalUrl} target="_blank" rel="noreferrer" className="text-center text-xs text-muted-foreground underline-offset-2 hover:underline">
           {youtube ? 'Reproducido con YouTube · abrir en YouTube Music' : 'Música con licencia Creative Commons · escuchar en Jamendo'}

@@ -48,7 +48,9 @@ export function DomainPickerPage() {
                         d.personal
                           ? d.itemCount
                             ? `${formatInt(d.itemCount)} ${d.itemNounPlural} de tu ${d.source.name}`
-                            : `Conecta tu ${d.source.name} y usa tu propia música`
+                            : d.id === 'folder'
+                              ? 'Elige tu carpeta… tus canciones no salen de tu dispositivo'
+                              : `Conecta tu ${d.source.name} y usa tu propia música`
                           : d.itemCount
                             ? `${formatInt(d.itemCount)} ${d.itemNounPlural} de ${d.source?.name ?? 'su catálogo'}`
                             : `Próximamente · catálogo de ${d.source?.name ?? '—'}`

@@ -48,3 +48,21 @@ export function autoAnswerExhausted(turns: InterviewTurn[], answer: Answer, conf
   const done = turns.filter((t) => t.answer !== null);
   return answer === 'unknown' && done.at(-1)?.answer === 'unknown' && done.length + 1 >= minQuestions(config, known);
 }
+
+/**
+ * Con algo concreto pedido ("Pokémon"), la entrevista termina antes en vez de rellenar:
+ * - `exhausted`: ya se preguntó por lo que distingue a sus elementos (y van al menos 3);
+ * - `unwritten`: no se ha podido redactar la pregunta con el ancla (y van al menos 2).
+ * Sin anclas, nunca: manda el flujo normal.
+ */
+export function anchorsDone(
+  anchors: number,
+  hasFocus: boolean,
+  focusedLeft: number,
+  answeredCount: number,
+  reason: 'exhausted' | 'unwritten',
+): boolean {
+  if (!anchors) return false;
+  if (reason === 'unwritten') return answeredCount >= 2;
+  return hasFocus && focusedLeft === 0 && answeredCount >= 3;
+}

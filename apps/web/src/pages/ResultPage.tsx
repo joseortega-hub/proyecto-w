@@ -30,8 +30,8 @@ export function ResultPage() {
 
   // En "Mi YouTube" se carga ya el reproductor de YouTube: así el primer toque suena también en móvil.
   useEffect(() => {
-    if (domain.personal) prepareVideo()
-  }, [domain.personal, prepareVideo])
+    if (domain.id === 'youtube') prepareVideo()
+  }, [domain.id, prepareVideo])
 
   const refineParam = params.get('afinar')
   const tuning = refineParam !== null
@@ -127,7 +127,7 @@ export function ResultPage() {
             {saved ? 'Guardada' : 'Guardar'}
           </Button>
         </div>
-        {domain.personal &&
+        {domain.id === 'youtube' &&
           (data.youtube ? (
             <Button variant="secondary" block asChild>
               <a href={data.youtube.url} target="_blank" rel="noreferrer">
