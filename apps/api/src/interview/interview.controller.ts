@@ -14,6 +14,9 @@ const anchorSchema = z.object({
   /** Condiciones ya resueltas contra el catálogo al entender el texto (ver `catalog-match.ts`). */
   match: z.array(z.object({ field: z.string().max(20), values: z.array(z.string().max(120)).max(20) })).max(6).optional(),
   ids: z.array(z.uuid()).max(5).optional(),
+  similar: z.boolean().optional(),
+  like: z.array(z.object({ field: z.string().max(20), values: z.array(z.string().max(120)).max(20) })).max(6).optional(),
+  not: z.array(z.object({ field: z.string().max(20), values: z.array(z.string().max(120)).max(20) })).max(6).optional(),
 });
 /** Lo entendido del texto, ya corregido por la persona en la tarjeta. */
 const understandingSchema = z.object({

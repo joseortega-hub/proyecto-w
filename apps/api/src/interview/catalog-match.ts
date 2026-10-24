@@ -232,11 +232,18 @@ export function findEntities(text: string, catalog: MatchableItem[], config: Dom
     .map(({ span: _span, at: _at, ...e }, i) => ({ ...e, id: `e${i + 1}` }));
 }
 
+/** "Marvel y parecidos", "Pokémon o algo parecido": X entra en la lista (primero); "parecido a X", no. */
+export function likeIncludesItself(text: string, label: string): boolean {
+  const t = ` ${clean(text)} `;
+  const x = clean(label);
+  return new RegExp(` ${x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} (y|o) (algo |cosas |otr[oa]s )?(parecid|similar)`).test(t);
+}
+
 /** Si la mención va precedida de "tipo", "como"… (referencia de estilo, no filtro). */
 export function saidAsLike(text: string, said: string): boolean {
   const t = ` ${clean(text)} `;
   const at = t.indexOf(` ${said} `);
-  return at > 0 && LIKE.test(t.slice(0, at + 1).trim() + ' ');
+  return (at > 0 && LIKE.test(t.slice(0, at + 1).trim() + ' ')) || likeIncludesItself(text, said);
 }
 
 /** Clave de un título para no repetir ediciones ("Alas de sangre (Empíreo 1)" = "Alas de Sangre"; las secuelas con ":" no). */

@@ -110,7 +110,7 @@ export class AnchorsService {
    * Si el catálogo tiene menos de una lista de lo que pidió, lo busca en directo (una vez
    * por dominio y anclas) y lo guarda. Devuelve cuántos elementos añadió o actualizó.
    */
-  ensureCoverage(domain: DomainRow, anchors: Anchor[], userId: string | null): Promise<number> {
+  ensureCoverage(domain: DomainRow, anchors: Anchor[], userId: string | null, limit = LIVE_LIMIT): Promise<number> {
     if (!anchors.length || domain.config.personal || !LIVE_ADAPTERS[domain.id]) return Promise.resolve(0);
     // Una búsqueda por ancla (y una sola vez): así la de "entender" y la de "empezar" son la misma.
     return Promise.all(
@@ -118,7 +118,7 @@ export class AnchorsService {
         const key = this.key(domain, [anchor], null);
         const running = this.coverage.get(key);
         if (running) return running;
-        const task = this.liveSearch(domain, [anchor], userId).catch((error: Error) => {
+        const task = this.liveSearch(domain, [anchor], userId, limit).catch((error: Error) => {
           this.logger.warn(`Búsqueda en directo fallida: ${error.message.slice(0, 160)}`);
           this.coverage.delete(key);
           return 0;
@@ -149,7 +149,7 @@ export class AnchorsService {
     await Promise.race([task, new Promise((r) => setTimeout(r, timeoutMs))]);
   }
 
-  private async liveSearch(domain: DomainRow, anchors: Anchor[], userId: string | null): Promise<number> {
+  private async liveSearch(domain: DomainRow, anchors: Anchor[], userId: string | null, limit = LIVE_LIMIT): Promise<number> {
     const { matched } = await this.focus(domain, anchors, userId);
     if (matched.length >= domain.config.result.size) return 0;
     let adapter: CatalogAdapter;
@@ -161,7 +161,7 @@ export class AnchorsService {
     }
     if (!adapter.search) return 0;
     const started = Date.now();
-    const found = (await Promise.all(anchors.map((a) => adapter.search!(a, LIVE_LIMIT)))).flat();
+    const found = (await Promise.all(anchors.map((a) => adapter.search!(a, limit)))).flat();
     if (!found.length) {
       this.logger.log(`Búsqueda en directo en ${adapter.source}: nada nuevo para ${anchors.map((a) => a.label).join(', ')}`);
       return 0;

@@ -23,6 +23,10 @@ export interface AnchorItem extends Rankable {
 export const isStructured = (anchor: Anchor) => !!(anchor.match?.length || anchor.ids?.length);
 
 /** Títulos pedidos (semillas): van primero y el resto de la lista se parece a ellos. */
+/** Lo que un "parecido a X" deja fuera (X mismo). */
+export const excludedByAnchors = (item: AnchorItem, anchors: Anchor[]) =>
+  anchors.some((a) => a.not?.length && meetsAny({ ...item, subtitle: item.subtitle ?? null }, a.not));
+
 export const seedIds = (anchors: Anchor[]) => anchors.filter((a) => a.kind === 'title').flatMap((a) => a.ids ?? []);
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -47,6 +51,7 @@ export const anchorMatchesText = (text: string, anchor: Anchor) => {
  */
 export function anchorScore(item: AnchorItem, anchor: Anchor): number {
   // Resuelta contra el catálogo: o la cumple de verdad, o no (nada de menciones sueltas).
+  if (anchor.not?.length && meetsAny({ ...item, subtitle: item.subtitle ?? null }, anchor.not)) return 0;
   if (isStructured(anchor)) return anchor.ids?.includes(item.id) || meetsAny({ ...item, subtitle: item.subtitle ?? null }, anchor.match ?? []) ? 1 : 0;
   const terms = anchorTerms(anchor);
   if (!terms.length) return 0;
@@ -93,7 +98,7 @@ const joinLabels = (anchors: Anchor[]) => anchors.map((a) => a.label).join(' o '
 /** Aviso cuando el catálogo se queda corto para lo que pidió. Nunca en silencio. */
 export function anchorNotice(anchors: Anchor[], inList: number, size: number, itemNounPlural: string, gender: 'f' | 'm', mode: 'filter' | 'boost' = 'boost'): string | null {
   // Los títulos pedidos (semillas) no cuentan: el resto de la lista son parecidos a propósito.
-  anchors = anchors.filter((a) => a.kind !== 'title');
+  anchors = anchors.filter((a) => a.kind !== 'title' && !a.similar);
   if (!anchors.length || inList >= size) return null;
   const labels = joinLabels(anchors);
   if (mode === 'filter') return `Solo hay ${inList} de ${labels}: te pongo solo ${gender === 'f' ? 'esas' : 'esos'}.`;

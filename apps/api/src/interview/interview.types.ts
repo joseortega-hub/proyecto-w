@@ -96,6 +96,10 @@ export interface Anchor {
   match?: AnchorCondition[];
   /** Títulos pedidos (semillas): van siempre primero en la lista. */
   ids?: string[];
+  /** "Parecido a X": `match` son los relacionados encontrados (DC para Marvel), `like` lo de X (referencia de parecido) y `not` lo que queda fuera (X, salvo "X y parecidos"). */
+  similar?: boolean;
+  like?: AnchorCondition[];
+  not?: AnchorCondition[];
 }
 
 /** Una condición sobre el catálogo: `field` es `id`, `title`, `creator`, `tags` o una faceta (`companies`, `collection`…). */

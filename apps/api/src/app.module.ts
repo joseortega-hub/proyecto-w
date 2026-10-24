@@ -5,6 +5,7 @@ import { DomainsController } from './domains/domains.controller.js';
 import { DomainsService } from './domains/domains.service.js';
 import { InterviewController } from './interview/interview.controller.js';
 import { AnchorsService } from './interview/anchors.service.js';
+import { SimilarService } from './interview/similar.service.js';
 import { InterviewService } from './interview/interview.service.js';
 import { PreferencesController } from './interview/preferences.controller.js';
 import { PreferencesService } from './interview/preferences.service.js';
@@ -37,6 +38,7 @@ import { YouTubeService } from './youtube/youtube.service.js';
   providers: [
     DomainsService,
     AnchorsService,
+    SimilarService,
     InterviewService,
     QuestionBankService,
     TuningService,

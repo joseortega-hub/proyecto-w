@@ -47,6 +47,7 @@ import { NONSENSE, replySummary } from './reply.js';
 import { normalize } from './interview.engine.js';
 import { anchorTag } from '../catalog/catalog-adapter.js';
 import { AnchorsService, START_COVERAGE_WAIT_MS, type AnchorFocus } from './anchors.service.js';
+import { SimilarService } from './similar.service.js';
 import { QuestionBankService } from './question-bank.service.js';
 import type { Anchor, Answer, BagEntry, EditedUnderstanding, InterviewTurn, ReplySnapshot, Understanding } from './interview.types.js';
 import { PreferencesService } from './preferences.service.js';
@@ -137,6 +138,7 @@ export class InterviewService implements OnModuleInit {
     private readonly bank: QuestionBankService,
     private readonly tastes: TasteService,
     private readonly anchors: AnchorsService,
+    private readonly similar: SimilarService,
     private readonly understanding: UnderstandingService,
     private readonly prefs: PreferencesService,
     private readonly items: ItemsService,
@@ -225,6 +227,8 @@ export class InterviewService implements OnModuleInit {
       const gap = await this.anchors.coverageGap(domain, anchors, userId);
       if (gap.length) await this.anchors.awaitCoverage(domain, gap, userId, START_COVERAGE_WAIT_MS);
       if (gap.length || anchors.some((a) => !isStructured(a))) anchors = await this.resolveAgain(domain, anchors, gap, userId);
+      // "Parecido a X" (y estilos en música): relacionados que propone la IA y existen de verdad.
+      if (text) anchors = await this.similar.expand(domain, anchors, text, userId);
     }
     const preferences = this.prefs.merge(domain, chosen, understood.preferences);
     let filters = preferenceFilters(preferences, config);
@@ -328,6 +332,7 @@ export class InterviewService implements OnModuleInit {
         const gap = await this.anchors.coverageGap(domain, understood.anchors, row.userId);
         if (gap.length) await this.anchors.awaitCoverage(domain, gap, row.userId, START_COVERAGE_WAIT_MS);
         if (gap.length || merged.some((a) => !isStructured(a))) anchors = await this.resolveAgain(domain, merged, gap, row.userId);
+        anchors = await this.similar.expand(domain, anchors, clean, row.userId);
       }
       next = {
         textSignals: { ...before.textSignals, ...signalsOf(understood) },

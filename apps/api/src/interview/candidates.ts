@@ -3,7 +3,8 @@
 // entropía de la bolsa y cada respuesta sube a las candidatas coherentes y baja a las demás.
 import type { DomainConfig, Probe } from '../domains/domain.types.js';
 import { coveredGroups, tasteAffinity, tasteOnlyProbes, type TasteProfile } from '../taste/taste.engine.js';
-import { ANCHOR_MATCH, anchorMatches, anchorMode, bestAnchor, seedIds, type AnchorItem } from './anchors.js';
+import { ANCHOR_MATCH, anchorMatches, anchorMode, bestAnchor, excludedByAnchors, seedIds, type AnchorItem } from './anchors.js';
+import { meetsAny } from './catalog-match.js';
 import { askableProbes, type InterviewFacts } from './interview.flow.js';
 import { answered, facetHas, minQuestions, probeDirection, remainingProbes, type FacetFilter } from './interview.engine.js';
 import type { Anchor, BagEntry, InterviewTurn, TextSignals } from './interview.types.js';
@@ -184,8 +185,12 @@ export function buildBag<T extends BagItem>(catalog: T[], ctx: BagContext): BagR
   const seeds = new Set(seedIds(ctx.anchors));
   const seedItems = catalog.filter((it) => seeds.has(it.id));
   let scope = catalog.filter(
-    (it) => seeds.has(it.id) || (!it.tags.some((t) => excluded.has(t)) && ctx.filters.every((f) => f.values.some((v) => facetHas(it.facets[f.key], v)))),
+    (it) =>
+      seeds.has(it.id) ||
+      (!it.tags.some((t) => excluded.has(t)) && !excludedByAnchors(it, ctx.anchors) && ctx.filters.every((f) => f.values.some((v) => facetHas(it.facets[f.key], v)))),
   );
+  // "Parecido a X": lo de X sirve de referencia de parecido (aunque no entre en la lista).
+  const references = [...seedItems, ...catalog.filter((it) => !seeds.has(it.id) && ctx.anchors.some((a) => a.like?.length && meetsAny(it, a.like)))];
   const matched = anchorMatches(scope, ctx.anchors);
   const mode = anchorMode(ctx.anchors, matched.length, config.result.size);
   if (mode === 'filter') scope = matched;
@@ -207,12 +212,14 @@ export function buildBag<T extends BagItem>(catalog: T[], ctx: BagContext): BagR
         const value = item.attributes[dim];
         if (value !== undefined) score += signal.confidence * (1 - Math.abs(signal.value - value) - 0.5) * 4;
       }
-      if (mode === 'boost') {
-        const { score: a } = bestAnchor(item, ctx.anchors);
+      // Con filtro, siguen empujando las anclas que no filtran (artistas de un estilo, parecidos).
+      const boosters = mode === 'boost' ? ctx.anchors : ctx.anchors.filter((x) => !x.required);
+      if (boosters.length) {
+        const { score: a } = bestAnchor(item, boosters);
         if (a >= ANCHOR_MATCH) score += 2 * a;
       }
       if (seeds.has(item.id)) score += 6;
-      else if (seedItems.length) score += SEED_BAG * (Math.max(...seedItems.map((seed) => seedSimilarity(item, seed))) - 0.5);
+      else if (references.length) score += SEED_BAG * (Math.max(...references.map((seed) => seedSimilarity(item, seed))) - 0.5);
       score += TASTE_BAG * tasteAffinity(item, ctx.taste, config);
       if (semantic.size) score += 2 * ((semantic.get(item.id) ?? 0) - 0.5);
       return { item, w: Math.exp(score) };

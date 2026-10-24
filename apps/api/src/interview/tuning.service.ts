@@ -31,7 +31,7 @@ import {
 } from './interview.engine.js';
 import { stateExtras } from './interview.context.js';
 import { titleKey } from './catalog-match.js';
-import { ANCHOR_BOOST, ANCHOR_MATCH, anchorMatches, anchorMode, anchorNotice, anchorQueryText, bestAnchor, seedIds, shortReason } from './anchors.js';
+import { ANCHOR_BOOST, ANCHOR_MATCH, anchorMatches, anchorMode, anchorNotice, anchorQueryText, bestAnchor, excludedByAnchors, seedIds, shortReason } from './anchors.js';
 import { AnchorsService } from './anchors.service.js';
 import { currentWeights } from './candidates.js';
 import { InterviewService } from './interview.service.js';
@@ -105,7 +105,7 @@ export class TuningService {
     if (anchors.length) await this.anchors.awaitCoverage(domain, anchors, session.userId);
     const excludedTags = new Set(config.tagGroups.filter((g) => session.exclusions?.includes(g.key)).flatMap((g) => g.tags));
     // Lo que no quiere ("nada de terror") no sale nunca, tenga o no bolsa la entrevista.
-    const filtered = (await this.items.catalog(domain.id, filters, session.userId)).filter((it) => !it.tags.some((t) => excludedTags.has(t)));
+    const filtered = (await this.items.catalog(domain.id, filters, session.userId)).filter((it) => !it.tags.some((t) => excludedTags.has(t)) && !excludedByAnchors(it, anchors));
     // Los títulos pedidos (semillas) van siempre, aunque un filtro los deje fuera.
     const seeds = seedIds(anchors);
     const missingSeeds = seeds.filter((id) => !filtered.some((it) => it.id === id));

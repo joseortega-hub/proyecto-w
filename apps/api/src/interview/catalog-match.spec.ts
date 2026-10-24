@@ -101,3 +101,22 @@ describe('etiquetas que no son géneros', () => {
     expect(anchorMode([marvel], 1, 10)).toBe('filter');
   });
 });
+
+describe('parecido a X', () => {
+  it('"parecido a X" y "X y parecidos" son referencias; solo el segundo incluye a X', async () => {
+    const { likeIncludesItself, saidAsLike } = await import('./catalog-match.js');
+    expect(saidAsLike('algo parecido a Marvel', 'marvel')).toBe(true);
+    expect(saidAsLike('Marvel y parecidos', 'marvel')).toBe(true);
+    expect(saidAsLike('algo de Marvel', 'marvel')).toBe(false);
+    expect(likeIncludesItself('Marvel y parecidos', 'Marvel')).toBe(true);
+    expect(likeIncludesItself('algo parecido a Marvel', 'Marvel')).toBe(false);
+  });
+
+  it('lo que deja fuera un "parecido a" no puntúa ni entra', () => {
+    const marvel = item('Thor', { facets: { companies: ['Marvel Studios'] } });
+    const dc = item('Batman', { facets: { companies: ['DC Films'] } });
+    const anchor = { label: 'parecido a Marvel', kind: 'franchise' as const, terms: [], required: false, similar: true, match: [{ field: 'companies', values: ['dc films'] }], not: [{ field: 'companies', values: ['marvel studios'] }] };
+    expect(anchorScore({ ...dc, attributes: {}, description: null, popularity: 0 }, anchor)).toBe(1);
+    expect(anchorScore({ ...marvel, attributes: {}, description: null, popularity: 0 }, anchor)).toBe(0);
+  });
+});

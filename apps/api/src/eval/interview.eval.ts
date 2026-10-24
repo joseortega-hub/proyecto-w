@@ -154,6 +154,16 @@ const SCENARIOS: Scenario[] = [
     ],
   },
   {
+    id: 'like-marvel',
+    domain: 'movies',
+    title: 'Películas: «algo parecido a Marvel» → otras de superhéroes (DC…), sin Marvel',
+    text: 'algo parecido a Marvel',
+    checks: (r) => [
+      none(r, isMarvel, 'de Marvel'),
+      expect(share(r, (it) => /dc|superhero|superheroe/.test(blob(it))) >= 3, `al menos 3 de superhéroes o DC: ${titles(r, (it) => /dc|superhero/.test(blob(it)))}`),
+    ],
+  },
+  {
     id: 'romance-movies',
     domain: 'movies',
     title: 'Películas: «quiero algo romántico» → romance',
@@ -219,6 +229,16 @@ const SCENARIOS: Scenario[] = [
     title: 'Videojuegos: «algo de Nintendo» → solo Nintendo',
     text: 'algo de Nintendo',
     checks: (r) => [all(r, isNintendo, 'de Nintendo (desarrolla o edita)', 6)],
+  },
+  {
+    id: 'like-pokemon',
+    domain: 'games',
+    title: 'Videojuegos: «un juego estilo Pokémon» → Digimon, Palworld, Temtem o similares',
+    text: 'un juego estilo Pokémon',
+    checks: (r) => [
+      expect(share(r, (it) => /digimon|palworld|temtem|monster hunter stories|cassette beasts|yo-kai|nexomon|coromon|ni no kuni|dragon quest monsters|monster sanctuary/.test(norm(it.title))) >= 1, `alguno parecido de verdad: ${titles(r)}`),
+      none(r, (it) => /pokemon/.test(norm(it.title)), 'de Pokémon'),
+    ],
   },
   {
     id: 'platform',
@@ -292,6 +312,17 @@ const SCENARIOS: Scenario[] = [
     checks: (r) => [
       expect(avg(r, 'energy') >= 0.6, `energía media ≥ 0,6 (sale ${avg(r, 'energy').toFixed(2)})`),
       expect(!r.questions.some((q) => /\b(jazz|rock|clasica)/.test(norm(q))), `sin jazz ni rock: ${r.questions.map((q) => `«${q}»`).join(' ')}`),
+    ],
+  },
+  {
+    id: 'yt-romantic',
+    domain: 'youtube',
+    title: 'Mi YouTube: «reguetón romántico» → reguetón con artistas románticos de su biblioteca',
+    text: 'reguetón romántico',
+    user: 'youtube',
+    checks: (r) => [
+      most(r, (it) => it.tags.some((t) => /regueton/.test(norm(t))), 'de reguetón', 0.8),
+      expect(share(r, (it) => /jay wheeler|ken-y|zion|lennox|rauw|sech|dalex|romeo|tony dize|prince royce/.test(norm(it.subtitle ?? ''))) >= 2, `artistas de reguetón romántico: ${r.entries.map((e) => e.item.subtitle).slice(0, 6).join(' | ')}`),
     ],
   },
   {
