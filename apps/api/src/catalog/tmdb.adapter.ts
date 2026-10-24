@@ -206,6 +206,24 @@ export class TmdbAdapter implements CatalogAdapter {
     });
   }
 
+  /**
+   * Títulos que TMDB da como recomendados y similares de la película que mejor casa con `name`
+   * ("parecido a X" con datos reales). Vacío si la búsqueda no encuentra nada claro.
+   */
+  async similarTitles(name: string, limit: number): Promise<string[]> {
+    const found = await this.get<{ results: TmdbMovie[] }>(this.url('search/movie', { query: name, language: 'es-ES', include_adult: 'false' })).catch(() => ({ results: [] as TmdbMovie[] }));
+    const top = found.results.filter((m) => m.vote_count >= 200).sort((a, b) => b.vote_count - a.vote_count)[0];
+    if (!top) return [];
+    const [recommended, similar] = await Promise.all(
+      ['recommendations', 'similar'].map((path) =>
+        this.get<{ results: TmdbMovie[] }>(this.url(`movie/${top.id}/${path}`, { language: 'es-ES' }))
+          .then((b) => b.results.filter((m) => m.vote_count >= 100))
+          .catch(() => [] as TmdbMovie[]),
+      ),
+    );
+    return [...new Set([...recommended, ...similar].map((m) => m.title))].slice(0, limit);
+  }
+
   /** Productoras y colección de una película ya importada (script de relleno de facetas). */
   async entityFacets(externalId: string) {
     return movieEntityFacets(await this.get<TmdbMovie>(this.url(`movie/${externalId}`, { language: 'es-ES' })));

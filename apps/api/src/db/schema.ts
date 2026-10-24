@@ -199,6 +199,13 @@ export const aiTraces = pgTable(
 );
 
 export type AiTraceRow = typeof aiTraces.$inferSelect;
+/** Respuestas de fuentes externas (Wikidata, Last.fm, ListenBrainz, TMDB, Google Books): una vez por consulta. */
+export const sourceCache = pgTable('source_cache', {
+  key: text('key').primaryKey(),
+  payload: jsonb('payload').notNull(),
+  fetchedAt: timestamp('fetched_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type YouTubeAccountRow = typeof youtubeAccounts.$inferSelect;
 export type TasteRow = typeof tasteProfiles.$inferSelect;
 export type ItemRow = typeof items.$inferSelect;

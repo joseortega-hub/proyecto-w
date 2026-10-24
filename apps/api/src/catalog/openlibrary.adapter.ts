@@ -134,7 +134,14 @@ export class OpenLibraryAdapter implements CatalogAdapter {
   readonly source = 'openlibrary';
   private readonly get: ReturnType<typeof politeFetcher>;
 
-  constructor(contact = '') {
+  /**
+   * `spanish`: consulta opcional de la edición en español real de un libro (Google Books); si la
+   * hay, la búsqueda en directo trae su título en español y su sinopsis.
+   */
+  constructor(
+    contact = '',
+    private readonly spanish?: (title: string, author: string | null) => Promise<{ title: string; description: string | null } | null>,
+  ) {
     const agent = `Sintonia/0.1 (https://github.com/joseortega-hub/proyecto-w${contact ? `; ${contact}` : ''})`;
     this.get = politeFetcher({ minIntervalMs: contact ? 400 : 1100, name: 'Open Library', headers: { 'User-Agent': agent } });
   }
@@ -192,7 +199,21 @@ export class OpenLibraryAdapter implements CatalogAdapter {
     const docs = body.docs
       .filter((d) => d.author_name?.length && anchorMatchesText(`${d.title} ${d.author_name.join(' ')} ${(d.subject ?? []).join(' ')}`, anchor))
       .slice(0, limit);
-    return docs.map((d) => this.toItem(d, null, LIVE_MAX_READING_LOG));
+    const items = docs.map((d) => this.toItem(d, null, LIVE_MAX_READING_LOG));
+    return this.spanish ? mapLimit(items, 3, (item) => this.withSpanishEdition(item)).then((out) => out.map((x, i) => x ?? items[i])) : items;
+  }
+
+  /** Título en español y sinopsis de una edición en español real (Google Books); si no la hay, el libro queda igual. */
+  private async withSpanishEdition(item: ImportedItem): Promise<ImportedItem> {
+    const book = await this.spanish!(item.title, item.subtitle ?? null);
+    if (!book) return item;
+    const languages = [...new Set(['es', ...[(item.facets as Record<string, unknown> | undefined)?.languages ?? []].flat().map(String)])];
+    return {
+      ...item,
+      title: book.title,
+      description: book.description ?? item.description,
+      facets: { ...(item.facets ?? {}), languages },
+    };
   }
 
   /** Autoría, año, páginas y temas de un libro ya importado (script de relleno). */

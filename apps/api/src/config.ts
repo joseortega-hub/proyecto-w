@@ -82,6 +82,10 @@ export const config = {
   tmdbApiKey: optional('TMDB_API_KEY'),
   /** Contacto opcional para el User-Agent de Open Library (sube el límite de 1 a 3 peticiones/s). */
   openLibraryContact: optional('OPEN_LIBRARY_CONTACT'),
+  /** Last.fm (clave gratuita): artistas similares y los mejores de una etiqueta. */
+  lastfmApiKey: optional('LASTFM_API_KEY'),
+  /** Google Books (clave gratuita): ediciones en español reales y sinopsis. */
+  googleBooksApiKey: optional('GOOGLE_BOOKS_API_KEY'),
   /** Contacto para el User-Agent de MusicBrainz (lo exigen sus condiciones). */
   musicBrainzContact: optional('MUSICBRAINZ_CONTACT'),
 };

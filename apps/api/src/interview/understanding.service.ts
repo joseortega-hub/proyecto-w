@@ -1,11 +1,12 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { z } from 'zod';
 import { TEXT_PROVIDER, type TextProvider } from '../ai/text-provider.js';
 import type { DomainConfig } from '../domains/domain.types.js';
 import { normalize } from './interview.engine.js';
 import { answerFromText } from './reply.js';
-import { anchorItemSchema, cleanAnchors } from './anchors.js';
+import { anchorItemSchema, cleanAnchors, isStructured } from './anchors.js';
 import { anchorsFromEntities, genreVocabulary, pickWithoutAI, saidAsLike, type Entity } from './catalog-match.js';
+import { SourcesService } from '../sources/sources.service.js';
 import type { Anchor, TextSignals, Understanding } from './interview.types.js';
 
 /** Confianza mínima para dar una señal de ánimo por resuelta (no se vuelve a preguntar). */
@@ -139,7 +140,10 @@ export const signalsOf = (u: Understanding): TextSignals =>
 export class UnderstandingService {
   private readonly logger = new Logger('Entendiendo');
 
-  constructor(@Inject(TEXT_PROVIDER) private readonly text: TextProvider) {}
+  constructor(
+    @Inject(TEXT_PROVIDER) private readonly text: TextProvider,
+    @Optional() private readonly sources?: SourcesService,
+  ) {}
 
   async understand(domain: { itemNounPlural: string; config: DomainConfig }, text: string, entities: Entity[] = [], question?: string): Promise<Understanding> {
     const { config } = domain;
@@ -187,6 +191,25 @@ export class UnderstandingService {
       `Texto → ánimo: ${understood.moods.map((m) => `${m.key}:${m.level}`).join(', ') || '—'} · anclas: ${understood.anchors.map((a) => a.label).join(', ') || '—'} · ` +
         `prefs: ${Object.entries(understood.preferences).map(([k, v]) => `${k}=${v.value}`).join(', ') || '—'} · sin: ${understood.exclusions.join(', ') || '—'} (${Date.now() - started} ms)`,
     );
-    return understood;
+    return this.withWorks(understood);
+  }
+
+  /**
+   * Lo que se pide por su nombre y no está en el catálogo (se buscará fuera) gana como términos
+   * las obras reales de esa franquicia, saga o universo según Wikidata ("Harry Potter" → sus
+   * libros y películas). Solo amplía: si no hay entidad clara, el ancla queda como estaba.
+   */
+  private async withWorks(understood: Understanding): Promise<Understanding> {
+    if (!this.sources) return understood;
+    const anchors = await Promise.all(
+      understood.anchors.map(async (a) => {
+        if (isStructured(a) || (a.kind !== 'franchise' && a.kind !== 'studio')) return a;
+        const works = await this.sources!.franchiseWorks(a.label).catch(() => []);
+        if (!works.length) return a;
+        this.logger.log(`Wikidata: ${works.length} obras de ${a.label}`);
+        return { ...a, terms: [...new Set([...a.terms, ...works.slice(0, 8)])].slice(0, 10) };
+      }),
+    );
+    return { ...understood, anchors };
   }
 }

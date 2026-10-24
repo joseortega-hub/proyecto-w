@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { EMBEDDING_PROVIDER, type EmbeddingProvider } from '../ai/embedding-provider.js';
@@ -15,6 +15,7 @@ import { DB } from '../db/db.module.js';
 import { items } from '../db/schema.js';
 import type { DomainRow } from '../domains/domains.service.js';
 import { ItemsService, type ItemWithoutEmbedding } from '../items/items.service.js';
+import { SourcesService } from '../sources/sources.service.js';
 import { anchorDimensions, anchorItemSchema, anchorMatches, cleanAnchors, isStructured, normalize } from './anchors.js';
 import { itemEmbeddingText } from './interview.engine.js';
 import type { Anchor } from './interview.types.js';
@@ -35,11 +36,11 @@ const anchorsSchema = z.object({
 });
 
 /** Adaptadores que saben buscar en directo, por dominio. Los catálogos personales no buscan fuera. */
-const LIVE_ADAPTERS: Record<string, () => CatalogAdapter> = {
+const LIVE_ADAPTERS: Record<string, (sources?: SourcesService) => CatalogAdapter> = {
   music: () => new JamendoAdapter(env.jamendoClientId),
   games: () => new RawgAdapter(env.rawgApiKey),
   movies: () => new TmdbAdapter(env.tmdbApiKey),
-  books: () => new OpenLibraryAdapter(env.openLibraryContact),
+  books: (sources) => new OpenLibraryAdapter(env.openLibraryContact, sources ? (t, a) => sources.spanishBook(t, a) : undefined),
 };
 
 export interface AnchorFocus {
@@ -66,6 +67,7 @@ export class AnchorsService {
     @Inject(TEXT_PROVIDER) private readonly text: TextProvider,
     @Inject(EMBEDDING_PROVIDER) private readonly embeddings: EmbeddingProvider,
     private readonly items: ItemsService,
+    @Optional() private readonly sources?: SourcesService,
   ) {}
 
   /** Anclas del texto inicial. El texto va citado como dato; si falla, la entrevista sigue sin anclas. */
@@ -154,7 +156,7 @@ export class AnchorsService {
     if (matched.length >= domain.config.result.size) return 0;
     let adapter: CatalogAdapter;
     try {
-      adapter = LIVE_ADAPTERS[domain.id]();
+      adapter = LIVE_ADAPTERS[domain.id](this.sources);
     } catch (error) {
       this.logger.warn(`Sin búsqueda en directo en ${domain.id}: ${(error as Error).message}`);
       return 0;

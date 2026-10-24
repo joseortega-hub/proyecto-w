@@ -11,6 +11,7 @@
  * elementos con `--youtube-user=<uuid>` / `--folder-user=<uuid>` (en local se detecta solo).
  */
 import { config } from '../config.js';
+import { runSourceChecks } from './sources.eval.js';
 
 const args = new Map(
   process.argv.slice(2).map((a) => {
@@ -456,6 +457,13 @@ async function main() {
       for (const q of r.questions) console.log(`     ? ${q}`);
       console.log(`     → ${r.entries.map((e) => e.item.title).join(' | ')}`);
       if (r.notice) console.log(`     ⚠ ${r.notice}`);
+    }
+  }
+  if (!ONLY.length || ONLY.includes('sources')) {
+    for (const c of await runSourceChecks()) {
+      rows.push({ id: c.id, ok: c.failures.length === 0, ms: 0 });
+      console.log(`${c.failures.length ? '❌' : '✅'} ${c.id.padEnd(16)} ${c.title}`);
+      for (const f of c.failures) console.log(`     ✗ ${f}`);
     }
   }
   for (const s of skipped) console.log(`⏭  ${s.id.padEnd(16)} ${s.title} (sin dueño: pasa --${s.user}-user=<uuid>)`);

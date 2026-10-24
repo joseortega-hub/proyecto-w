@@ -49,6 +49,10 @@ services:
         sync: false
       - key: RAWG_API_KEY
         sync: false
+      - key: LASTFM_API_KEY
+        sync: false
+      - key: GOOGLE_BOOKS_API_KEY
+        sync: false
       - key: JAMENDO_CLIENT_ID
         sync: false
       - key: OPEN_LIBRARY_CONTACT
