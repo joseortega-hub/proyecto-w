@@ -44,6 +44,30 @@ export interface Item {
   popularity: number
   /** Valores categóricos (`language: 'es'`, `platforms: ['pc', 'switch']`, `year: '2015'`). */
   facets?: Record<string, string | string[]>
+  /** Datos "para frikis" de las APIs (créditos, ficha técnica). Puede venir vacío. */
+  details?: ItemDetails
+}
+
+/** Créditos y ficha técnica que traen las APIs; nunca los genera la IA. */
+export interface ItemDetails {
+  director?: string
+  cast?: string[]
+  year?: number
+  runtimeMin?: number
+  rating?: number
+  developers?: string[]
+  publishers?: string[]
+  released?: string
+  metacritic?: number
+  platforms?: string[]
+  authors?: string[]
+  pages?: number
+  subjects?: string[]
+  album?: string
+  producers?: string[]
+  composers?: string[]
+  lyricists?: string[]
+  featured?: string[]
 }
 
 export interface Attribute {
@@ -122,30 +146,6 @@ export interface SessionResult {
   entries: ResultEntry[]
 }
 
-/** Progreso de la importación de la música de YouTube. */
-export interface YouTubeImport {
-  status: 'running' | 'done' | 'error'
-  step: string
-  found: number
-  added: number
-  analyzed: number
-  embedded: number
-  pending: number
-  quotaUnits: number
-  likedMusicPlaylist?: 'ok' | 'unavailable'
-  error?: string
-  startedAt: string
-  finishedAt?: string
-}
-
-export interface YouTubeStatus {
-  /** Si el servidor tiene cliente OAuth de Google. */
-  configured: boolean
-  /** `expired`: Google pide volver a conectar (cada 7 días en modo de pruebas). */
-  status: 'disconnected' | 'connected' | 'expired'
-  channelTitle: string | null
-  connectedAt: string | null
-  expiresAt: string | null
 /** "Mi carpeta": lo que el servidor sabe de las canciones del dispositivo (nunca el audio). */
 export interface FolderStatus {
   itemCount: number
@@ -175,6 +175,30 @@ export interface FolderTrackInput {
   durationSec?: number | null
 }
 
+/** Progreso de la importación de la música de YouTube. */
+export interface YouTubeImport {
+  status: 'running' | 'done' | 'error'
+  step: string
+  found: number
+  added: number
+  analyzed: number
+  embedded: number
+  pending: number
+  quotaUnits: number
+  likedMusicPlaylist?: 'ok' | 'unavailable'
+  error?: string
+  startedAt: string
+  finishedAt?: string
+}
+
+export interface YouTubeStatus {
+  /** Si el servidor tiene cliente OAuth de Google. */
+  configured: boolean
+  /** `expired`: Google pide volver a conectar (cada 7 días en modo de pruebas). */
+  status: 'disconnected' | 'connected' | 'expired'
+  channelTitle: string | null
+  connectedAt: string | null
+  expiresAt: string | null
   itemCount: number
   import: YouTubeImport | null
 }
@@ -263,6 +287,8 @@ export const api = {
   getResult: (id: string) => request<SessionResult>(`/sessions/${id}/result`),
   getSimilar: (itemId: string, limit = 10) => request<SimilarItems>(`/items/${itemId}/similar?limit=${limit}`),
   getItem: (itemId: string) => request<Item>(`/items/${itemId}`),
+  /** Detalles del elemento; en música completa los créditos desde MusicBrainz la primera vez. */
+  getDetails: (itemId: string) => request<ItemDetails>(`/items/${itemId}/details`),
   /** Biblioteca de un dominio: búsqueda por título o autor y filtro por etiquetas. */
   browse: (domainId: string, options: { q?: string; tags?: string[]; offset?: number; limit?: number } = {}) => {
     const qs = new URLSearchParams()
@@ -287,8 +313,16 @@ export const api = {
       body: JSON.stringify({ text }),
     }),
 
-  /** Detalles del elemento; en música completa los créditos desde MusicBrainz la primera vez. */
-  getDetails: (itemId: string) => request<ItemDetails>(`/items/${itemId}/details`),
+  folderStatus: () => request<FolderStatus>('/folder/status'),
+  folderKeys: () => request<string[]>('/folder/keys'),
+  folderTracks: () => request<FolderTrack[]>('/folder/tracks'),
+  folderAdd: (tracks: FolderTrackInput[]) =>
+    request<{ saved: number; review: number }>('/folder/tracks', { method: 'POST', body: JSON.stringify({ tracks }) }),
+  folderCorrect: (id: string, body: { title: string; artist: string | null }) =>
+    request<FolderTrack>(`/folder/tracks/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  folderResume: () => request<FolderStatus & { quota: boolean }>('/folder/resume', { method: 'POST' }),
+  folderForget: () => request<{ removed: number }>('/folder', { method: 'DELETE' }),
+
   youtubeStatus: () => request<YouTubeStatus>('/youtube/status'),
   /** URL de consentimiento de Google; el `state` queda ligado a este navegador con una cookie. */
   youtubeAuth: () => request<{ url: string }>('/youtube/auth', { method: 'POST' }),
@@ -313,14 +347,4 @@ export const api = {
     }
     return () => source.close()
   },
-  folderStatus: () => request<FolderStatus>('/folder/status'),
-  folderKeys: () => request<string[]>('/folder/keys'),
-  folderTracks: () => request<FolderTrack[]>('/folder/tracks'),
-  folderAdd: (tracks: FolderTrackInput[]) =>
-    request<{ saved: number; review: number }>('/folder/tracks', { method: 'POST', body: JSON.stringify({ tracks }) }),
-  folderCorrect: (id: string, body: { title: string; artist: string | null }) =>
-    request<FolderTrack>(`/folder/tracks/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-  folderResume: () => request<FolderStatus & { quota: boolean }>('/folder/resume', { method: 'POST' }),
-  folderForget: () => request<{ removed: number }>('/folder', { method: 'DELETE' }),
-
 }

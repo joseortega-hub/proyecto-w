@@ -115,6 +115,7 @@ const shadows = {
 const domainBase = {
   music: ['#3d4bf0', '#8290ff'],
   youtube: ['#d92d20', '#ff7a6e'],
+  folder: ['#b45309', '#ffb454'],
   games: ['#8a3fd1', '#c59bff'],
   movies: ['#c22e6e', '#ff80b5'],
   books: ['#0b7f7a', '#4fd1c5']

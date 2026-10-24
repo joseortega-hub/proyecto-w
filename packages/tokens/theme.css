@@ -72,6 +72,8 @@
 .dark [data-domain='music'] { --domain: #8290ff; }
 [data-domain='youtube'] { --domain: #d5281c; }
 .dark [data-domain='youtube'] { --domain: #ff7a6e; }
+[data-domain='folder'] { --domain: #b45309; }
+.dark [data-domain='folder'] { --domain: #ffb454; }
 [data-domain='games'] { --domain: #8a3fd1; }
 .dark [data-domain='games'] { --domain: #c59bff; }
 [data-domain='movies'] { --domain: #c22e6e; }
@@ -150,6 +152,8 @@
 :root.dark[data-theme='grafito'] [data-domain='music'] { --domain: #8694ec; }
 :root[data-theme='grafito'] [data-domain='youtube'] { --domain: #c94739; }
 :root.dark[data-theme='grafito'] [data-domain='youtube'] { --domain: #f0867b; }
+:root[data-theme='grafito'] [data-domain='folder'] { --domain: #a85c2e; }
+:root.dark[data-theme='grafito'] [data-domain='folder'] { --domain: #f4b871; }
 :root[data-theme='grafito'] [data-domain='games'] { --domain: #844ebe; }
 :root.dark[data-theme='grafito'] [data-domain='games'] { --domain: #c1a1f0; }
 :root[data-theme='grafito'] [data-domain='movies'] { --domain: #b4446f; }
@@ -228,6 +232,8 @@
 :root.dark[data-theme='neon'] [data-domain='music'] { --domain: #8290fe; }
 :root[data-theme='neon'] [data-domain='youtube'] { --domain: #e30600; }
 :root.dark[data-theme='neon'] [data-domain='youtube'] { --domain: #fe7a6e; }
+:root[data-theme='neon'] [data-domain='folder'] { --domain: #b55201; }
+:root.dark[data-theme='neon'] [data-domain='folder'] { --domain: #ffb454; }
 :root[data-theme='neon'] [data-domain='games'] { --domain: #9027e4; }
 :root.dark[data-theme='neon'] [data-domain='games'] { --domain: #c59bff; }
 :root[data-theme='neon'] [data-domain='movies'] { --domain: #cd056d; }
@@ -306,6 +312,8 @@
 :root.dark[data-theme='atardecer'] [data-domain='music'] { --domain: #8290ff; }
 :root[data-theme='atardecer'] [data-domain='youtube'] { --domain: #d5281c; }
 :root.dark[data-theme='atardecer'] [data-domain='youtube'] { --domain: #ff7a6e; }
+:root[data-theme='atardecer'] [data-domain='folder'] { --domain: #b45309; }
+:root.dark[data-theme='atardecer'] [data-domain='folder'] { --domain: #ffb454; }
 :root[data-theme='atardecer'] [data-domain='games'] { --domain: #8a3fd1; }
 :root.dark[data-theme='atardecer'] [data-domain='games'] { --domain: #c59bff; }
 :root[data-theme='atardecer'] [data-domain='movies'] { --domain: #c22e6e; }
@@ -384,6 +392,8 @@
 :root.dark[data-theme='oceano'] [data-domain='music'] { --domain: #8290ff; }
 :root[data-theme='oceano'] [data-domain='youtube'] { --domain: #d92d20; }
 :root.dark[data-theme='oceano'] [data-domain='youtube'] { --domain: #ff7a6e; }
+:root[data-theme='oceano'] [data-domain='folder'] { --domain: #b45309; }
+:root.dark[data-theme='oceano'] [data-domain='folder'] { --domain: #ffb454; }
 :root[data-theme='oceano'] [data-domain='games'] { --domain: #8a3fd1; }
 :root.dark[data-theme='oceano'] [data-domain='games'] { --domain: #c59bff; }
 :root[data-theme='oceano'] [data-domain='movies'] { --domain: #c22e6e; }
@@ -462,6 +472,8 @@
 :root.dark[data-theme='chicle'] [data-domain='music'] { --domain: #8290ff; }
 :root[data-theme='chicle'] [data-domain='youtube'] { --domain: #d92d20; }
 :root.dark[data-theme='chicle'] [data-domain='youtube'] { --domain: #ff7a6e; }
+:root[data-theme='chicle'] [data-domain='folder'] { --domain: #b45309; }
+:root.dark[data-theme='chicle'] [data-domain='folder'] { --domain: #ffb454; }
 :root[data-theme='chicle'] [data-domain='games'] { --domain: #8a3fd1; }
 :root.dark[data-theme='chicle'] [data-domain='games'] { --domain: #c59bff; }
 :root[data-theme='chicle'] [data-domain='movies'] { --domain: #c22e6e; }
@@ -540,6 +552,8 @@
 :root.dark[data-theme='brutal'] [data-domain='music'] { --domain: #8290ff; }
 :root[data-theme='brutal'] [data-domain='youtube'] { --domain: #e11309; }
 :root.dark[data-theme='brutal'] [data-domain='youtube'] { --domain: #ff7a6e; }
+:root[data-theme='brutal'] [data-domain='folder'] { --domain: #b55202; }
+:root.dark[data-theme='brutal'] [data-domain='folder'] { --domain: #ffb454; }
 :root[data-theme='brutal'] [data-domain='games'] { --domain: #8d35da; }
 :root.dark[data-theme='brutal'] [data-domain='games'] { --domain: #c59bfe; }
 :root[data-theme='brutal'] [data-domain='movies'] { --domain: #c91d6e; }
