@@ -31,3 +31,6 @@ Pantallas recorridas: selector, inicio de las 6 temáticas, entrevista, Afinando
 
 ## Storybook
 Vistas añadidas (móvil 320/360/414, horizontal, tableta, escritorio). Historias nuevas: `DomainTabs` (Movil320, Escritorio), `DemoDock` (MovilHorizontal), `VibeSlider` (ModoEdicion), `VibeCard` (Movil360Tactil).
+
+## Segunda pasada (tras "Hoy para ti", Tu historia, Modo Perreo y entrevista conversacional)
+Mismo script en 320, 360, 375 y 667×375 sobre `/`, `/music`, `/games`, resultado, biblioteca, ficha, gustos, listas, `/historia` y artistas: sin desbordes, sin texto cortado, táctiles de 44 px (solo el enlace en línea "Jamendo"), `main` en horizontal 278/375. La navegación de 5 pestañas (con "Tu historia") cabe en 320 px. Las clases `touch:`, `short:` y `pt-safe` siguen intactas en los átomos y plantillas.
