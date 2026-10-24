@@ -155,6 +155,23 @@ export function coveredProbes(taste: TasteProfile | null | undefined, config: Do
   );
 }
 
+/**
+ * Etiquetas que distinguen a un grupo de elementos del resto del catálogo: las que tiene al menos
+ * un 40 % del grupo y no más del 20 % del catálogo ("superhero" sí, "acción" no). Con menos de 3
+ * elementos no hay temática que sacar.
+ */
+export function themeTags(group: { tags: string[] }[], catalog: { tags: string[] }[]): Set<string> {
+  if (group.length < 3 || !catalog.length) return new Set();
+  const count = (items: { tags: string[] }[]) => {
+    const m = new Map<string, number>();
+    for (const it of items) for (const t of new Set(it.tags)) m.set(t, (m.get(t) ?? 0) + 1);
+    return m;
+  };
+  const inGroup = count(group);
+  const inCatalog = count(catalog);
+  return new Set([...inGroup].filter(([t, n]) => n / group.length >= 0.4 && (inCatalog.get(t) ?? 0) / catalog.length <= 0.2).map(([t]) => t));
+}
+
 export interface BagContext {
   config: DomainConfig;
   signals: TextSignals;
@@ -194,6 +211,13 @@ export function buildBag<T extends BagItem>(catalog: T[], ctx: BagContext): BagR
   const matched = anchorMatches(scope, ctx.anchors);
   const mode = anchorMode(ctx.anchors, matched.length, config.result.size);
   if (mode === 'filter') scope = matched;
+  // "Parecido a X" con pocas coincidencias: el relleno comparte la temática de lo encontrado
+  // (superhéroes, cómic…), no cualquier cosa de acción.
+  else if (ctx.anchors.some((a) => a.similar)) {
+    const themed = anchorMatches(scope, ctx.anchors.filter((a) => a.similar));
+    const theme = themeTags(themed, scope);
+    if (theme.size) scope = scope.filter((it) => it.tags.some((t) => theme.has(t)) || themed.includes(it) || matched.includes(it));
+  }
 
   // Parecido semántico por percentil entre los elementos que lo tienen.
   const semantic = new Map<string, number>();

@@ -6,6 +6,7 @@ import { musicDomain } from '../domains/music.domain.js';
 import { youtubeDomain } from '../domains/youtube.domain.js';
 import { withoutOff, type TasteProfile } from '../taste/taste.engine.js';
 import {
+  themeTags,
   buildBag,
   coveredProbes,
   currentWeights,
@@ -282,5 +283,19 @@ describe('escenarios con proveedores falsos', () => {
     const bag = buildBag(catalog, { config: youtubeDomain.config, signals: { energy: { value: 0.15, confidence: 1 } }, anchors: [], exclusions: [], filters: [], taste });
     const w = new Map(bag.entries.map((e) => [e.id, e.w]));
     expect(w.get(calm.id)!).toBeGreaterThan(w.get(loud.id)!);
+  });
+});
+
+describe('themeTags (relleno de «parecido a X» con la temática común)', () => {
+  const tg = (...tags: string[]) => ({ tags });
+  it('saca lo que distingue al grupo y no los géneros comunes', () => {
+    const group = [tg('superhero', 'acción'), tg('superhero', 'acción'), tg('superhero', 'aventura'), tg('cómic', 'acción')];
+    const catalog = [...group, ...Array.from({ length: 30 }, () => tg('acción')), ...Array.from({ length: 30 }, () => tg('drama'))];
+    const theme = themeTags(group, catalog);
+    expect(theme.has('superhero')).toBe(true);
+    expect(theme.has('acción')).toBe(false);
+  });
+  it('con menos de 3 elementos no hay temática', () => {
+    expect(themeTags([tg('a'), tg('a')], [tg('a'), tg('b')]).size).toBe(0);
   });
 });

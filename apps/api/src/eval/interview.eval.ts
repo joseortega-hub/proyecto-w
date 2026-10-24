@@ -162,6 +162,8 @@ const SCENARIOS: Scenario[] = [
     checks: (r) => [
       none(r, isMarvel, 'de Marvel'),
       expect(share(r, (it) => /dc|superhero|superheroe/.test(blob(it))) >= 3, `al menos 3 de superhéroes o DC: ${titles(r, (it) => /dc|superhero/.test(blob(it)))}`),
+      // El relleno respeta la temática: todas de superhéroes o cómic.
+      expect(r.entries.every(({ item }) => /dc|superhero|superheroe|comic|cómic/.test(blob(item))), `todas de superhéroes o cómic; sobran: ${titles(r, (it) => !/dc|superhero|superheroe|comic|cómic/.test(blob(it)))}`),
     ],
   },
   {
