@@ -3,7 +3,7 @@
 // entropía de la bolsa y cada respuesta sube a las candidatas coherentes y baja a las demás.
 import type { DomainConfig, Probe } from '../domains/domain.types.js';
 import { coveredGroups, tasteAffinity, tasteOnlyProbes, type TasteProfile } from '../taste/taste.engine.js';
-import { ANCHOR_MATCH, anchorMatches, anchorMode, bestAnchor, type AnchorItem } from './anchors.js';
+import { ANCHOR_MATCH, anchorMatches, anchorMode, bestAnchor, seedIds, type AnchorItem } from './anchors.js';
 import { askableProbes, type InterviewFacts } from './interview.flow.js';
 import { answered, facetHas, minQuestions, probeDirection, remainingProbes, type FacetFilter } from './interview.engine.js';
 import type { Anchor, BagEntry, InterviewTurn, TextSignals } from './interview.types.js';
@@ -23,6 +23,21 @@ export const OFFERED = 3;
 const TASTE_BAG = 3;
 /** Máximo de elementos del mismo creador en la bolsa (salvo si pidió a un creador). */
 const PER_CREATOR = 8;
+/** Cuánto pesa el parecido con los títulos pedidos ("Alas de sangre y algo parecido"). */
+const SEED_BAG = 5;
+
+/**
+ * Parecido 0–1 de un elemento con un título pedido: etiquetas en común (géneros, temas) y
+ * cercanía en las escalas del dominio. Sin IA ni embeddings, para que funcione siempre.
+ */
+export function seedSimilarity(item: { tags: string[]; attributes: Record<string, number> }, seed: { tags: string[]; attributes: Record<string, number> }): number {
+  const mine = new Set(item.tags);
+  const shared = seed.tags.filter((t) => mine.has(t)).length;
+  const jaccard = shared / (mine.size + seed.tags.length - shared || 1);
+  const keys = Object.keys(seed.attributes).filter((k) => item.attributes[k] !== undefined);
+  const close = keys.length ? 1 - keys.reduce((s, k) => s + Math.abs(item.attributes[k] - seed.attributes[k]), 0) / keys.length : 0.5;
+  return 0.6 * Math.min(1, jaccard * 2.5) + 0.4 * close;
+}
 
 export interface BagItem extends AnchorItem {
   facets: Record<string, string | string[]>;
@@ -165,8 +180,11 @@ export interface BagResult {
 export function buildBag<T extends BagItem>(catalog: T[], ctx: BagContext): BagResult {
   const { config } = ctx;
   const excluded = new Set(config.tagGroups.filter((g) => ctx.exclusions.includes(g.key)).flatMap((g) => g.tags));
+  // Los títulos pedidos entran siempre, aunque no pasen un filtro: los pidió por su nombre.
+  const seeds = new Set(seedIds(ctx.anchors));
+  const seedItems = catalog.filter((it) => seeds.has(it.id));
   let scope = catalog.filter(
-    (it) => !it.tags.some((t) => excluded.has(t)) && ctx.filters.every((f) => f.values.some((v) => facetHas(it.facets[f.key], v))),
+    (it) => seeds.has(it.id) || (!it.tags.some((t) => excluded.has(t)) && ctx.filters.every((f) => f.values.some((v) => facetHas(it.facets[f.key], v)))),
   );
   const matched = anchorMatches(scope, ctx.anchors);
   const mode = anchorMode(ctx.anchors, matched.length, config.result.size);
@@ -193,6 +211,8 @@ export function buildBag<T extends BagItem>(catalog: T[], ctx: BagContext): BagR
         const { score: a } = bestAnchor(item, ctx.anchors);
         if (a >= ANCHOR_MATCH) score += 2 * a;
       }
+      if (seeds.has(item.id)) score += 6;
+      else if (seedItems.length) score += SEED_BAG * (Math.max(...seedItems.map((seed) => seedSimilarity(item, seed))) - 0.5);
       score += TASTE_BAG * tasteAffinity(item, ctx.taste, config);
       if (semantic.size) score += 2 * ((semantic.get(item.id) ?? 0) - 0.5);
       return { item, w: Math.exp(score) };

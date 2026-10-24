@@ -7,6 +7,7 @@ import { DB } from '../db/db.module.js';
 import { questionBank } from '../db/question-bank.schema.js';
 import type { DomainDefinition, Probe } from '../domains/domain.types.js';
 import { pickVariant, type BankVariant } from './question-bank.js';
+import { questionsFor } from './question-texts.js';
 import type { InterviewTurn } from './interview.types.js';
 
 const VARIANTS = 3;
@@ -43,8 +44,9 @@ export async function generateQuestionBank(
   log: (m: string) => void = () => undefined,
 ): Promise<number> {
   const rows = await db.select().from(questionBank).where(eq(questionBank.domainId, domain.id));
+  // Las sondas con preguntas revisadas a mano (`question-texts.ts`) no se redactan con IA.
   let missing = domain.config.probes.filter(
-    (p) => rows.filter((r) => r.probeId === p.id && r.intent === p.intent).length < VARIANTS,
+    (p) => !questionsFor(domain.id, p.id).length && rows.filter((r) => r.probeId === p.id && r.intent === p.intent).length < VARIANTS,
   );
   // Una sonda idéntica (mismo id e intención) de otra temática ya tiene variantes revisadas:
   // se copian en vez de redactar otras (p. ej. "Mi YouTube" reutiliza las de música).
@@ -141,7 +143,9 @@ export class QuestionBankService {
   pick(domain: DomainLike, probeId: string, turns: InterviewTurn[]): BankVariant | null {
     const probe = domain.config.probes.find((p) => p.id === probeId);
     if (!probe) return null;
-    const variants = this.cache.get(domain.id)?.get(`${probeId}:${probe.intent}`) ?? [];
+    // Primero el banco revisado a mano; el generado con IA, solo para sondas sin él.
+    const reviewed = questionsFor(domain.id, probeId).map((question, variant) => ({ variant, question, reason: '' }));
+    const variants = reviewed.length ? reviewed : (this.cache.get(domain.id)?.get(`${probeId}:${probe.intent}`) ?? []);
     return pickVariant(variants, turns);
   }
 

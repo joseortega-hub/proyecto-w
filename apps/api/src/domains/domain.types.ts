@@ -31,6 +31,8 @@ export interface Probe {
   groups?: string[];
   yesChip: string;
   noChip: string;
+  /** Pregunta por el momento o el uso ("¿es para entrenar?"), no por el estilo: va primero. */
+  moment?: boolean;
 }
 
 /** Ajustes rápidos de la pantalla de resultado ("+ energía", "con voz"…). */
@@ -98,7 +100,15 @@ export interface DomainConfig {
   refinements: Refinement[];
   /** Preferencias previas (filtros duros) que se eligen al empezar. */
   preferences?: Preference[];
-  interview: { minQuestions: number; maxQuestions: number; confidenceToFinish: number };
+  interview: {
+    minQuestions: number;
+    maxQuestions: number;
+    confidenceToFinish: number;
+    /** Cuántas de las primeras preguntas son de momento o uso (`Probe.moment`), si quedan. */
+    momentFirst?: number;
+    /** Las preguntas de solo estilo (géneros) se dejan para el final y se quitan si hay gustos o algo pedido. */
+    stylesLast?: boolean;
+  };
   result: { candidates: number; judged: number; size: number };
 }
 

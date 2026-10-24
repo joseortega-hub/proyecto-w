@@ -2,7 +2,9 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { TEXT_PROVIDER, type TextProvider } from '../ai/text-provider.js';
 import type { DomainConfig } from '../domains/domain.types.js';
+import { normalize } from './interview.engine.js';
 import { anchorItemSchema, cleanAnchors } from './anchors.js';
+import { anchorsFromEntities, genreVocabulary, pickWithoutAI, type Entity } from './catalog-match.js';
 import type { Anchor, TextSignals, Understanding } from './interview.types.js';
 
 /** Confianza mínima para dar una señal de ánimo por resuelta (no se vuelve a preguntar). */
@@ -13,13 +15,31 @@ export const GUESS_CONFIDENCE = 0.6;
 export const emptyUnderstanding = (): Understanding => ({ moods: [], anchors: [], preferences: {}, exclusions: [] });
 
 /** Esquema de la llamada, con las claves del dominio como valores válidos. */
-function understandingSchema(config: DomainConfig) {
+function understandingSchema(config: DomainConfig, entities: Entity[]) {
   const scales = config.attributes.filter((a) => a.kind === 'scale').map((a) => a.key);
   const prefs = (config.preferences ?? []).map((p) => p.key);
   const groups = config.tagGroups.map((g) => g.key);
+  const genres = genreVocabulary(config);
   const fields: Record<string, z.ZodType> = {
-    anchors: z.array(anchorItemSchema).describe('Referencias concretas que nombra de verdad (como mucho 3). Lista vacía si no nombra nada.'),
+    anchors: z
+      .array(anchorItemSchema)
+      .describe('Solo lo concreto que nombra y NO está entre las entidades encontradas en el catálogo (se buscará fuera). Lista vacía si no.'),
   };
+  if (entities.length) {
+    fields.picks = z
+      .array(
+        z.object({
+          id: z.enum(entities.map((e) => e.id) as [string, ...string[]]),
+          use: z
+            .enum(['only', 'include', 'like'])
+            .describe('only: quiere SOLO eso ("algo de Marvel"); include: quiere ese título concreto en la lista ("con Alas de sangre"); like: es una referencia de estilo ("tipo Marvel")'),
+        }),
+      )
+      .describe('Entidades del catálogo que la persona pide de verdad. Lista vacía si ninguna (una coincidencia casual de palabras no cuenta).');
+  }
+  if (genres.length) {
+    fields.genres = z.array(z.enum(genres as [string, ...string[]])).describe('Géneros que pide de forma explícita ("algo romántico" → romance). Lista vacía si no pide ninguno.');
+  }
   if (scales.length) {
     fields.moods = z
       .array(
@@ -44,13 +64,15 @@ function understandingSchema(config: DomainConfig) {
 
 interface Extracted {
   anchors?: Anchor[];
+  picks?: { id: string; use: 'only' | 'include' | 'like' }[];
+  genres?: string[];
   moods?: { dimension: string; level: 'low' | 'high'; confidence: number }[];
   preferences?: { key: string; value: string; confidence: number }[];
   exclusions?: string[];
 }
 
 /** Lo que dice el modelo, limpio y validado contra la configuración del dominio. */
-export function toUnderstanding(raw: Extracted, config: DomainConfig): Understanding {
+export function toUnderstanding(raw: Extracted, config: DomainConfig, entities: Entity[] = []): Understanding {
   const scales = new Set(config.attributes.filter((a) => a.kind === 'scale').map((a) => a.key));
   const seen = new Set<string>();
   const moods = (raw.moods ?? []).filter((m) => {
@@ -65,12 +87,37 @@ export function toUnderstanding(raw: Extracted, config: DomainConfig): Understan
     preferences[p.key] = { value: p.value, confidence: Math.round(p.confidence * 100) / 100 };
   }
   const groups = new Set(config.tagGroups.map((g) => g.key));
+  const exclusions = [...new Set(raw.exclusions ?? [])].filter((g) => groups.has(g));
+  // Lo elegido entre las entidades del catálogo (la IA elige, no inventa) + géneros del vocabulario cerrado.
+  const uses = new Map((raw.picks ?? []).filter((p) => entities.some((e) => e.id === p.id)).map((p) => [p.id, p.use] as const));
+  // Si la IA lo puso como ancla suelta pero está en el catálogo, vale la entidad real.
+  for (const a of raw.anchors ?? []) {
+    const label = normalize(a.label);
+    for (const e of entities) {
+      if (uses.has(e.id) || !(label === normalize(e.said) || label === normalize(e.name) || ` ${label} `.includes(` ${normalize(e.said)} `))) continue;
+      uses.set(e.id, e.kind === 'title' ? 'include' : a.required ? 'only' : 'like');
+    }
+  }
+  const excludedTags = new Set(config.tagGroups.filter((g) => exclusions.includes(g.key)).flatMap((g) => g.tags));
+  const wanted = genreVocabulary(config).filter((t) => (raw.genres ?? []).includes(t) && !excludedTags.has(t));
+  const genreAnchors: Anchor[] = wanted.length
+    ? [{ label: wanted.slice(0, 2).join(' y '), kind: 'tag', terms: wanted, required: true, match: [{ field: 'tags', values: wanted }] }]
+    : [];
+  const resolved = anchorsFromEntities(entities, uses);
+  // Lo que nombra y no está en el catálogo queda como ancla de texto, para buscarlo fuera.
+  const missing = cleanAnchors(raw.anchors ?? []).filter((a) => !resolved.some((r) => normalize(r.label) === normalize(a.label) || r.terms.some((t) => normalize(t) === normalize(a.label))));
+  const tagAlready = resolved.some((a) => a.kind === 'tag');
   return {
     moods: moods.map((m) => ({ key: m.dimension, level: m.level, confidence: Math.round(m.confidence * 100) / 100 })),
-    anchors: cleanAnchors(raw.anchors ?? []),
+    anchors: [...resolved, ...(tagAlready ? [] : genreAnchors), ...missing].slice(0, 3),
     preferences,
-    exclusions: [...new Set(raw.exclusions ?? [])].filter((g) => groups.has(g)),
+    exclusions,
   };
+}
+
+/** Sin IA (o si falla): las entidades del catálogo que el texto nombra con claridad. */
+export function understandWithoutAI(text: string, config: DomainConfig, entities: Entity[]): Understanding {
+  return { ...emptyUnderstanding(), anchors: anchorsFromEntities(entities, pickWithoutAI(text, entities)) };
 }
 
 /** Señales de ánimo en el formato de la sesión (nivel 0–1 y confianza). */
@@ -88,7 +135,7 @@ export class UnderstandingService {
 
   constructor(@Inject(TEXT_PROVIDER) private readonly text: TextProvider) {}
 
-  async understand(domain: { itemNounPlural: string; config: DomainConfig }, text: string): Promise<Understanding> {
+  async understand(domain: { itemNounPlural: string; config: DomainConfig }, text: string, entities: Entity[] = []): Promise<Understanding> {
     const { config } = domain;
     const started = Date.now();
     const scales = config.attributes.filter((a) => a.kind === 'scale');
@@ -103,8 +150,13 @@ export class UnderstandingService {
           '- moods: su ánimo en estas dimensiones (low = extremo bajo, high = extremo alto): ' +
             scales.map((a) => `${a.key} (${a.description}; low = ${a.lowLabel}, high = ${a.highLabel})`).join('; ') +
             '. "Cansado" o "reventado" suele ser low en energía o ritmo, o low en profundidad si es para desconectar.',
-          '- anchors: lo concreto que nombra (franquicias o sagas, personas, estudios, títulos, géneros muy concretos). No estados de ánimo ni adjetivos. ' +
-            'En los términos de una franquicia incluye siempre sus títulos y personajes más conocidos.',
+          entities.length
+            ? '- picks: de estas entidades REALES del catálogo (encontradas en el texto), cuáles pide de verdad y cómo:\n' +
+              entities.map((e) => `  ${e.id}: ${e.kind} «${e.name}» (dijo «${e.said}», ${e.count} en el catálogo)`).join('\n')
+            : null,
+          `- genres: géneros que pide explícitamente, de esta lista cerrada: ${genreVocabulary(config).join(', ')}.`,
+          '- anchors: SOLO lo concreto que nombra (franquicias, sagas, personas, estudios, títulos) y no está en las entidades de arriba. No estados de ánimo, adjetivos ni géneros. ' +
+            'En los términos de una franquicia incluye sus títulos y personajes más conocidos.',
           (config.preferences ?? []).length
             ? '- preferences: ' + (config.preferences ?? []).map((p) => `${p.key} (${p.guessInstructions}; valores: ${p.options.map((o) => o.value).join(', ')})`).join('; ')
             : null,
@@ -112,13 +164,13 @@ export class UnderstandingService {
         ]
           .filter(Boolean)
           .join('\n'),
-        schema: understandingSchema(config),
+        schema: understandingSchema(config, entities),
       })
       .catch((error: Error) => {
         this.logger.warn(`Sin entendimiento del texto: ${error.message.slice(0, 120)}`);
         return null;
       });
-    const understood = written ? toUnderstanding(written as Extracted, config) : emptyUnderstanding();
+    const understood = written ? toUnderstanding(written as Extracted, config, entities) : understandWithoutAI(text, config, entities);
     this.logger.log(
       `Texto → ánimo: ${understood.moods.map((m) => `${m.key}:${m.level}`).join(', ') || '—'} · anclas: ${understood.anchors.map((a) => a.label).join(', ') || '—'} · ` +
         `prefs: ${Object.entries(understood.preferences).map(([k, v]) => `${k}=${v.value}`).join(', ') || '—'} · sin: ${understood.exclusions.join(', ') || '—'} (${Date.now() - started} ms)`,

@@ -6,6 +6,7 @@ import { characterWords, matchHints, normalize, type Rankable } from './intervie
 
 export { normalize, probeDirection } from './interview.engine.js';
 import type { Anchor, MoodProfile } from './interview.types.js';
+import { meetsAny } from './catalog-match.js';
 
 /** A partir de esta puntuación, un elemento cuenta como "del ancla". */
 export const ANCHOR_MATCH = 0.5;
@@ -15,7 +16,14 @@ export const ANCHOR_BOOST = 0.6;
 export interface AnchorItem extends Rankable {
   title: string;
   description: string | null;
+  facets?: Record<string, string | string[]>;
 }
+
+/** Si el ancla está resuelta contra el catálogo (condiciones exactas) y no solo como texto. */
+export const isStructured = (anchor: Anchor) => !!(anchor.match?.length || anchor.ids?.length);
+
+/** Títulos pedidos (semillas): van primero y el resto de la lista se parece a ellos. */
+export const seedIds = (anchors: Anchor[]) => anchors.filter((a) => a.kind === 'title').flatMap((a) => a.ids ?? []);
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -38,6 +46,8 @@ export const anchorMatchesText = (text: string, anchor: Anchor) => {
  * todo, en las etiquetas casi, y en la descripción a medias (puede ser una mención suelta).
  */
 export function anchorScore(item: AnchorItem, anchor: Anchor): number {
+  // Resuelta contra el catálogo: o la cumple de verdad, o no (nada de menciones sueltas).
+  if (isStructured(anchor)) return anchor.ids?.includes(item.id) || meetsAny({ ...item, subtitle: item.subtitle ?? null }, anchor.match ?? []) ? 1 : 0;
   const terms = anchorTerms(anchor);
   if (!terms.length) return 0;
   const title = normalize(`${item.title} ${item.subtitle ?? ''}`);
@@ -70,15 +80,23 @@ export const anchorMatches = <T extends AnchorItem>(items: T[], anchors: Anchor[
  */
 export function anchorMode(anchors: Anchor[], matched: number, size: number): 'filter' | 'boost' | 'none' {
   if (!anchors.length) return 'none';
-  return anchors.some((a) => a.required) && matched >= size ? 'filter' : 'boost';
+  // Lo pedido de forma explícita y resuelto contra el catálogo (Marvel, Nintendo, un autor) es
+  // un filtro duro aunque haya pocos: la lista es SOLO eso. Un género, solo si da para una lista.
+  // Los títulos (semillas) nunca filtran: se ponen primero y el resto se parece a ellos.
+  const hard = anchors.filter((a) => a.required && a.kind !== 'title');
+  if (hard.some((a) => isStructured(a) && a.kind !== 'tag') && matched >= 1) return 'filter';
+  return hard.length && matched >= size ? 'filter' : 'boost';
 }
 
 const joinLabels = (anchors: Anchor[]) => anchors.map((a) => a.label).join(' o ');
 
 /** Aviso cuando el catálogo se queda corto para lo que pidió. Nunca en silencio. */
-export function anchorNotice(anchors: Anchor[], inList: number, size: number, itemNounPlural: string, gender: 'f' | 'm'): string | null {
+export function anchorNotice(anchors: Anchor[], inList: number, size: number, itemNounPlural: string, gender: 'f' | 'm', mode: 'filter' | 'boost' = 'boost'): string | null {
+  // Los títulos pedidos (semillas) no cuentan: el resto de la lista son parecidos a propósito.
+  anchors = anchors.filter((a) => a.kind !== 'title');
   if (!anchors.length || inList >= size) return null;
   const labels = joinLabels(anchors);
+  if (mode === 'filter') return `Solo hay ${inList} de ${labels}: te pongo solo ${gender === 'f' ? 'esas' : 'esos'}.`;
   const similar = gender === 'f' ? 'parecidas' : 'parecidos';
   if (inList === 0) return `No tengo ${itemNounPlural} de ${labels}, así que te pongo ${gender === 'f' ? 'las' : 'los'} más ${similar}.`;
   return `Solo tengo ${inList} de ${labels}; te completo la lista con ${itemNounPlural} ${similar}.`;

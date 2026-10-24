@@ -30,7 +30,8 @@ import {
   type HybridCandidate,
 } from './interview.engine.js';
 import { stateExtras } from './interview.context.js';
-import { ANCHOR_BOOST, ANCHOR_MATCH, anchorMatches, anchorMode, anchorNotice, anchorQueryText, bestAnchor, shortReason } from './anchors.js';
+import { titleKey } from './catalog-match.js';
+import { ANCHOR_BOOST, ANCHOR_MATCH, anchorMatches, anchorMode, anchorNotice, anchorQueryText, bestAnchor, seedIds, shortReason } from './anchors.js';
 import { AnchorsService } from './anchors.service.js';
 import { currentWeights } from './candidates.js';
 import { InterviewService } from './interview.service.js';
@@ -104,7 +105,11 @@ export class TuningService {
     if (anchors.length) await this.anchors.awaitCoverage(domain, anchors, session.userId);
     const excludedTags = new Set(config.tagGroups.filter((g) => session.exclusions?.includes(g.key)).flatMap((g) => g.tags));
     // Lo que no quiere ("nada de terror") no sale nunca, tenga o no bolsa la entrevista.
-    const catalog = (await this.items.catalog(domain.id, filters, session.userId)).filter((it) => !it.tags.some((t) => excludedTags.has(t)));
+    const filtered = (await this.items.catalog(domain.id, filters, session.userId)).filter((it) => !it.tags.some((t) => excludedTags.has(t)));
+    // Los títulos pedidos (semillas) van siempre, aunque un filtro los deje fuera.
+    const seeds = seedIds(anchors);
+    const missingSeeds = seeds.filter((id) => !filtered.some((it) => it.id === id));
+    const catalog = missingSeeds.length ? [...filtered, ...(await this.items.byIds(domain.id, missingSeeds, session.userId))] : filtered;
     const matched = anchorMatches(catalog, anchors);
     const plan: AnchorPlan = { anchors, mode: anchorMode(anchors, matched.length, config.result.size), matched: new Set(matched.map((m) => m.id)) };
     if (anchors.length) this.logger.log(`Anclas ${anchors.map((a) => a.label).join(', ')}: ${matched.length} en el catálogo → ${plan.mode}`);
@@ -159,8 +164,23 @@ export class TuningService {
         fit: fit.get(item.id) ?? null,
         match: matchPercent(relevance[i], fit.get(item.id) ?? null),
       }))
-      .sort((a, b) => anchored(b.item.id) - anchored(a.item.id) || b.match - a.match)
-      .slice(0, config.result.size);
+      .sort((a, b) => anchored(b.item.id) - anchored(a.item.id) || b.match - a.match);
+    // Los títulos pedidos primero, siempre; si no llegaron a evaluarse, entran igual.
+    const byId = new Map(catalog.map((it) => [it.id, it]));
+    const seeded = seeds.flatMap((id) => {
+      const found = finalists.find((f) => f.item.id === id);
+      const item = byId.get(id);
+      return found ? [found] : item ? [{ item, fit: null, match: 100 }] : [];
+    });
+    // Sin ediciones repetidas del mismo título (la semilla y su otra edición, p. ej.).
+    const seen = new Set<string>();
+    const unique = [...seeded, ...finalists.filter((f) => !seeds.includes(f.item.id))].filter((f) => {
+      const key = titleKey(f.item.title);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    finalists.splice(0, finalists.length, ...unique.slice(0, config.result.size));
 
     yield { step: 'explain' };
     const list = finalists.map((f) => f.item);
@@ -172,7 +192,7 @@ export class TuningService {
     const inList = list.filter((it) => plan.matched.has(it.id)).length;
     const notice =
       [
-        plan.mode === 'boost' ? anchorNotice(anchors, inList, config.result.size, domain.itemNounPlural, config.gender) : null,
+        plan.mode !== 'none' ? anchorNotice(anchors, plan.mode === 'filter' ? plan.matched.size : inList, config.result.size, domain.itemNounPlural, config.gender, plan.mode) : null,
         preferenceNotice(list, session.preferences, config, domain.itemNounPlural, config.result.size),
       ]
         .filter(Boolean)

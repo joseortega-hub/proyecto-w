@@ -35,13 +35,15 @@ import {
   pending,
   preferenceFilters,
   profileConfidence,
-  remainingProbes,
   signalChips,
 } from './interview.engine.js';
 import { buildBag, coveredProbes, effectiveCount, currentWeights, planNext } from './candidates.js';
 import { anchorsDone, askableProbes, assertNotAsked, autoAnswerExhausted, type InterviewFacts } from './interview.flow.js';
 import { NextQuestionPrefetch } from './interview.prefetch.js';
-import { anchorExample, anchorQueryText, cleanAnchors, probeDirection } from './anchors.js';
+import { anchorExample, anchorMatches, anchorQueryText, cleanAnchors, isStructured, probeDirection, seedIds } from './anchors.js';
+import { anchorsFromEntities, entityIndex, findEntities, pickWithoutAI } from './catalog-match.js';
+import { withCues } from './text-cues.js';
+import { anchorTag } from '../catalog/catalog-adapter.js';
 import { AnchorsService, START_COVERAGE_WAIT_MS, type AnchorFocus } from './anchors.service.js';
 import { QuestionBankService } from './question-bank.service.js';
 import type { Anchor, Answer, BagEntry, EditedUnderstanding, InterviewTurn, Understanding } from './interview.types.js';
@@ -64,11 +66,6 @@ export const tidyQuestion = (q: string) => {
   const end = clean.indexOf('?');
   return end > 0 ? clean.slice(0, end + 1) : clean;
 };
-
-const questionSchema = z.object({
-  question: z.string().describe('Pregunta de sí o no, de 3 a 9 palabras, hablando de tú, sin negaciones'),
-  reason: z.string().describe('Una frase corta que explica por qué preguntas esto ahora'),
-});
 
 type SessionSeed = Pick<SessionRow, 'context' | 'initialText' | 'taste' | 'textSignals' | 'anchors' | 'userId' | 'exclusions' | 'bag' | 'preferences' | 'tasteOff'>;
 
@@ -161,11 +158,52 @@ export class InterviewService implements OnModuleInit {
    * Lo que se entiende del texto, sin crear la sesión (la tarjeta "Esto es lo que he entendido").
    * Arranca ya la búsqueda en directo de lo que pidió, así llega caliente a la primera pregunta.
    */
-  async understand(domainId: string, text: string, userId: string | null = null): Promise<Understanding> {
+  async understand(domainId: string, text: string, userId: string | null = null): Promise<Understanding & { searching: string[] }> {
     const domain = await this.domains.get(domainId);
-    const understood = await this.understanding.understand(domain, text.trim());
-    if (understood.anchors.length) void this.anchors.ensureCoverage(domain, understood.anchors, userId);
-    return understood;
+    const understood = await this.comprehend(domain, text.trim(), userId);
+    // Lo que falta en el catálogo se empieza a buscar ya (completo); al empezar se espera.
+    const gap = await this.anchors.coverageGap(domain, understood.anchors, userId);
+    if (gap.length) void this.anchors.ensureCoverage(domain, gap, userId);
+    return { ...understood, searching: gap.map((a) => a.label) };
+  }
+
+  /**
+   * Entender contra el catálogo: primero se buscan en el catálogo las entidades REALES que
+   * nombra el texto (títulos, creadores, compañías, colecciones, sagas, etiquetas) y la IA
+   * elige entre ellas; lo que no esté se buscará fuera. Sin IA, se eligen por reglas.
+   */
+  private async comprehend(domain: DomainRow, text: string, userId: string | null): Promise<Understanding> {
+    const catalog = await this.items.catalog(domain.id, [], userId);
+    const index = entityIndex(catalog, domain.config, { titleFamilies: !domain.config.playable });
+    const entities = findEntities(text, catalog, domain.config, index);
+    this.logger.log(`Entidades del catálogo en el texto: ${entities.map((e) => `${e.name} (${e.kind}, ${e.count})`).join(', ') || 'ninguna'}`);
+    // Lo más común ("para entrenar", "sin letra") se entiende también sin IA.
+    return withCues(await this.understanding.understand(domain, text, entities), domain.id, text, domain.config);
+  }
+
+  /**
+   * Después de buscar fuera: lo que era solo texto se vuelve a resolver contra el catálogo ya
+   * ampliado (p. ej. "Marvel" → productora Marvel Studios) y a todo se le suma la etiqueta con
+   * la que la búsqueda en directo marcó lo que trajo.
+   */
+  private async resolveAgain(domain: DomainRow, anchors: Anchor[], searched: Anchor[], userId: string | null): Promise<Anchor[]> {
+    const catalog = await this.items.catalog(domain.id, [], userId);
+    const index = entityIndex(catalog, domain.config, { titleFamilies: !domain.config.playable });
+    const tagged = new Set(searched.map((a) => a.label));
+    return anchors.map((a) => {
+      let out = a;
+      if (!isStructured(a)) {
+        const entities = findEntities([a.label, ...a.terms.slice(0, 2)].join(' . '), catalog, domain.config, index);
+        const [resolved] = anchorsFromEntities(entities, pickWithoutAI(a.label, entities));
+        if (resolved) out = { ...resolved, label: a.label, required: a.required || resolved.kind === 'title' };
+      }
+      if (tagged.has(a.label) && out.kind !== 'title') {
+        const tag = anchorTag(a);
+        const match = out.match ?? [];
+        if (!match.some((c) => c.field === 'tags' && c.values.includes(tag))) out = { ...out, match: [...match, { field: 'tags', values: [tag] }] };
+      }
+      return out;
+    });
   }
 
   async start(domainId: string, { initialText, userId = null, client = {}, preferences: chosen = {}, tasteOff = [], understanding: edited }: StartOptions = {}): Promise<SessionView> {
@@ -175,14 +213,33 @@ export class InterviewService implements OnModuleInit {
     const [context, taste, understood] = await Promise.all([
       collectContext(client, contextDefaults()),
       this.tastes.profile(userId, domainId),
-      edited ? Promise.resolve(this.fromEdited(edited, domain)) : text ? this.understanding.understand(domain, text) : emptyUnderstanding(),
+      edited ? Promise.resolve(this.fromEdited(edited, domain)) : text ? this.comprehend(domain, text, userId) : emptyUnderstanding(),
     ]);
-    const { anchors, exclusions } = understood;
-    // Si el catálogo se queda corto para lo que pidió, se busca en directo; la primera pregunta
-    // la espera un poco para enfocarse ya en lo encontrado (si tarda más, sigue en segundo plano).
-    if (anchors.length) await this.anchors.awaitCoverage(domain, anchors, userId, START_COVERAGE_WAIT_MS);
+    const { exclusions } = understood;
+    let { anchors } = understood;
+    // Si el catálogo se queda corto para lo que pidió, se busca en directo y COMPLETO antes de
+    // montar la bolsa ("todas las de Marvel"), con tope de espera; luego se vuelve a resolver.
+    if (anchors.length) {
+      const gap = await this.anchors.coverageGap(domain, anchors, userId);
+      if (gap.length) await this.anchors.awaitCoverage(domain, gap, userId, START_COVERAGE_WAIT_MS);
+      if (gap.length || anchors.some((a) => !isStructured(a))) anchors = await this.resolveAgain(domain, anchors, gap, userId);
+    }
     const preferences = this.prefs.merge(domain, chosen, understood.preferences);
-    const filters = preferenceFilters(preferences, config);
+    let filters = preferenceFilters(preferences, config);
+    // Lo pedido por su nombre gana a un filtro de los botones que lo deja a cero ("Marvel" con
+    // idioma original español): ese filtro no se aplica en esta entrevista.
+    const hard = anchors.filter((a) => a.required && a.kind !== 'title' && isStructured(a));
+    if (hard.length && filters.length) {
+      const [all, kept] = await Promise.all([this.items.catalog(domainId, [], userId), this.items.catalog(domainId, filters, userId)]);
+      if (!anchorMatches(kept, hard).length && anchorMatches(all, hard).length) {
+        this.logger.log(`Filtros ${filters.map((f) => f.key).join(', ')} quitados: dejaban a cero ${hard.map((a) => a.label).join(', ')}`);
+        for (const f of filters) {
+          const pref = config.preferences?.find((p) => p.key === f.key);
+          if (pref) preferences[f.key] = { value: pref.anyValue, source: 'user', confidence: null };
+        }
+        filters = [];
+      }
+    }
     const textSignals = signalsOf(understood);
     const seed: SessionSeed = {
       context,
@@ -199,7 +256,10 @@ export class InterviewService implements OnModuleInit {
     // Con texto, filtros, exclusiones o gustos, la entrevista se guía por una bolsa de candidatas.
     let loaded: Map<string, ItemWithoutEmbedding> | undefined;
     if (text || filters.length || exclusions.length || anchors.length || seed.taste) {
-      const catalog = await this.items.catalog(domainId, filters, userId);
+      const filtered = await this.items.catalog(domainId, filters, userId);
+      // Los títulos pedidos entran aunque un filtro los deje fuera (los pidió por su nombre).
+      const seeds = seedIds(anchors).filter((id) => !filtered.some((it) => it.id === id));
+      const catalog = seeds.length ? [...filtered, ...(await this.items.byIds(domainId, seeds, userId))] : filtered;
       const semantic = text ? await this.semanticMap(domain, text, anchors, filters, userId) : undefined;
       const bag = buildBag(catalog, { config, signals: textSignals, anchors, exclusions, filters, taste: seed.taste, semantic });
       this.logger.log(`Bolsa: ${bag.entries.length} de ${catalog.length} (anclas: ${bag.mode}, ${bag.matched} coinciden)`);
@@ -382,6 +442,7 @@ export class InterviewService implements OnModuleInit {
       known: Object.keys(session.textSignals ?? {}),
       // Con bolsa, solo sobran las preguntas de estilos que los gustos ya cubren; sin ella, todas las de estilo.
       skip: session.taste ? (session.bag?.length ? coveredProbes(session.taste, domain.config) : tasteOnlyProbes(domain.config)) : undefined,
+      noStyles: !!session.taste || !!session.anchors?.length,
     };
   }
 
@@ -471,52 +532,24 @@ export class InterviewService implements OnModuleInit {
     const probe = options.find((p) => p.id === next.choice) ?? options[0];
     assertNotAsked(turns, probe.id);
 
-    // Con anclas, la pregunta siempre se redacta con ellas: el banco genérico habla de otras
-    // cosas ("¿algo tipo Mario Kart?") y despista.
+    // La pregunta sale siempre del banco revisado; con algo pedido, el motivo lleva un ejemplo real.
     const focusDim = focused.length ? probe.informs.find((d) => focusDims.includes(d)) : undefined;
-    if (session.anchors?.length) {
-      const written = await this.writeAnchored(domain, session.anchors, focus, probe, focusDim, history);
-      if (written) {
-        this.logger.log(`siguiente: ${probe.id} (decisión ${decisionMs} ms, enfocada en ${session.anchors.map((a) => a.label).join(', ')})`);
-        return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null }];
-      }
-      // Sin texto, la pregunta saldría del banco genérico y no hablaría de lo que pidió.
-      if (anchorsDone(session.anchors.length, focus !== null, focused.length, answered(turns).length, 'unwritten')) {
-        this.logger.log('terminar: sin redacción para una pregunta enfocada, saco la lista con lo que hay');
-        return turns;
-      }
-    }
+    const { question, reason } = this.questionText(domain, probe, turns, session.anchors ?? [], focus, focusDim);
+    this.logger.log(`siguiente: ${probe.id} (decisión ${decisionMs} ms, banco)`);
+    return [...turns, { probeId: probe.id, text: question, reason, answer: null, lead: this.leadLine(turns, session, domain) }];
+  }
 
-    const fromBank = this.bank.pick(domain, probe.id, turns);
-    if (fromBank) {
-      this.logger.log(`siguiente: ${probe.id} (decisión ${decisionMs} ms, banco)`);
-      return [...turns, { probeId: probe.id, text: fromBank.question, reason: fromBank.reason, answer: null }];
-    }
-
-    const writeStarted = Date.now();
-    const written = await this.text
-      .write({
-        system: `${config.voice} Redactas preguntas para una entrevista de sí o no sobre lo que le apetece ${config.verb} ahora.`,
-        prompt: [
-          `Qué quieres averiguar: ${probe.intent}.`,
-          history.length
-            ? `Preguntas ya hechas (no repitas su idea ni sus palabras clave):\n${history.map((h) => `- ${h.pregunta} → ${h.respuesta}`).join('\n')}`
-            : 'Es la primera pregunta.',
-          `Escribe la pregunta en positivo, de forma que «sí» signifique exactamente esto: ${probe.intent.toLowerCase()}. ` +
-            'Sin negaciones («no», «sin»). Añade una frase corta con el motivo; si una respuesta anterior es la razón, menciónala.',
-        ].join('\n\n'),
-        schema: questionSchema,
-      })
-      .catch((error: Error) => {
-        // Si no hay texto, mejor una pregunta sencilla que una entrevista parada.
-        this.logger.warn(`Sin redacción para "${probe.id}": ${error.message}`);
-        return { question: `¿${probe.intent.replace(/^Si /, '')}?`, reason: '' };
-      });
-    this.logger.log(
-      `siguiente: ${probe.id} (decisión ${decisionMs} ms, redacción en vivo ${Date.now() - writeStarted} ms)`,
-    );
-
-    return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null }];
+  /**
+   * Texto de la pregunta: del banco revisado a mano (`question-texts.ts`), nunca redactado en
+   * directo. Con algo pedido ("Marvel"), el motivo pone un ejemplo real del catálogo que sería un "sí".
+   */
+  private questionText(domain: DomainRow, probe: Probe, turns: InterviewTurn[], anchors: Anchor[], focus: AnchorFocus | null, dimension: string | undefined) {
+    const picked = this.bank.pick(domain, probe.id, turns);
+    const question = picked?.question ?? `¿${probe.yesChip.charAt(0).toUpperCase()}${probe.yesChip.slice(1)}?`;
+    const example = focus && dimension ? anchorExample(focus.matched, dimension, probeDirection(probe, dimension, domain.config)) : null;
+    const labels = anchors.filter((a) => a.kind !== 'title').map((a) => a.label).join(' o ');
+    const reason = example && labels ? `Dentro de ${labels}, «${example.title}» sería un sí.` : (picked?.reason ?? '');
+    return { question, reason };
   }
 
   /** Elementos de la bolsa de una sesión: de memoria si ya se cargaron, si no de la base de datos. */
@@ -595,37 +628,11 @@ export class InterviewService implements OnModuleInit {
     assertNotAsked(turns, probe.id);
     const meta = { gain: Math.round(chosen.gain * 100) / 100, left };
 
-    // Con anclas, la pregunta se redacta con ellas y un ejemplo real ("¿…tipo Guardianes de la Galaxia?").
-    if (session.anchors?.length) {
-      const focus = await this.anchorFocus(session, domain);
-      const dimension = focus ? probe.informs.find((d) => focus.dimensions.includes(d) && !ignore.has(d)) : undefined;
-      const written = await this.writeAnchored(domain, session.anchors, focus, probe, dimension, history);
-      if (written) {
-        this.logger.log(`siguiente: ${probe.id} (${meta.gain} bits, quedan ~${left}, decisión ${decisionMs} ms, enfocada)`);
-        return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null, ...meta }];
-      }
-    }
-    const lead = this.leadLine(turns, session, domain);
-    const fromBank = this.bank.pick(domain, probe.id, turns);
-    if (fromBank) {
-      this.logger.log(`siguiente: ${probe.id} (${meta.gain} bits, quedan ~${left}, decisión ${decisionMs} ms, banco)`);
-      return [...turns, { probeId: probe.id, text: fromBank.question, reason: fromBank.reason, answer: null, lead, ...meta }];
-    }
-    const written = await this.text
-      .write({
-        system: `${config.voice} Redactas preguntas para una entrevista de sí o no sobre lo que le apetece ${config.verb} ahora.`,
-        prompt: [
-          `Qué quieres averiguar: ${probe.intent}.`,
-          history.length ? `Preguntas ya hechas (no repitas su idea ni sus palabras clave):\n${history.map((h) => `- ${h.pregunta} → ${h.respuesta}`).join('\n')}` : 'Es la primera pregunta.',
-          `Escribe la pregunta en positivo, de forma que «sí» signifique exactamente esto: ${probe.intent.toLowerCase()}. Sin negaciones («no», «sin»). Añade una frase corta con el motivo.`,
-        ].join('\n\n'),
-        schema: questionSchema,
-      })
-      .catch((error: Error) => {
-        this.logger.warn(`Sin redacción para "${probe.id}": ${error.message}`);
-        return { question: `¿${probe.intent.replace(/^Si /, '')}?`, reason: '' };
-      });
-    return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null, lead, ...meta }];
+    const focus = session.anchors?.length ? await this.anchorFocus(session, domain) : null;
+    const dimension = focus ? probe.informs.find((d) => focus.dimensions.includes(d) && !ignore.has(d)) : undefined;
+    const { question, reason } = this.questionText(domain, probe, turns, session.anchors ?? [], focus, dimension);
+    this.logger.log(`siguiente: ${probe.id} (${meta.gain} bits, quedan ~${left}, decisión ${decisionMs} ms, banco)`);
+    return [...turns, { probeId: probe.id, text: question, reason, answer: null, lead: this.leadLine(turns, session, domain), ...meta }];
   }
 
   /** Una línea de contexto por plantilla ("Vale: Marvel · para desconectar · sin terror."), sin gastar IA. */
@@ -655,45 +662,6 @@ export class InterviewService implements OnModuleInit {
     if (!session.anchors?.length) return null;
     const focus = await this.anchors.focus(domain, session.anchors, session.userId).catch(() => null);
     return focus && focus.matched.length >= 3 ? focus : null;
-  }
-
-  /**
-   * Pregunta redactada en vivo con el ancla y un ejemplo real del catálogo ("¿Te apetece una
-   * de Marvel con mucho humor, tipo Guardianes de la Galaxia?"). Si no hay texto, null.
-   */
-  private async writeAnchored(
-    domain: DomainRow,
-    anchors: Anchor[],
-    focus: AnchorFocus | null,
-    probe: Probe,
-    dimension: string | undefined,
-    history: { pregunta: string; respuesta: string }[],
-  ) {
-    const { config } = domain;
-    const labels = anchors.map((a) => a.label).join(' o ');
-    const example = focus && dimension ? anchorExample(focus.matched, dimension, probeDirection(probe, dimension, config)) : null;
-    return this.text
-      .write({
-        system: `${config.voice} Redactas preguntas para una entrevista de sí o no sobre lo que le apetece ${config.verb} ahora.`,
-        prompt: [
-          dimension
-            ? `La persona ha pedido ${domain.itemNounPlural} de ${labels}. Entre ellas, lo que más cambia de una a otra es esto, y es lo que quieres averiguar: ${probe.intent}.`
-            : `La persona ha pedido ${domain.itemNounPlural} de ${labels}. Quieres averiguar qué tipo de ${labels} le apetece: ${probe.intent}.`,
-          history.length
-            ? `Preguntas ya hechas (no repitas su idea):\n${history.map((h) => `- ${h.pregunta} → ${h.respuesta}`).join('\n')}`
-            : 'Es la primera pregunta.',
-          `Escribe la pregunta en positivo, de forma que «sí» signifique exactamente esto: ${probe.intent.toLowerCase()}. Menciona ${labels}` +
-            (example ? ` y pon como ejemplo «${example.title}» (con "tipo" o "como").` : '.') +
-            ` No menciones otras sagas, títulos ni marcas. Sin negaciones ni formato (nada de asteriscos). La pregunta termina en el signo de interrogación, sin frases detrás. ` +
-            `Añade un motivo corto dirigido a la persona (hablándole de tú), sin hablar de filtros, opciones ni de lo que «las distingue».`,
-        ].join('\n\n'),
-        schema: questionSchema,
-      })
-      .then((w) => ({ question: tidyQuestion(w.question), reason: w.reason.replace(/[*_]/g, '').trim() }))
-      .catch((error: Error) => {
-        this.logger.warn(`Sin pregunta enfocada para "${probe.id}": ${error.message.slice(0, 120)}`);
-        return null;
-      });
   }
 
   /**

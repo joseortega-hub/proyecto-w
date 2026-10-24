@@ -47,6 +47,8 @@ export interface Understanding {
   anchors: Anchor[]
   preferences: Record<string, { value: string; confidence: number }>
   exclusions: string[]
+  /** Lo pedido que no está (o no entero) en el catálogo y se está buscando en directo en la fuente. */
+  searching?: string[]
 }
 
 /** Lo entendido ya corregido por la persona, que viaja con la creación de la sesión. */

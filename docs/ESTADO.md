@@ -242,3 +242,42 @@ Sustituye al perfil de ánimo (barras genéricas) y a los ajustes rápidos ("+ c
 - **Tests**: `apps/web/src/lib/vibe/vibe.test.ts` (títulos, degradado AA, palabras; primer vitest de la web) y `apps/api/src/interview/vibe.engine.spec.ts` (orígenes, `applyVibe`, reordenación). Verificado en móvil con música y videojuegos arrastrando una barra.
 - **Siguientes pasos**: título con Groq y respaldo a la plantilla (hoy solo plantillas); reordenar también con la semántica si hay cupo de embeddings; atributos de tipo etiquetas (géneros) no son barras todavía.
 
+
+### Refuerzo de la entrevista (24/10/2026)
+La entrevista fallaba en uso real porque la IA **adivinaba términos** ("Marvel") que luego se buscaban como texto ("Vengadores" no contiene "Marvel"), faltaban datos estructurados (productora, colección, editora) y las preguntas las redactaba la IA en directo. Ahora la IA **elige entre entidades reales del catálogo** y todo lo pedido se convierte en condiciones exactas.
+- **Evals primero** (`pnpm eval`, `apps/api/src/eval/interview.eval.ts`): recorre el camino de la web contra la API REAL (proveedores de IA reales): entender → empezar → responder (sí/no alternos) → Afinando (SSE) → lista, y comprueba con aserciones. `--prod` apunta a producción; `--base=URL`, `--only=marvel,alas` y `--verbose`. Para todas las preguntas: ≤ 14 palabras y sin tecnicismos. Los temas personales se prueban con el dueño de sus elementos (en local se detecta; en producción `--youtube-user=` / `--folder-user=`). Ojo: con `pnpm dev` la API se reinicia al editar; para las evals, `nest build` + `node dist/main` en otro puerto.
+- **Datos estructurados** en `items.facets`: películas `companies` (productoras) y `collection` (saga de TMDB, en el detalle y en la búsqueda en directo); videojuegos `companies` (desarrolladora + editora de RAWG); libros `languages` con "es" **solo si hay edición en español con su título** (`spanishTitle`, `bookLanguages`) y el título en español. Relleno sin IA y reanudable: `pnpm facets [movies|games|books] [--prod]` (marca `details.facetsAt`). En local: 336 películas, 413 juegos y 253 libros.
+- **Entender contra el catálogo** (`interview/catalog-match.ts`, lógica pura con tests en `catalog-match.spec.ts`): índice en memoria frase → entidad (título exacto o antes de ":", creador y apellido, compañías y colecciones con sus subfrases sin palabras genéricas, etiquetas, sagas = frases en ≥ 3 títulos, géneros por raíz "romántico" → romance). `findEntities` descarta lo negado ("nada de terror") y `UnderstandingService` pasa a la IA las entidades encontradas (`picks`: only / include / like, enum de ids) y el vocabulario cerrado de géneros (`genres`); `anchors` queda solo para lo que no está (se busca fuera). Sin IA, `pickWithoutAI` elige por reglas (títulos largos = semilla, "tipo X" = referencia). Se evaluó `pg_trgm`: con catálogos de cientos de elementos el índice en memoria basta y es testeable.
+- **Anclas estructuradas** (`Anchor.match`, `Anchor.ids`): condiciones exactas (`companies`, `collection`, `creator`, `title`, `tags`, `id`), vale cualquiera. `anchorMode`: lo pedido de forma explícita y resuelto (Marvel, Nintendo, un autor, una saga) **filtra aunque haya pocos** ("Solo hay N de X"); un género solo si da para una lista; los **títulos son semillas** (nunca filtran). El controlador acepta `match`/`ids` en la comprensión corregida.
+- **Búsqueda en directo completa y síncrona**: `coverageGap` decide qué buscar (lo que es solo texto o tiene menos de una lista); una búsqueda por ancla compartida entre "entender" y "empezar"; `POST /sessions` espera hasta 25 s (`START_COVERAGE_WAIT_MS`) y la web enseña "Buscando todas las de Marvel en TMDB…" (`Understanding.searching`). TMDB: compañías y colecciones que se llaman como lo pedido + discover paginado (5 páginas) + keyword; RAWG: desarrolladora/editora con 2 páginas de 40; hasta 80 por ancla. Después, `resolveAgain` vuelve a resolver lo que era texto y añade la etiqueta con la que la búsqueda marcó lo traído.
+- **Restricciones duras**: la bolsa es solo lo que cumple filtros + anclas; las semillas entran siempre (aunque un filtro las deje fuera), con +6 en la bolsa, y el resto pesa por parecido (`seedSimilarity`: etiquetas en común + cercanía en escalas). Afinando pone las semillas primero siempre. Idioma y plataforma de los botones viajan desde `HomePage` en `POST /sessions` y filtran la bolsa y Afinando.
+- **Preguntas con sentido**: banco revisado a mano en el código (`interview/question-texts.ts`, 2 variantes por sonda y temática, ≤ 12 palabras) con validador `checkQuestion` y test (`question-texts.spec.ts`); ya no se redacta nada en directo (con ancla, el motivo lleva un ejemplo real: "Dentro de Marvel, «X» sería un sí"). Música: sondas de momento o uso (`Probe.moment`: estudiar, entrenar, fiesta, relajarse, conducir, cantar) primero (`interview.momentFirst = 3`) y los géneros (`interview.stylesLast`) solo al final y **nunca con gustos o algo pedido**; fuera la sonda de "sonidos acústicos". Lo heredan "Mi YouTube" y "Mi carpeta".
+- **Resultado de las evals (local, proveedores reales; `pnpm eval`):** 20/20 en verde, 7–18 s por caso.
+
+| Caso | Qué se comprueba | 1.ª pasada | Final |
+|---|---|---|---|
+| marvel | «algo de Marvel y no sé el qué» → solo Marvel (22 en el catálogo) | ✅ (en local ya había Marvel etiquetado) | ✅ |
+| marvel-es | Marvel con «idioma original: español» guardado → manda lo pedido | — | ✅ |
+| romance-movies | «algo romántico» → ≥ 80 % románticas | ❌ 6/10 | ✅ |
+| no-horror | «nada de terror, algo para reírme» | ✅ | ✅ |
+| movies-es | idioma español desde los botones | ✅ | ✅ |
+| books-es | solo en español y con título en español | — | ✅ |
+| romance-books | «algo romántico» en libros | — | ✅ |
+| alas | Alas de sangre primero + ≥ 70 % parecidos | — | ✅ |
+| author | «algo de Brandon Sanderson» → solo Sanderson | — | ✅ |
+| pokemon | «un Pokémon» → solo Pokémon (antes colaba Smash Bros. por una etiqueta) | — | ✅ |
+| nintendo | «algo de Nintendo» → desarrolla o edita Nintendo | — | ✅ |
+| platform | plataforma Nintendo desde los botones | — | ✅ |
+| games-taste | sin texto, gusto por el rol → ≥ 70 % rol | — | ✅ |
+| music-urban | gustos urbanos → preguntas de momento, ninguna de géneros | — | ✅ |
+| music-plain | sin texto ni gustos → 3 primeras de momento o uso | — | ✅ |
+| workout | «algo para entrenar» → energía media ≥ 0,65 | — | ✅ |
+| study | «estudiar sin letra» → ≥ 90 % instrumentales y concentración | — | ✅ |
+| artist | «pon algo de David TMX» → solo ese artista | — | ✅ |
+| youtube-workout | Mi YouTube: entrenar con gustos urbanos | — | ✅ |
+| folder | Mi carpeta sin texto | — | ✅ |
+
+  La 1.ª pasada se cortó porque `pnpm dev` reinició la API al editar ("—" = no llegó a correr). Fallos encontrados por el camino y arreglados: el esquema con `.default([])` rompía el modo estricto de Groq; sin cupo de IA no se entendía "para entrenar" (respaldo por reglas `text-cues.ts`); una etiqueta suelta colaba Smash Bros. en Pokémon; dos ediciones de "Alas de sangre" lo convertían en saga; el anti-duplicados juntaba secuelas con ":"; y un filtro de idioma guardado dejaba Marvel a cero (ahora lo pedido por su nombre gana y ese filtro no se aplica en la entrevista).
+- **Más piezas**: `text-cues.ts` (ánimo por reglas como respaldo sin IA, con tests), `titleKey` (sin ediciones repetidas en la lista), aviso "Solo hay N de X" con el total del catálogo.
+- **Producción**: falta `pnpm facets --prod` (rellena compañías, colecciones e idiomas de lo ya importado en Neon) y las claves de Render (`TMDB_API_KEY`, `RAWG_API_KEY`, `JAMENDO_CLIENT_ID`, `OPEN_LIBRARY_CONTACT`) para la búsqueda en directo; luego `pnpm eval --prod`.
+- **Límites**: sin IA (Groq y Gemini sin cupo) se entienden las entidades del catálogo, pero no el ánimo del texto ("cansado"); la búsqueda en directo tarda 10–25 s la primera vez que se pide algo que no está.

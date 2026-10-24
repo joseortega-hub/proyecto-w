@@ -26,7 +26,9 @@
     "details": "tsx src/catalog/details.ts",
     "classify": "tsx src/catalog/classify.ts",
     "questions": "tsx src/interview/question-bank.generate.ts",
-    "sync-embeddings": "tsx src/db/sync-embeddings.ts"
+    "sync-embeddings": "tsx src/db/sync-embeddings.ts",
+    "eval": "tsx src/eval/interview.eval.ts",
+    "facets": "tsx src/catalog/facets.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.104",

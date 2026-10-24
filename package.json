@@ -20,6 +20,8 @@
     "storybook": "pnpm --filter @sintonia/web storybook",
     "tokens": "pnpm --filter @sintonia/tokens build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "eval": "pnpm --filter @sintonia/api eval",
+    "facets": "pnpm --filter @sintonia/api facets"
   }
 }

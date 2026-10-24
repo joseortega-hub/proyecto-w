@@ -1,4 +1,5 @@
 import type { Anchor } from '../interview/interview.types.js';
+import { anchorMatchesText } from '../interview/anchors.js';
 import { anchorTag, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
 import { movieDetails, type ItemDetails } from './item-details.js';
 import { clamp, logScale, mapLimit, nudge, politeFetcher, priorAverage, yearScale } from './derive.js';
@@ -18,7 +19,18 @@ export interface TmdbMovie {
   runtime?: number | null;
   credits?: { crew: { job: string; name: string }[]; cast?: { name: string; order?: number }[] };
   keywords?: { keywords: { name: string }[] };
+  production_companies?: { id: number; name: string }[];
+  belongs_to_collection?: { id: number; name: string } | null;
 }
+
+/** Facetas estructuradas de una película: productoras y colección (saga), tal y como las da TMDB. */
+export const movieEntityFacets = (m: Pick<TmdbMovie, 'production_companies' | 'belongs_to_collection'>): Record<string, string | string[]> => ({
+  ...(m.production_companies?.length ? { companies: m.production_companies.slice(0, 6).map((c) => c.name) } : {}),
+  ...(m.belongs_to_collection?.name ? { collection: m.belongs_to_collection.name } : {}),
+});
+
+/** Páginas de 20 que trae como mucho una búsqueda en directo por compañía, palabra clave o persona. */
+const LIVE_PAGES = 5;
 
 /** Géneros de TMDB por id, con el nombre que se guarda como etiqueta. */
 export const TMDB_GENRES: Record<number, string> = {
@@ -143,26 +155,42 @@ export class TmdbAdapter implements CatalogAdapter {
    */
   async search(anchor: Anchor, limit: number): Promise<ImportedItem[]> {
     const query = anchor.label;
-    const discover = (params: Record<string, string>) =>
-      this.get<{ results: TmdbMovie[] }>(this.url('discover/movie', { language: 'es-ES', include_adult: 'false', sort_by: 'popularity.desc', 'vote_count.gte': '50', ...params }))
+    /** Todas las páginas de un discover (hasta `LIVE_PAGES`): "todas las de Marvel", no las 20 primeras. */
+    const discover = async (params: Record<string, string>) => {
+      const out: TmdbMovie[] = [];
+      for (let page = 1; page <= LIVE_PAGES; page++) {
+        const body = await this.get<{ results: TmdbMovie[]; total_pages: number }>(
+          this.url('discover/movie', { language: 'es-ES', include_adult: 'false', sort_by: 'popularity.desc', 'vote_count.gte': '50', ...params, page: String(page) }),
+        ).catch(() => ({ results: [] as TmdbMovie[], total_pages: 0 }));
+        out.push(...body.results);
+        if (page >= body.total_pages) break;
+      }
+      return out;
+    };
+    const search = (path: string) =>
+      this.get<{ results: { id: number; name?: string }[] }>(this.url(path, { query }))
         .then((b) => b.results)
-        .catch(() => [] as TmdbMovie[]);
-    const firstIds = (path: string, n: number) =>
-      this.get<{ results: { id: number }[] }>(this.url(path, { query }))
-        .then((b) => b.results.slice(0, n).map((r) => r.id))
-        .catch(() => [] as number[]);
+        .catch(() => [] as { id: number; name?: string }[]);
+    // Solo lo que se llama como lo pedido ("Marvel Studios" sí, "Marvelous Films" no).
+    const named = (r: { name?: string }) => !!r.name && anchorMatchesText(r.name, anchor);
 
     const tagged: TmdbMovie[] = [];
     if (anchor.kind === 'creator') {
-      const people = await firstIds('search/person', 1);
+      const people = (await search('search/person')).slice(0, 1).map((r) => r.id);
       if (people.length) tagged.push(...(await discover({ with_people: people.join('|') })));
     } else if (anchor.kind !== 'title') {
-      const [companies, keywords] = await Promise.all([firstIds('search/company', 3), firstIds('search/keyword', 3)]);
-      if (companies.length) tagged.push(...(await discover({ with_companies: companies.join('|') })));
-      if (keywords.length) tagged.push(...(await discover({ with_keywords: keywords.join('|') })));
+      const [companies, collections, keywords] = await Promise.all([search('search/company'), search('search/collection'), search('search/keyword')]);
+      const companyIds = companies.filter(named).slice(0, 4).map((r) => r.id);
+      if (companyIds.length) tagged.push(...(await discover({ with_companies: companyIds.join('|') })));
+      for (const c of collections.filter(named).slice(0, 3)) {
+        const body = await this.get<{ parts: TmdbMovie[] }>(this.url(`collection/${c.id}`, { language: 'es-ES' })).catch(() => ({ parts: [] as TmdbMovie[] }));
+        tagged.push(...body.parts.filter((m) => m.vote_count >= 50));
+      }
+      const keywordIds = keywords.filter(named).slice(0, 2).map((r) => r.id);
+      if (keywordIds.length && tagged.length < limit) tagged.push(...(await discover({ with_keywords: keywordIds.join('|') })));
     }
     const byTitle = await this.get<{ results: TmdbMovie[] }>(this.url('search/movie', { query, language: 'es-ES', include_adult: 'false' }))
-      .then((b) => b.results.filter((m) => m.overview && m.vote_count >= 50))
+      .then((b) => b.results.filter((m) => m.overview && m.vote_count >= 50 && (anchor.kind === 'title' || anchorMatchesText(m.title, anchor))))
       .catch(() => [] as TmdbMovie[]);
 
     const byId = new Map<number, { movie: TmdbMovie; tagged: boolean }>();
@@ -176,6 +204,11 @@ export class TmdbAdapter implements CatalogAdapter {
       const item = this.toItem({ ...movie, ...details[i] }, LIVE_MAX_VOTES);
       return isTagged ? { ...item, tags: [...new Set([...(item.tags ?? []), anchorTag(anchor)])] } : item;
     });
+  }
+
+  /** Productoras y colección de una película ya importada (script de relleno de facetas). */
+  async entityFacets(externalId: string) {
+    return movieEntityFacets(await this.get<TmdbMovie>(this.url(`movie/${externalId}`, { language: 'es-ES' })));
   }
 
   /** Créditos de una película ya importada (script de relleno). */
@@ -206,7 +239,7 @@ export class TmdbAdapter implements CatalogAdapter {
       attributes: deriveMovieAttributes(m),
       tags: [...new Set([...movieGenres(m), ...keywords])],
       popularity: logScale(m.vote_count, maxVotes),
-      facets: { language: originalLanguageFacet(m.original_language), ...(year ? { year } : {}) },
+      facets: { language: originalLanguageFacet(m.original_language), ...(year ? { year } : {}), ...movieEntityFacets(m) },
       details: movieDetails(m),
     };
   }

@@ -78,6 +78,20 @@ export interface Anchor {
   terms: string[];
   /** Si lo pide de forma explícita ("algo de Marvel") o es solo una referencia ("tipo Marvel"). */
   required: boolean;
+  /**
+   * Condiciones exactas sobre el catálogo (vale cualquiera), resueltas contra entidades reales
+   * (`catalog-match.ts`): compañía, colección, creador, saga en el título, etiqueta o id. Sin
+   * ellas, el ancla se busca por sus términos como texto (sesiones antiguas).
+   */
+  match?: AnchorCondition[];
+  /** Títulos pedidos (semillas): van siempre primero en la lista. */
+  ids?: string[];
+}
+
+/** Una condición sobre el catálogo: `field` es `id`, `title`, `creator`, `tags` o una faceta (`companies`, `collection`…). */
+export interface AnchorCondition {
+  field: string;
+  values: string[];
 }
 
 /**

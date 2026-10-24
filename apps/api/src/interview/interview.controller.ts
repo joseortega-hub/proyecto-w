@@ -7,10 +7,13 @@ import { USER_HEADER } from '../taste/taste.controller.js';
 import { optionalUserId } from '../taste/taste.service.js';
 
 const anchorSchema = z.object({
-  label: z.string().min(1).max(60),
+  label: z.string().min(1).max(120),
   kind: z.enum(['franchise', 'creator', 'studio', 'title', 'tag']),
-  terms: z.array(z.string().max(60)).max(10),
+  terms: z.array(z.string().max(120)).max(10),
   required: z.boolean(),
+  /** Condiciones ya resueltas contra el catálogo al entender el texto (ver `catalog-match.ts`). */
+  match: z.array(z.object({ field: z.string().max(20), values: z.array(z.string().max(120)).max(20) })).max(6).optional(),
+  ids: z.array(z.uuid()).max(5).optional(),
 });
 /** Lo entendido del texto, ya corregido por la persona en la tarjeta. */
 const understandingSchema = z.object({

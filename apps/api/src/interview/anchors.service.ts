@@ -15,16 +15,19 @@ import { DB } from '../db/db.module.js';
 import { items } from '../db/schema.js';
 import type { DomainRow } from '../domains/domains.service.js';
 import { ItemsService, type ItemWithoutEmbedding } from '../items/items.service.js';
-import { anchorDimensions, anchorItemSchema, anchorMatches, cleanAnchors, normalize } from './anchors.js';
+import { anchorDimensions, anchorItemSchema, anchorMatches, cleanAnchors, isStructured, normalize } from './anchors.js';
 import { itemEmbeddingText } from './interview.engine.js';
 import type { Anchor } from './interview.types.js';
 
-/** Cuántos elementos trae como mucho una búsqueda en directo por ancla. */
-const LIVE_LIMIT = 20;
+/** Cuántos elementos trae como mucho una búsqueda en directo por ancla: "todas las de Marvel", no 20. */
+const LIVE_LIMIT = 80;
 /** Cuánto espera Afinando a que termine la búsqueda en directo antes de seguir sin ella. */
 const COVERAGE_WAIT_MS = 15_000;
-/** Cuánto espera la primera pregunta: así ya se enfoca en lo que trajo la búsqueda en directo. */
-export const START_COVERAGE_WAIT_MS = 8_000;
+/**
+ * Cuánto espera el inicio de la entrevista a la búsqueda en directo: la bolsa se monta con lo
+ * encontrado (la web enseña "Buscando todas las de Marvel…"). Por debajo del tope del proxy de Vercel.
+ */
+export const START_COVERAGE_WAIT_MS = 25_000;
 const FOCUS_TTL_MS = 10 * 60_000;
 
 const anchorsSchema = z.object({
@@ -109,16 +112,35 @@ export class AnchorsService {
    */
   ensureCoverage(domain: DomainRow, anchors: Anchor[], userId: string | null): Promise<number> {
     if (!anchors.length || domain.config.personal || !LIVE_ADAPTERS[domain.id]) return Promise.resolve(0);
-    const key = this.key(domain, anchors, null);
-    const running = this.coverage.get(key);
-    if (running) return running;
-    const task = this.liveSearch(domain, anchors, userId).catch((error: Error) => {
-      this.logger.warn(`Búsqueda en directo fallida: ${error.message.slice(0, 160)}`);
-      this.coverage.delete(key);
-      return 0;
+    // Una búsqueda por ancla (y una sola vez): así la de "entender" y la de "empezar" son la misma.
+    return Promise.all(
+      anchors.map((anchor) => {
+        const key = this.key(domain, [anchor], null);
+        const running = this.coverage.get(key);
+        if (running) return running;
+        const task = this.liveSearch(domain, [anchor], userId).catch((error: Error) => {
+          this.logger.warn(`Búsqueda en directo fallida: ${error.message.slice(0, 160)}`);
+          this.coverage.delete(key);
+          return 0;
+        });
+        this.coverage.set(key, task);
+        return task;
+      }),
+    ).then((counts) => counts.reduce((s, n) => s + n, 0));
+  }
+
+  /**
+   * Anclas que hay que buscar fuera: las que solo son texto (no están en el catálogo) y las
+   * que sí están pero con menos de una lista. Los títulos y géneros que ya están, no.
+   */
+  async coverageGap(domain: DomainRow, anchors: Anchor[], userId: string | null): Promise<Anchor[]> {
+    if (!anchors.length || domain.config.personal || !LIVE_ADAPTERS[domain.id]) return [];
+    const catalog = await this.items.catalog(domain.id, [], userId);
+    return anchors.filter((a) => {
+      if (!isStructured(a)) return true;
+      if (a.kind === 'title' || a.kind === 'tag') return false;
+      return anchorMatches(catalog, [a]).length < domain.config.result.size;
     });
-    this.coverage.set(key, task);
-    return task;
   }
 
   /** Espera la búsqueda en directo, con tope: la lista sale igual si la fuente tarda. */

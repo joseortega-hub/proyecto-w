@@ -43,7 +43,8 @@ const fakeText = (answer: unknown | Error): TextProvider => ({
   name: 'falso',
   write: async <S extends z.ZodType>({ schema }: { schema: S }) => {
     if (answer instanceof Error) throw answer;
-    return schema.parse(answer);
+    // Los campos de listas que el escenario no menciona van vacíos, como los devolvería el modelo.
+    return schema.parse({ genres: [], picks: [], ...(answer as object) });
   },
 });
 

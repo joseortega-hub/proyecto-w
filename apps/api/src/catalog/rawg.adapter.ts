@@ -159,10 +159,18 @@ export class RawgAdapter implements CatalogAdapter {
    * solo se queda si el nombre lo contiene de verdad (RAWG busca de forma aproximada).
    */
   async search(anchor: Anchor, limit: number): Promise<ImportedItem[]> {
-    const list = (params: Record<string, string>) =>
-      this.get<{ results: RawgGame[] }>(this.url('games', { page_size: '30', exclude_additions: 'true', ...params }))
-        .then((b) => b.results)
-        .catch(() => [] as RawgGame[]);
+    /** Varias páginas: "todos los de Nintendo", no los 30 primeros. */
+    const list = async (params: Record<string, string>, pages = 1) => {
+      const out: RawgGame[] = [];
+      for (let page = 1; page <= pages; page++) {
+        const body = await this.get<{ results: RawgGame[]; next: string | null }>(this.url('games', { page_size: '40', exclude_additions: 'true', ...params, page: String(page) })).catch(
+          () => ({ results: [] as RawgGame[], next: null }),
+        );
+        out.push(...body.results);
+        if (!body.next) break;
+      }
+      return out;
+    };
     const firstId = (path: string) =>
       this.get<{ results: { id: number }[] }>(this.url(path, { search: anchor.label, page_size: '1' }))
         .then((b) => b.results[0]?.id ?? null)
@@ -171,10 +179,10 @@ export class RawgAdapter implements CatalogAdapter {
     const tagged: RawgGame[] = [];
     if (anchor.kind === 'studio' || anchor.kind === 'creator' || anchor.kind === 'franchise') {
       const [developer, publisher] = await Promise.all([firstId('developers'), firstId('publishers')]);
-      if (developer) tagged.push(...(await list({ developers: String(developer), ordering: '-added' })));
-      if (publisher) tagged.push(...(await list({ publishers: String(publisher), ordering: '-added' })));
+      if (developer) tagged.push(...(await list({ developers: String(developer), ordering: '-added' }, 2)));
+      if (publisher) tagged.push(...(await list({ publishers: String(publisher), ordering: '-added' }, 2)));
     }
-    const byName = (await list({ search: anchor.label, search_precise: 'true' })).filter((g) => anchorMatchesText(g.name, anchor));
+    const byName = (await list({ search: anchor.label, search_precise: 'true' }, 2)).filter((g) => anchorMatchesText(g.name, anchor));
 
     const byId = new Map<number, { game: RawgGame; tagged: boolean }>();
     for (const g of byName) byId.set(g.id, { game: g, tagged: false });
@@ -185,6 +193,11 @@ export class RawgAdapter implements CatalogAdapter {
       const item = this.toItem({ ...game, ...details[i] }, LIVE_MAX_ADDED);
       return isTagged ? { ...item, tags: [...new Set([...(item.tags ?? []), anchorTag(anchor)])] } : item;
     });
+  }
+
+  /** Desarrolladora y editora de un juego ya importado (script de relleno de facetas). */
+  async entityFacets(externalId: string) {
+    return gameEntityFacets(await this.get<RawgDetail>(this.url(`games/${externalId}`)));
   }
 
   private url(path: string, params: Record<string, string> = {}) {
@@ -220,9 +233,16 @@ export class RawgAdapter implements CatalogAdapter {
       popularity: logScale(g.added, maxAdded),
       facets: {
         platforms: platformFacet(g),
+        ...gameEntityFacets(g),
         ...(g.released ? { year: g.released.slice(0, 4) } : {}),
       },
       details: gameDetails(g),
     };
   }
+}
+
+/** Faceta `companies`: quién desarrolla y quién edita ("Nintendo", "Game Freak"), tal y como lo da RAWG. */
+export function gameEntityFacets(g: { developers?: { name: string }[]; publishers?: { name: string }[] }): Record<string, string[]> {
+  const companies = [...new Set([...(g.developers ?? []), ...(g.publishers ?? [])].map((c) => c.name))].slice(0, 6);
+  return companies.length ? { companies } : {};
 }

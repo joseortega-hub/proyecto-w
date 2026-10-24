@@ -1,6 +1,7 @@
 // Qué se puede preguntar a continuación. Lógica pura, sin IA ni base de datos.
 import type { DomainConfig, Probe } from '../domains/domain.types.js';
-import { informedDimensions, minQuestions, remainingProbes } from './interview.engine.js';
+import { tasteOnlyProbes } from '../taste/taste.engine.js';
+import { answered, informedDimensions, minQuestions, remainingProbes } from './interview.engine.js';
 import type { Answer, InterviewTurn } from './interview.types.js';
 
 /** Lo que ya se sabe antes de preguntar. */
@@ -9,7 +10,12 @@ export interface InterviewFacts {
   known?: string[];
   /** Sondas que sobran porque la persona ya contó sus gustos (las de solo estilo). */
   skip?: Set<string>;
+  /** Hay gustos guardados o algo pedido: en los dominios con `stylesLast` no se pregunta por estilos. */
+  noStyles?: boolean;
 }
+
+/** Respuestas antes de las cuales no se pregunta por estilos en los dominios con `stylesLast`. */
+export const STYLES_AFTER = 3;
 
 /**
  * Preguntas que aún aportan algo. Fuera quedan:
@@ -29,7 +35,20 @@ export function askableProbes(turns: InterviewTurn[], config: DomainConfig, fact
   // Con gustos guardados se salta lo que es solo de estilo, salvo que no quede otra cosa.
   const skip = facts.skip;
   const moodOnly = skip?.size ? useful.filter((p) => !skip.has(p.id)) : useful;
-  return moodOnly.length ? moodOnly : useful;
+  let pool = moodOnly.length ? moodOnly : useful;
+  const done = answered(turns).length;
+  // Música: se pregunta por el momento o el uso, y los géneros solo al final y si no hay gustos ni algo pedido.
+  if (config.interview.stylesLast) {
+    const styles = tasteOnlyProbes(config);
+    const noStyles = pool.filter((p) => !styles.has(p.id));
+    // Con gustos o algo pedido, nunca (si no queda otra cosa, mejor terminar); sin ellos, al final.
+    if (facts.noStyles || (noStyles.length && done < STYLES_AFTER)) pool = noStyles;
+  }
+  if (config.interview.momentFirst && done < config.interview.momentFirst) {
+    const moments = pool.filter((p) => p.moment);
+    if (moments.length) pool = moments;
+  }
+  return pool;
 }
 
 /** Garantía final: nunca se añade una pregunta cuya sonda ya se hizo en esta entrevista. */

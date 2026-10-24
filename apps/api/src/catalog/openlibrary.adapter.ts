@@ -103,6 +103,24 @@ export function languagesFacet(codes: string[] = []): string[] {
   return [...new Set(codes.map((c) => map[c] ?? 'other'))];
 }
 
+/**
+ * Título de la edición en español, si la hay de verdad: con `lang=es`, Open Library adjunta esa
+ * edición; solo vale si es únicamente en español (las bilingües traen títulos en gallego, catalán…).
+ */
+export function spanishTitle(d: Pick<OpenLibraryDoc, 'editions'>): string | null {
+  const edition = d.editions?.docs[0];
+  return edition?.title && edition.language?.length === 1 && edition.language[0] === 'spa' ? edition.title : null;
+}
+
+/**
+ * Idiomas en los que se puede leer: "es" solo si hay una edición en español con su título
+ * (así "En español" nunca enseña un libro con el título en inglés).
+ */
+export function bookLanguages(d: Pick<OpenLibraryDoc, 'editions' | 'language'>): string[] {
+  const langs = languagesFacet(d.language).filter((l) => l !== 'es');
+  return spanishTitle(d) ? ['es', ...langs] : langs.length ? langs : ['other'];
+}
+
 /** Referencia de popularidad para lo que llega por búsqueda en directo. */
 const LIVE_MAX_READING_LOG = 50_000;
 
@@ -189,12 +207,19 @@ export class OpenLibraryAdapter implements CatalogAdapter {
     return body.docs[0] ? bookDetails(body.docs[0]) : {};
   }
 
+  /** Título en español (si hay edición en español de verdad) e idiomas de un libro ya importado (relleno de facetas). */
+  async languageFacets(externalId: string): Promise<{ title: string | null; languages: string[] } | null> {
+    const url = new URL('https://openlibrary.org/search.json');
+    url.search = new URLSearchParams({ q: `key:/works/${externalId}`, lang: 'es', limit: '1', fields: 'key,language,editions,editions.title,editions.language' }).toString();
+    const doc = (await this.get<{ docs: OpenLibraryDoc[] }>(url)).docs[0];
+    return doc ? { title: spanishTitle(doc), languages: bookLanguages(doc) } : null;
+  }
+
   private toItem(d: OpenLibraryDoc, description: string | null, maxLog: number): ImportedItem {
     const tags = bookTags(d.subject);
     // Con `lang=es`, Open Library adjunta la edición en español si existe: se usa su título,
     // solo si esa edición es únicamente en español (las bilingües traen títulos en gallego, catalán…).
-    const edition = d.editions?.docs[0];
-    const title = edition?.title && edition.language?.length === 1 && edition.language[0] === 'spa' ? edition.title : d.title;
+    const title = spanishTitle(d) ?? d.title;
     const raw = (d.subject ?? []).filter((s) => s.length <= 30).slice(0, 6).map((s) => s.toLowerCase());
     return {
       source: this.source,
@@ -211,7 +236,7 @@ export class OpenLibraryAdapter implements CatalogAdapter {
       popularity: logScale(d.readinglog_count ?? 0, maxLog),
       details: bookDetails(d),
       facets: {
-        languages: languagesFacet(d.language),
+        languages: bookLanguages(d),
         ...(d.first_publish_year ? { year: String(d.first_publish_year) } : {}),
       },
     };

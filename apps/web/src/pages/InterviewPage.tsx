@@ -211,6 +211,11 @@ export function InterviewPage() {
         <IconButton icon="undo" label="Deshacer la última respuesta" disabled={!data?.canUndo || thinking} onClick={() => undo.mutate()} />
       </header>
       <InterviewProgress confidence={data?.confidence ?? 0.1} />
+      {start.isPending && !!understood?.searching?.length && (
+        <Text as="p" font="label" className="text-muted-foreground" aria-live="polite">
+          Buscando {domain.info?.gender === 'm' ? 'todos los' : 'todas las'} de {understood.searching.join(' y ')} en {domain.info?.source.name ?? 'la fuente'}…
+        </Text>
+      )}
       {data && (data.context.diaSemana || data.taste.length > 0 || data.fromText.length > 0 || data.anchors.length > 0 || data.filters.length > 0 || data.excluded.length > 0 || data.candidates) && (
         <div className="flex flex-wrap items-center gap-2" aria-label="Lo que ya tengo en cuenta">
           <ContextBadge context={data.context} />

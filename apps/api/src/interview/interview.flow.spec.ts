@@ -26,8 +26,20 @@ describe('preguntas que se pueden hacer', () => {
   });
 
   it('las preguntas de estilo siguen disponibles aunque ya se haya preguntado por otro estilo', () => {
-    const offered = ids([turn('urban', 'no')]);
+    const offered = ids([turn('focus', 'no'), turn('workout', 'no'), turn('party', 'no'), turn('urban', 'no')]);
     expect(offered).toEqual(expect.arrayContaining(['electronic', 'rock', 'calm']));
+  });
+
+  it('música: las primeras preguntas son de momento o uso y los estilos van al final', () => {
+    const moments = new Set(config.probes.filter((p) => p.moment).map((p) => p.id));
+    expect(ids([]).every((id) => moments.has(id))).toBe(true);
+    const styles = tasteOnlyProbes(config);
+    const early = ids([turn('focus', 'no'), turn('workout', 'no')]);
+    expect(early.some((id) => styles.has(id))).toBe(false);
+    const late = [turn('focus', 'no'), turn('workout', 'no'), turn('party', 'no')];
+    expect(ids(late).some((id) => styles.has(id))).toBe(true);
+    // Con gustos o algo pedido, nunca.
+    expect(askableProbes(late, config, { noStyles: true }).some((p) => styles.has(p.id))).toBe(false);
   });
 
   it('una entrevista completa nunca repite sondas', () => {
@@ -46,10 +58,10 @@ describe('preguntas que se pueden hacer', () => {
   });
 
   it('lo que ya dejó claro el texto inicial no se pregunta y adelanta el final', () => {
-    expect(ids([])).toContain('energy');
+    expect(ids([])).toContain('workout');
     const known = ['energy', 'dance'];
     const offered = askableProbes([], config, { known }).map((p) => p.id);
-    expect(offered).not.toContain('energy');
+    expect(offered).not.toContain('workout');
     expect(offered).not.toContain('party');
     expect(profileConfidence([], config, known)).toBeGreaterThan(profileConfidence([], config));
     expect(minQuestions(config, known)).toBe(Math.max(3, config.interview.minQuestions - 2));
