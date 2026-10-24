@@ -12,6 +12,16 @@ export interface InterviewTurn {
   gain?: number;
   /** Candidatas efectivas que quedaban al plantear la pregunta. */
   left?: number;
+  /** Respuesta libre: lo que se entendió (en una línea, sin el texto) y el estado anterior para deshacerla. */
+  reply?: { summary: string; before: ReplySnapshot; dropped?: boolean };
+}
+
+/** Lo que una respuesta libre puede cambiar de la sesión. */
+export interface ReplySnapshot {
+  textSignals: TextSignals;
+  exclusions: string[];
+  anchors: Anchor[];
+  bag: BagEntry[] | null;
 }
 
 /** Una candidata de la bolsa y su peso (los pesos suman 1). */
@@ -105,6 +115,8 @@ export interface Understanding {
   preferences: Record<string, { value: string; confidence: number }>;
   /** Claves de `tagGroups` que no quiere ("nada de terror"). */
   exclusions: string[];
+  /** Solo en una respuesta libre: si responde sí o no a la pregunta que tenía delante. */
+  answer?: Answer;
 }
 
 /** La comprensión tal y como la corrige la persona en la tarjeta antes de empezar. */

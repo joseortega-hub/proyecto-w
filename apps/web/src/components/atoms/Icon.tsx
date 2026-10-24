@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  SendHorizontal,
   Check,
   Contrast,
   FolderOpen,
@@ -54,6 +55,7 @@ import { cn } from '@/lib/utils'
 /** Catálogo cerrado de iconos: la UI solo usa estos y el nombre describe el gesto. */
 const ICONS = {
   back: ArrowLeft,
+  send: SendHorizontal,
   books: BookOpen,
   domains: LayoutGrid,
   external: ExternalLink,

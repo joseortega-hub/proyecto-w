@@ -143,11 +143,16 @@ export function InterviewPage() {
     onSuccess: update,
     onError,
   })
+  const reply = useMutation({
+    mutationFn: ({ text, step }: { text: string; step: number }) => api.reply(sesion!, text, step),
+    onSuccess: update,
+    onError,
+  })
   const undo = useMutation({ mutationFn: () => api.undo(sesion!), onSuccess: update, onError })
 
   const data = session.data
   const reviewing = !sesion && (!!initialText || !!understood) && !start.isPending && !start.isSuccess && !start.isError
-  const thinking = start.isPending || answer.isPending || undo.isPending || (!data && !session.isError)
+  const thinking = start.isPending || answer.isPending || reply.isPending || undo.isPending || (!data && !session.isError)
   // Respuesta optimista: su etiqueta aparece al instante mientras llega la siguiente pregunta.
   const pendingAnswer = answer.isPending ? answer.variables?.a : undefined
   const optimisticChip = pendingAnswer && pendingAnswer !== 'unknown' ? data?.question?.chips[pendingAnswer] : undefined
@@ -253,10 +258,11 @@ export function InterviewPage() {
         </div>
       )}
       <InterviewPanel
-        question={answer.isPending ? null : (data?.question ?? null)}
+        question={answer.isPending || reply.isPending ? null : (data?.question ?? null)}
         chips={answerChips}
         thinking={thinking}
         onAnswer={onAnswer}
+        onReply={(text) => data?.question && !reply.isPending && reply.mutate({ text, step: data.step })}
         onFinish={() => navigate(domain.path(`resultado/${sesion}`))}
         onRestart={restart}
       />

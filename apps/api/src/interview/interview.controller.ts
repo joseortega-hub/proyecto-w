@@ -52,6 +52,12 @@ const answerSchema = z.object({
   step: z.number().int().positive().optional(),
 });
 
+const replySchema = z.object({
+  /** Se trata como dato, nunca como instrucción. */
+  text: z.string().trim().min(1).max(300),
+  step: z.number().int().positive().optional(),
+});
+
 function parse<S extends z.ZodType>(schema: S, body: unknown): z.infer<S> {
   const result = schema.safeParse(body ?? {});
   if (!result.success) throw new BadRequestException(z.prettifyError(result.error));
@@ -93,6 +99,13 @@ export class InterviewController {
   @Post(':id/auto-answer')
   autoAnswer(@Param('id') id: string) {
     return this.interviews.autoAnswer(id);
+  }
+
+  /** Respuesta libre (texto o voz) a la pregunta pendiente. El texto se entiende y no se guarda. */
+  @Post(':id/reply')
+  reply(@Param('id') id: string, @Body() body: unknown) {
+    const { text, step } = parse(replySchema, body);
+    return this.interviews.reply(id, text, step);
   }
 
   @Post(':id/undo')

@@ -43,10 +43,12 @@ import { NextQuestionPrefetch } from './interview.prefetch.js';
 import { anchorExample, anchorMatches, anchorQueryText, cleanAnchors, isStructured, probeDirection, seedIds } from './anchors.js';
 import { anchorsFromEntities, entityIndex, findEntities, pickWithoutAI } from './catalog-match.js';
 import { withCues } from './text-cues.js';
+import { NONSENSE, replySummary } from './reply.js';
+import { normalize } from './interview.engine.js';
 import { anchorTag } from '../catalog/catalog-adapter.js';
 import { AnchorsService, START_COVERAGE_WAIT_MS, type AnchorFocus } from './anchors.service.js';
 import { QuestionBankService } from './question-bank.service.js';
-import type { Anchor, Answer, BagEntry, EditedUnderstanding, InterviewTurn, Understanding } from './interview.types.js';
+import type { Anchor, Answer, BagEntry, EditedUnderstanding, InterviewTurn, ReplySnapshot, Understanding } from './interview.types.js';
 import { PreferencesService } from './preferences.service.js';
 import { emptyUnderstanding, signalsOf, UnderstandingService } from './understanding.service.js';
 
@@ -172,13 +174,13 @@ export class InterviewService implements OnModuleInit {
    * nombra el texto (títulos, creadores, compañías, colecciones, sagas, etiquetas) y la IA
    * elige entre ellas; lo que no esté se buscará fuera. Sin IA, se eligen por reglas.
    */
-  private async comprehend(domain: DomainRow, text: string, userId: string | null): Promise<Understanding> {
+  private async comprehend(domain: DomainRow, text: string, userId: string | null, question?: string): Promise<Understanding> {
     const catalog = await this.items.catalog(domain.id, [], userId);
     const index = entityIndex(catalog, domain.config, { titleFamilies: !domain.config.playable });
     const entities = findEntities(text, catalog, domain.config, index);
     this.logger.log(`Entidades del catálogo en el texto: ${entities.map((e) => `${e.name} (${e.kind}, ${e.count})`).join(', ') || 'ninguna'}`);
     // Lo más común ("para entrenar", "sin letra") se entiende también sin IA.
-    return withCues(await this.understanding.understand(domain, text, entities), domain.id, text, domain.config);
+    return withCues(await this.understanding.understand(domain, text, entities, question), domain.id, text, domain.config);
   }
 
   /**
@@ -256,18 +258,9 @@ export class InterviewService implements OnModuleInit {
     // Con texto, filtros, exclusiones o gustos, la entrevista se guía por una bolsa de candidatas.
     let loaded: Map<string, ItemWithoutEmbedding> | undefined;
     if (text || filters.length || exclusions.length || anchors.length || seed.taste) {
-      const filtered = await this.items.catalog(domainId, filters, userId);
-      // Los títulos pedidos entran aunque un filtro los deje fuera (los pidió por su nombre).
-      const seeds = seedIds(anchors).filter((id) => !filtered.some((it) => it.id === id));
-      const catalog = seeds.length ? [...filtered, ...(await this.items.byIds(domainId, seeds, userId))] : filtered;
       const semantic = text ? await this.semanticMap(domain, text, anchors, filters, userId) : undefined;
-      const bag = buildBag(catalog, { config, signals: textSignals, anchors, exclusions, filters, taste: seed.taste, semantic });
-      this.logger.log(`Bolsa: ${bag.entries.length} de ${catalog.length} (anclas: ${bag.mode}, ${bag.matched} coinciden)`);
-      if (bag.entries.length) {
-        seed.bag = bag.entries;
-        const byId = new Map(catalog.map((it) => [it.id, it]));
-        loaded = new Map(bag.entries.map((e) => [e.id, byId.get(e.id)!]));
-      }
+      const made = await this.makeBag(domain, seed, filters, semantic);
+      if (made) ({ bag: seed.bag, loaded } = made);
     }
     // Sin texto ni gustos ni bolsa, la primera pregunta solo depende del contexto: se reutiliza.
     const generic = !seed.initialText && !seed.taste && !seed.bag;
@@ -277,6 +270,101 @@ export class InterviewService implements OnModuleInit {
     this.schedulePrefetch(row, domain);
     this.traceGain(row);
     return this.view(row, domain);
+  }
+
+  /** Bolsa de candidatas con los filtros, anclas, exclusiones, señales y gustos de la sesión (null si queda vacía). */
+  private async makeBag(domain: DomainRow, seed: SessionSeed, filters: FacetFilter[], semantic?: Map<string, number>) {
+    const filtered = await this.items.catalog(domain.id, filters, seed.userId);
+    // Los títulos pedidos entran aunque un filtro los deje fuera (los pidió por su nombre).
+    const seeds = seedIds(seed.anchors ?? []).filter((id) => !filtered.some((it) => it.id === id));
+    const catalog = seeds.length ? [...filtered, ...(await this.items.byIds(domain.id, seeds, seed.userId))] : filtered;
+    const bag = buildBag(catalog, {
+      config: domain.config,
+      signals: seed.textSignals ?? {},
+      anchors: seed.anchors ?? [],
+      exclusions: seed.exclusions ?? [],
+      filters,
+      taste: seed.taste,
+      semantic,
+    });
+    this.logger.log(`Bolsa: ${bag.entries.length} de ${catalog.length} (anclas: ${bag.mode}, ${bag.matched} coinciden)`);
+    if (!bag.entries.length) return null;
+    const byId = new Map(catalog.map((it) => [it.id, it]));
+    return { bag: bag.entries, loaded: new Map(bag.entries.map((e) => [e.id, byId.get(e.id)!])) };
+  }
+
+  /**
+   * Respuesta libre a la pregunta pendiente ("no, más romántico", "como Bad Bunny pero lento",
+   * "eso no tiene sentido"). Pasa por el mismo "entender contra el catálogo" con la pregunta como
+   * contexto y se convierte en cambios estructurados (ánimo, anclas, exclusiones) que rehacen la
+   * bolsa; el turno guarda lo que había antes para deshacerlo. El texto no se guarda.
+   */
+  async reply(id: string, text: string, step?: number): Promise<SessionView> {
+    const row = await this.load(id);
+    const domain = await this.domains.get(row.domainId);
+    const current = pending(row.turns);
+    if (row.status !== 'asking' || !current) throw new ConflictException('Esta entrevista no tiene una pregunta pendiente');
+    const answeredCount = answered(row.turns).length;
+    if (step !== undefined && step !== answeredCount + 1) throw new ConflictException('Esa respuesta es de una pregunta anterior');
+    this.prefetch.forget(row.id);
+
+    const before: ReplySnapshot = { textSignals: row.textSignals ?? {}, exclusions: row.exclusions ?? [], anchors: row.anchors ?? [], bag: row.bag ?? null };
+    let next: ReplySnapshot = before;
+    let answer: Answer = 'unknown';
+    let summary: string;
+    let dropped: InterviewTurn | undefined;
+    const clean = text.trim().slice(0, 300);
+    if (NONSENSE.test(normalize(clean))) {
+      // "No tiene sentido": se descarta lo último que se entendió de una respuesta libre y se pregunta otra cosa.
+      dropped = [...answered(row.turns)].reverse().find((t) => t.reply && !t.reply.dropped);
+      if (dropped?.reply) next = dropped.reply.before;
+      summary = dropped?.reply ? `descarto «${dropped.reply.summary}» y pregunto otra cosa` : 'pregunto otra cosa';
+    } else {
+      const understood = await this.comprehend(domain, clean, row.userId, current.text);
+      answer = understood.answer ?? 'unknown';
+      const merged = cleanAnchors([...understood.anchors, ...before.anchors.filter((a) => !understood.anchors.some((n) => normalize(n.label) === normalize(a.label)))]);
+      let anchors = merged;
+      if (understood.anchors.length) {
+        const gap = await this.anchors.coverageGap(domain, understood.anchors, row.userId);
+        if (gap.length) await this.anchors.awaitCoverage(domain, gap, row.userId, START_COVERAGE_WAIT_MS);
+        if (gap.length || merged.some((a) => !isStructured(a))) anchors = await this.resolveAgain(domain, merged, gap, row.userId);
+      }
+      next = {
+        textSignals: { ...before.textSignals, ...signalsOf(understood) },
+        exclusions: [...new Set([...before.exclusions, ...understood.exclusions])],
+        anchors,
+        bag: before.bag,
+      };
+      summary = replySummary(understood, answer, domain.config) || 'lo tengo en cuenta';
+    }
+    const changed = JSON.stringify({ ...next, bag: null }) !== JSON.stringify({ ...before, bag: null });
+    const session = { ...row, ...next };
+    let loaded: Map<string, ItemWithoutEmbedding> | undefined;
+    if (changed) {
+      const made = await this.makeBag(domain, session, preferenceFilters(row.preferences, domain.config));
+      session.bag = made?.bag ?? null;
+      loaded = made?.loaded;
+      this.bagCache.delete(row.id);
+      if (loaded) this.bagCache.set(row.id, Promise.resolve(loaded));
+    }
+    const base = row.turns.map((t) =>
+      t === current
+        ? { ...t, answer, reply: { summary, before } }
+        : t === dropped && t.reply
+          ? { ...t, reply: { ...t.reply, dropped: true } }
+          : t,
+    );
+    const turns = await this.advance(base, domain, session, loaded);
+    const asked = pending(turns);
+    if (asked) asked.lead = `Vale: ${summary}.`;
+    this.logger.log(`Respuesta libre ${answeredCount + 1} → ${summary} (${answer})`);
+    const status = asked ? 'asking' : 'ready';
+    const saved = await this.save(row, { turns, status, textSignals: session.textSignals, exclusions: session.exclusions, anchors: session.anchors, bag: session.bag });
+    if (status === 'asking') {
+      this.schedulePrefetch(saved, domain);
+      this.traceGain(saved);
+    }
+    return this.view(saved, domain);
   }
 
   /** La corrección de la persona, validada contra el dominio (confianza total: lo ha visto y aceptado). */
@@ -410,10 +498,13 @@ export class InterviewService implements OnModuleInit {
     const done = answered(row.turns);
     if (!done.length) throw new BadRequestException('No hay respuestas que deshacer');
     const last = done[done.length - 1];
-    const turns = row.turns.filter((t) => t.answer !== null).map((t) => (t === last ? { ...t, answer: null } : t));
+    const turns = row.turns.filter((t) => t.answer !== null).map((t) => (t === last ? { ...t, answer: null, reply: undefined } : t));
     this.prefetch.forget(row.id);
     const domain = await this.domains.get(row.domainId);
-    const saved = await this.save(row, { turns, status: 'asking', profile: null, result: null });
+    // Deshacer una respuesta libre devuelve lo que había antes de entenderla (ánimo, anclas, bolsa).
+    const restore = last.reply ? { ...last.reply.before } : {};
+    if (last.reply) this.bagCache.delete(row.id);
+    const saved = await this.save(row, { turns, status: 'asking', profile: null, result: null, ...restore });
     this.schedulePrefetch(saved, domain);
     return this.view(saved, domain);
   }

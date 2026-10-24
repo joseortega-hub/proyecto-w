@@ -36,6 +36,8 @@ interface Item {
 }
 interface Run {
   questions: string[];
+  /** La línea "Vale: …" de cada pregunta. */
+  leads: string[];
   understanding: Understanding | null;
   entries: { item: Item; reason: string }[];
   notice: string | null;
@@ -61,6 +63,8 @@ interface Scenario {
   yes?: RegExp;
   /** Preguntas a las que diría que no. */
   no?: RegExp;
+  /** Respuestas libres en lugar del sí/no, por número de pregunta (0 = la primera). */
+  replies?: Record<number, string>;
   checks: (run: Run) => (string | null)[];
 }
 
@@ -128,6 +132,26 @@ const SCENARIOS: Scenario[] = [
     text: 'quiero algo de Marvel',
     preferences: { language: 'es' },
     checks: (r) => [all(r, isMarvel, 'de Marvel', 8)],
+  },
+  {
+    id: 'free-romance',
+    domain: 'movies',
+    title: 'Respuesta libre: «no, más romántico» a mitad de la entrevista → la lista se vuelve romántica',
+    replies: { 1: 'no, más romántico' },
+    checks: (r) => [
+      expect(r.leads.some((l) => /romantic/.test(norm(l))), `dice lo que entendió («Vale: más romántica»): ${r.leads.join(' / ')}`),
+      most(r, isRomanceMovie, 'románticas', 0.6),
+    ],
+  },
+  {
+    id: 'free-nonsense',
+    domain: 'movies',
+    title: 'Respuesta libre: «eso no tiene sentido» → descarta lo último entendido y pregunta otra cosa',
+    replies: { 0: 'algo de terror', 1: 'eso no tiene sentido' },
+    checks: (r) => [
+      expect(r.leads.some((l) => /descarto/.test(norm(l))), `dice que lo descarta: ${r.leads.join(' / ')}`),
+      expect(share(r, (it) => it.tags.includes('terror')) < r.entries.length, `ya no es todo terror (${share(r, (it) => it.tags.includes('terror'))}/${r.entries.length})`),
+    ],
   },
   {
     id: 'romance-movies',
@@ -318,7 +342,7 @@ interface View {
   status: string;
   step: number;
   anchors: string[];
-  question: { text: string } | null;
+  question: { text: string; lead?: string } | null;
 }
 
 async function run(s: Scenario, owners: Record<string, string>): Promise<Run> {
@@ -344,15 +368,21 @@ async function run(s: Scenario, owners: Record<string, string>): Promise<Run> {
     }),
   });
   const questions: string[] = [];
+  const leads: string[] = [];
   const answerOf = (q: string, i: number): Answer => (s.yes?.test(norm(q)) ? 'yes' : s.no?.test(norm(q)) ? 'no' : i % 2 === 0 ? 'yes' : 'no');
   for (let i = 0; view.status === 'asking' && view.question && i < 14; i++) {
     questions.push(view.question.text);
-    view = await call<View>(`/sessions/${view.id}/answers`, { method: 'POST', body: JSON.stringify({ answer: answerOf(view.question.text, i), step: view.step }) });
+    leads.push(view.question.lead ?? '');
+    const free = s.replies?.[i];
+    view = free
+      ? await call<View>(`/sessions/${view.id}/reply`, { method: 'POST', body: JSON.stringify({ text: free, step: view.step }) })
+      : await call<View>(`/sessions/${view.id}/answers`, { method: 'POST', body: JSON.stringify({ answer: answerOf(view.question.text, i), step: view.step }) });
+    if (free && view.question) leads.push(`(tras «${free}») ${view.question.lead ?? ''}`);
   }
   await tune(view.id);
   const result = await call<{ entries: { item: Item; reason: string }[]; notice: string | null; anchors: string[] }>(`/sessions/${view.id}/result`);
   if (s.taste && !s.user) await call(`/taste/${s.domain}`, { method: 'DELETE', user }).catch(() => null);
-  return { questions, understanding, entries: result.entries, notice: result.notice, anchors: result.anchors, ms: Date.now() - started };
+  return { questions, leads, understanding, entries: result.entries, notice: result.notice, anchors: result.anchors, ms: Date.now() - started };
 }
 
 /** Dueños de los temas personales: por parámetro o, en local, el primero que tenga elementos. */

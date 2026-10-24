@@ -337,6 +337,9 @@ export const api = {
   /** `step` es el número de la pregunta que se responde: el servidor rechaza (409) los dobles envíos. */
   answer: (id: string, answer: Answer, step?: number) =>
     request<SessionView>(`/sessions/${id}/answers`, { method: 'POST', body: JSON.stringify({ answer, step }) }),
+  /** Respuesta libre a la pregunta pendiente: se entiende en el servidor y no se guarda. */
+  reply: (id: string, text: string, step?: number) =>
+    request<SessionView>(`/sessions/${id}/reply`, { method: 'POST', body: JSON.stringify({ text, step }) }),
   undo: (id: string) => request<SessionView>(`/sessions/${id}/undo`, { method: 'POST' }),
   getResult: (id: string) => request<SessionResult>(`/sessions/${id}/result`),
   /** Reordena la lista dentro de la bolsa con las barras movidas (sin IA). Sin `scales`, vuelve a la original. */

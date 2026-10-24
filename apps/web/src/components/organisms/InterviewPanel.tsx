@@ -1,5 +1,5 @@
 import { Button, Chip, Heading, Text } from '@/components/atoms'
-import { AnswerPair, QuestionCard } from '@/components/molecules'
+import { AnswerPair, FreeReplyField, QuestionCard } from '@/components/molecules'
 import type { Answer } from '@/lib/api'
 
 interface InterviewPanelProps {
@@ -7,13 +7,15 @@ interface InterviewPanelProps {
   chips: string[]
   thinking: boolean
   onAnswer: (answer: Answer) => void
+  /** Respuesta libre (texto o voz); sin ella, solo Sí / No / No lo sé. */
+  onReply?: (text: string) => void
   onFinish: () => void
   onRestart: () => void
   framed?: boolean
 }
 
 /** Pregunta + lo que ya sabemos + respuestas. Al terminar, el resumen y el paso a la lista. */
-export function InterviewPanel({ question, chips, thinking, onAnswer, onFinish, onRestart, framed }: InterviewPanelProps) {
+export function InterviewPanel({ question, chips, thinking, onAnswer, onReply, onFinish, onRestart, framed }: InterviewPanelProps) {
   if (!question && !thinking) {
     return (
       <>
@@ -50,6 +52,7 @@ export function InterviewPanel({ question, chips, thinking, onAnswer, onFinish, 
         {question && !thinking && <Chip variant="guess">{question.guess}</Chip>}
       </div>
       <AnswerPair onAnswer={onAnswer} disabled={thinking} />
+      {onReply && <FreeReplyField onSend={onReply} disabled={thinking || !question} />}
     </>
   )
 }
