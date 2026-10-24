@@ -50,4 +50,4 @@ Debe ser **multidominio**: cada dominio (música, películas…) = adaptador de 
 - IA: siguiente pregunta `DECISION_CHAIN=groq,laya,gemini` (+ Cerebras y OpenRouter si hay clave, detrás de Groq); perfil y encaje con Gemini; texto `TEXT_CHAIN=groq,gemini` (+ los mismos respaldos); embeddings Gemini (1000/día). Jev implementado pero sin crédito. El plan gratuito de Gemini se agota a menudo: hay respaldos sin IA.
 - Pendiente del usuario en Render: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY`, `TMDB_API_KEY`, `RAWG_API_KEY`, `JAMENDO_CLIENT_ID`, `OPEN_LIBRARY_CONTACT` y, como respaldo gratuito de IA, `CEREBRAS_API_KEY` y `OPENROUTER_API_KEY` (también en `.env`).
 - Pendiente técnico: `pnpm embed` + `pnpm sync-embeddings` cuando Gemini tenga cupo; repartir el tope de importación de YouTube entre fuentes.
-- En curso (24/10/2026): "datos frikis" y "Mi carpeta de música" (versión básica), cada uno en su sesión. Planes en `docs/ESTADO.md`.
+- "Mi carpeta" (24/10/2026, básica): carpeta local con ID3 + IA + MusicBrainz, revisión a mano y reproducción desde el dispositivo. En curso: "datos frikis". Detalle y siguientes pasos en `docs/ESTADO.md`.
