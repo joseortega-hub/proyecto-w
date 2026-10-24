@@ -23,6 +23,8 @@ import type { Anchor } from './interview.types.js';
 const LIVE_LIMIT = 20;
 /** Cuánto espera Afinando a que termine la búsqueda en directo antes de seguir sin ella. */
 const COVERAGE_WAIT_MS = 15_000;
+/** Cuánto espera la primera pregunta: así ya se enfoca en lo que trajo la búsqueda en directo. */
+export const START_COVERAGE_WAIT_MS = 8_000;
 const FOCUS_TTL_MS = 10 * 60_000;
 
 const anchorsSchema = z.object({
@@ -136,9 +138,9 @@ export class AnchorsService {
   }
 
   /** Espera la búsqueda en directo, con tope: la lista sale igual si la fuente tarda. */
-  async awaitCoverage(domain: DomainRow, anchors: Anchor[], userId: string | null) {
+  async awaitCoverage(domain: DomainRow, anchors: Anchor[], userId: string | null, timeoutMs = COVERAGE_WAIT_MS) {
     const task = this.ensureCoverage(domain, anchors, userId);
-    await Promise.race([task, new Promise((r) => setTimeout(r, COVERAGE_WAIT_MS))]);
+    await Promise.race([task, new Promise((r) => setTimeout(r, timeoutMs))]);
   }
 
   private async liveSearch(domain: DomainRow, anchors: Anchor[], userId: string | null): Promise<number> {

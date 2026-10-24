@@ -35,7 +35,7 @@ import {
 import { askableProbes, assertNotAsked, autoAnswerExhausted, type InterviewFacts } from './interview.flow.js';
 import { NextQuestionPrefetch } from './interview.prefetch.js';
 import { anchorExample, probeDirection } from './anchors.js';
-import { AnchorsService, type AnchorFocus } from './anchors.service.js';
+import { AnchorsService, START_COVERAGE_WAIT_MS, type AnchorFocus } from './anchors.service.js';
 import { QuestionBankService } from './question-bank.service.js';
 import type { Anchor, Answer, InterviewTurn, TextSignals } from './interview.types.js';
 
@@ -132,8 +132,9 @@ export class InterviewService implements OnModuleInit {
       text ? this.readSignals(domain, text) : ({} as TextSignals),
       text ? this.anchors.extract(domain, text) : ([] as Anchor[]),
     ]);
-    // Si el catálogo se queda corto para lo que pidió, se busca en directo mientras responde.
-    if (anchors.length) void this.anchors.ensureCoverage(domain, anchors, userId);
+    // Si el catálogo se queda corto para lo que pidió, se busca en directo; la primera pregunta
+    // la espera un poco para enfocarse ya en lo encontrado (si tarda más, sigue en segundo plano).
+    if (anchors.length) await this.anchors.awaitCoverage(domain, anchors, userId, START_COVERAGE_WAIT_MS);
     const seed: SessionSeed = { context, initialText: text, taste: hasTaste(taste) ? taste : null, textSignals, anchors, userId };
     // Sin texto ni gustos, la primera pregunta solo depende del contexto: se reutiliza.
     const generic = !seed.initialText && !seed.taste;
@@ -326,6 +327,10 @@ export class InterviewService implements OnModuleInit {
     const focusDims = (focus?.dimensions ?? []).filter((d) => !informed.has(d)).slice(0, 2);
     const focused = options.filter((p) => p.informs.some((d) => focusDims.includes(d)));
     if (focused.length) options = focused;
+    // Con algo concreto pedido, sobran las preguntas que solo preguntan por estilos ("¿carreras?").
+    const tagDims = new Set(config.attributes.filter((a) => a.kind === 'tags').map((a) => a.key));
+    const moodOnly = session.anchors?.length ? options.filter((p) => p.informs.some((d) => !tagDims.has(d))) : options;
+    if (moodOnly.length) options = moodOnly;
     const history = answered(turns).map((t) => ({ pregunta: t.text, respuesta: ANSWER_TEXT[t.answer!] }));
 
     const criteria: Record<string, string> = Object.fromEntries(options.map((p) => [p.id, `Preguntar ${p.intent.toLowerCase()}`]));
@@ -365,8 +370,10 @@ export class InterviewService implements OnModuleInit {
     const probe = options.find((p) => p.id === next.choice) ?? options[0];
     assertNotAsked(turns, probe.id);
 
+    // Con anclas, la pregunta siempre se redacta con ellas: el banco genérico habla de otras
+    // cosas ("¿algo tipo Mario Kart?") y despista.
     const focusDim = focused.length ? probe.informs.find((d) => focusDims.includes(d)) : undefined;
-    if (focus && focusDim) {
+    if (session.anchors?.length) {
       const written = await this.writeAnchored(domain, session.anchors, focus, probe, focusDim, history);
       if (written) {
         this.logger.log(`siguiente: ${probe.id} (decisión ${decisionMs} ms, enfocada en ${session.anchors.map((a) => a.label).join(', ')})`);
@@ -420,25 +427,27 @@ export class InterviewService implements OnModuleInit {
   private async writeAnchored(
     domain: DomainRow,
     anchors: Anchor[],
-    focus: AnchorFocus,
+    focus: AnchorFocus | null,
     probe: Probe,
-    dimension: string,
+    dimension: string | undefined,
     history: { pregunta: string; respuesta: string }[],
   ) {
     const { config } = domain;
     const labels = anchors.map((a) => a.label).join(' o ');
-    const example = anchorExample(focus.matched, dimension, probeDirection(probe, dimension, config));
+    const example = focus && dimension ? anchorExample(focus.matched, dimension, probeDirection(probe, dimension, config)) : null;
     return this.text
       .write({
         system: `${config.voice} Redactas preguntas para una entrevista de sí o no sobre lo que le apetece ${config.verb} ahora.`,
         prompt: [
-          `La persona ha pedido ${domain.itemNounPlural} de ${labels}. Entre ellas, lo que más cambia de una a otra es esto, y es lo que quieres averiguar: ${probe.intent}.`,
+          dimension
+            ? `La persona ha pedido ${domain.itemNounPlural} de ${labels}. Entre ellas, lo que más cambia de una a otra es esto, y es lo que quieres averiguar: ${probe.intent}.`
+            : `La persona ha pedido ${domain.itemNounPlural} de ${labels}. Quieres averiguar qué tipo de ${labels} le apetece: ${probe.intent}.`,
           history.length
             ? `Preguntas ya hechas (no repitas su idea):\n${history.map((h) => `- ${h.pregunta} → ${h.respuesta}`).join('\n')}`
             : 'Es la primera pregunta.',
           `Escribe la pregunta en positivo, de forma que «sí» signifique exactamente esto: ${probe.intent.toLowerCase()}. Menciona ${labels}` +
             (example ? ` y pon como ejemplo «${example.title}» (con "tipo" o "como").` : '.') +
-            ` Sin negaciones. Añade una frase corta con el motivo: que entre lo de ${labels} esto es lo que más las distingue.`,
+            ` No menciones otras sagas, títulos ni marcas. Sin negaciones. Añade una frase corta con el motivo, relacionada con ${labels}.`,
         ].join('\n\n'),
         schema: questionSchema,
       })
