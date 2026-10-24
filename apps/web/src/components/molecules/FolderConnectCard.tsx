@@ -14,6 +14,8 @@ interface FolderConnectCardProps {
   review?: number
   /** Chrome y Edge de escritorio recuerdan la carpeta; el resto hay que elegirla cada vez. */
   canRemember?: boolean
+  /** Móvil: se eligen canciones sueltas en vez de una carpeta, y hay que volver a elegirlas en cada visita. */
+  songsMode?: boolean
   busy?: boolean
   onChoose?: () => void
   onReconnect?: () => void
@@ -31,6 +33,7 @@ export function FolderConnectCard({
   itemCount = 0,
   review = 0,
   canRemember = true,
+  songsMode = false,
   busy,
   onChoose,
   onReconnect,
@@ -59,7 +62,7 @@ export function FolderConnectCard({
               {reconnect
                 ? `${itemCount} canciones identificadas. Para que suenen, dale permiso a esta carpeta.`
                 : `${itemCount} canciones identificadas${found ? ` de ${found} en el dispositivo` : ''}.`}
-              {!canRemember && !reconnect && ' Este navegador no recuerda la carpeta: tendrás que elegirla cada vez.'}
+              {!canRemember && !reconnect && (songsMode ? ' El móvil no recuerda los archivos: elígelos de nuevo cada vez que quieras escucharlos.' : ' Este navegador no recuerda la carpeta: tendrás que elegirla cada vez.')}
             </Text>
           </div>
         </div>
@@ -71,7 +74,7 @@ export function FolderConnectCard({
             </Button>
           ) : (
             <Button size="md" variant="secondary" className="flex-1" disabled={busy} onClick={onImport}>
-              <Icon name="retry" /> {toAdd > 0 ? `Añadir ${toAdd} canciones nuevas` : 'Buscar canciones nuevas'}
+              <Icon name="retry" /> {songsMode ? 'Añadir más canciones' : toAdd > 0 ? `Añadir ${toAdd} canciones nuevas` : 'Buscar canciones nuevas'}
             </Button>
           )}
           {review > 0 && (
@@ -92,20 +95,22 @@ export function FolderConnectCard({
       <div className="flex items-start gap-3">
         <Icon name="folder" className="mt-0.5 size-5 flex-none text-domain" />
         <div className="flex flex-col gap-0.5">
-          <strong className="text-[15px]">{itemCount > 0 ? 'Elige tu carpeta otra vez para que suene' : 'Usa la música que ya tienes'}</strong>
+          <strong className="text-[15px]">{itemCount > 0 ? (songsMode ? 'Elige tus canciones otra vez para que suenen' : 'Elige tu carpeta otra vez para que suene') : 'Usa la música que ya tienes'}</strong>
           <Text size="sm" tone="muted">
             {itemCount > 0
-              ? `Ya conozco ${itemCount} canciones tuyas. Para escucharlas, elige de nuevo la misma carpeta: no vuelvo a identificar las que ya están.`
-              : 'Elige la carpeta donde guardas tus canciones. Las identifico por sus etiquetas y, si los nombres vienen sucios, los limpio y los confirmo con MusicBrainz.'}
+              ? `Ya conozco ${itemCount} canciones tuyas. Para escucharlas, elige de nuevo ${songsMode ? 'esos archivos' : 'la misma carpeta'}: no vuelvo a identificar las que ya están.`
+              : `${songsMode ? 'Elige las canciones que quieras desde tu móvil.' : 'Elige la carpeta donde guardas tus canciones.'} Las identifico por sus etiquetas y, si los nombres vienen sucios, los limpio y los confirmo con MusicBrainz.`}
           </Text>
         </div>
       </div>
       <Button size="md" block disabled={busy} onClick={onChoose}>
-        <Icon name="folder" /> Elige tu carpeta…
+        <Icon name="folder" /> {songsMode ? 'Elegir canciones…' : 'Elige tu carpeta…'}
       </Button>
       {privacy}
       <Text size="xs" tone="muted">
-        {canRemember
+        {songsMode
+          ? 'En el móvil se eligen canciones sueltas (marca muchas a la vez) y hay que volver a elegirlas en cada visita. Para elegir una carpeta entera y que se recuerde, usa Chrome o Edge en el PC.'
+          : canRemember
           ? 'Funciona en Chrome y Edge de escritorio.'
           : 'Tu navegador no puede recordar la carpeta: funciona, pero tendrás que elegirla en cada visita. En Chrome o Edge de escritorio la recuerda.'}
       </Text>

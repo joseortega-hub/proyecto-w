@@ -8,7 +8,7 @@ import { FolderPanel, YouTubePanel } from '@/components/organisms'
 import { Card } from '@/components/ui/card'
 import { useDomain } from '@/lib/domain'
 import { chooseFolder, importFolder, reconnectFolder, restoreFolder, useFolderState, useFolderStatus, useForgetFolder } from '@/lib/folder'
-import { allLocalFiles, canRememberFolder } from '@/lib/local-files'
+import { allLocalFiles, canRememberFolder, songsOnlyDevice } from '@/lib/local-files'
 import { timeAgo } from '@/lib/format'
 import { usePreferences } from '@/lib/preferences'
 import { useSavedLists } from '@/lib/saved-lists'
@@ -65,6 +65,7 @@ export function HomePage() {
             review={folder.status.data?.review}
             pending={(folder.status.data?.unanalyzed ?? 0) + (folder.status.data?.unembedded ?? 0)}
             canRemember={canRememberFolder()}
+            songsMode={songsOnlyDevice()}
             onChoose={folder.choose}
             onReconnect={folder.reconnect}
             onImport={folder.importNew}
@@ -211,20 +212,22 @@ function useFolderSection(enabled: boolean) {
   }, [enabled])
 
   const fail = (e: unknown) => toast.error('No he podido leer la carpeta', { description: (e as Error).message })
+  const choose = () =>
+    chooseFolder().then((files) => {
+      if (!files) return
+      if (!files.length) return toast('No he encontrado canciones', { description: 'Busco mp3, m4a, flac, ogg, opus y wav.' })
+      void importFolder(files, queryClient)
+    }, fail)
   return {
     state,
     status,
     forget,
-    choose: () =>
-      chooseFolder().then((files) => {
-        if (!files) return
-        if (!files.length) return toast('No he encontrado canciones en esa carpeta', { description: 'Busco mp3, m4a, flac, ogg, opus y wav.' })
-        void importFolder(files, queryClient)
-      }, fail),
+    choose,
     reconnect: () =>
       reconnectFolder().then((ok) => {
         if (ok) void importFolder(allLocalFiles(), queryClient)
       }, fail),
-    importNew: () => void importFolder(allLocalFiles(), queryClient),
+    // En móvil "añadir" abre el selector de canciones; con carpeta, vuelve a mirar la ya elegida.
+    importNew: () => (songsOnlyDevice() ? void choose() : void importFolder(allLocalFiles(), queryClient)),
   }
 }

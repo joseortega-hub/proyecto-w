@@ -15,3 +15,4 @@ export const Empty: Story = {}
 export const NoRemember: Story = { args: { canRemember: false } }
 export const Ready: Story = { args: { access: 'ready', folderName: 'Reguetón', found: 412, itemCount: 380, review: 7 } }
 export const NeedsPermission: Story = { args: { access: 'needs-permission', folderName: 'Reguetón', itemCount: 380 } }
+export const SongsMode: Story = { args: { canRemember: false, songsMode: true } }

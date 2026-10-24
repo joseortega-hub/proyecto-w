@@ -4,10 +4,12 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { useSyncExternalStore } from 'react'
 import { api, type FolderStatus, type FolderTrackInput } from './api'
 import {
+  allLocalFiles,
   folderPermission,
   forgetHandle,
   localFileCount,
   pickFolder,
+  songsOnlyDevice,
   readTags,
   recallHandle,
   registerFiles,
@@ -76,12 +78,14 @@ export async function reconnectFolder() {
 export async function chooseFolder(): Promise<LocalAudio[] | null> {
   const picked = await pickFolder()
   if (!picked) return null
-  registerFiles(picked.files)
+  // En móvil se van sumando canciones sueltas; con una carpeta, la elegida sustituye a la anterior.
+  const files = songsOnlyDevice() ? [...new Map([...allLocalFiles(), ...picked.files].map((f) => [f.key, f])).values()] : picked.files
+  registerFiles(files)
   handleRef = picked.handle ?? null
   if (picked.handle) await rememberHandle(picked.handle)
   else await forgetHandle()
-  set({ access: 'ready', folderName: picked.name, found: picked.files.length })
-  return picked.files
+  set({ access: 'ready', folderName: picked.name, found: files.length })
+  return files
 }
 
 export async function forgetFolder() {

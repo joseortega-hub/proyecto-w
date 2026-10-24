@@ -9,6 +9,7 @@ interface FolderPanelProps {
   /** Atributos o embeddings que faltan por terminar en el servidor. */
   pending?: number
   canRemember: boolean
+  songsMode?: boolean
   onChoose: () => void
   onReconnect: () => void
   onImport: () => void
@@ -17,7 +18,7 @@ interface FolderPanelProps {
 }
 
 /** "Mi carpeta" en Inicio: elegir la carpeta, progreso de la identificación y avisos. */
-export function FolderPanel({ state, itemCount, review, pending = 0, canRemember, onChoose, onReconnect, onImport, onReview, onForget }: FolderPanelProps) {
+export function FolderPanel({ state, itemCount, review, pending = 0, canRemember, songsMode, onChoose, onReconnect, onImport, onReview, onForget }: FolderPanelProps) {
   if (state.access === 'unknown') return <Skeleton className="h-28 w-full rounded-[14px]" />
   const working = state.phase === 'importing' || state.phase === 'finishing'
   return (
@@ -29,6 +30,7 @@ export function FolderPanel({ state, itemCount, review, pending = 0, canRemember
         itemCount={itemCount}
         review={review}
         canRemember={canRemember}
+        songsMode={songsMode}
         busy={working}
         onChoose={onChoose}
         onReconnect={onReconnect}

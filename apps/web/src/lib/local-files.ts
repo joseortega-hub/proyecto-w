@@ -24,6 +24,9 @@ interface FileHandle {
   getFile(): Promise<File>
 }
 
+/** En móvil (Android, iOS) no hay selector de carpetas: se eligen canciones sueltas. */
+export const songsOnlyDevice = () => typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
 /** Chrome y Edge de escritorio dejan elegir una carpeta y recordarla. */
 export const canRememberFolder = () => typeof window !== 'undefined' && 'showDirectoryPicker' in window
 
@@ -88,8 +91,25 @@ export interface PickedFolder {
   handle?: DirHandle
 }
 
+/** Selector de archivos del sistema (funciona en Android): varias canciones sueltas. */
+export function pickSongs(): Promise<PickedFolder | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.multiple = true
+    input.accept = 'audio/*,.mp3,.m4a,.aac,.flac,.ogg,.opus,.wav'
+    input.onchange = () => {
+      const files = Array.from(input.files ?? []).filter((f) => AUDIO_EXT.test(f.name) || f.type.startsWith('audio/'))
+      resolve(files.length ? { name: 'Canciones elegidas', files: files.map((file) => ({ key: fileKey(file.name, file), file })) } : null)
+    }
+    input.oncancel = () => resolve(null)
+    input.click()
+  })
+}
+
 /** Debe llamarse desde un clic (gesto del usuario). Devuelve `null` si se cancela. */
 export async function pickFolder(): Promise<PickedFolder | null> {
+  if (songsOnlyDevice()) return pickSongs()
   if (canRememberFolder()) {
     try {
       const handle = await (window as unknown as { showDirectoryPicker(o: { mode: 'read' }): Promise<DirHandle> }).showDirectoryPicker({ mode: 'read' })
