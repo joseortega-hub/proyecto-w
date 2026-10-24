@@ -12,6 +12,7 @@ import { LibraryPage } from '@/pages/LibraryPage'
 import { ListsPage } from '@/pages/ListsPage'
 import { PerreoArtistPage } from '@/pages/PerreoArtistPage'
 import { PerreoArtistsPage } from '@/pages/PerreoArtistsPage'
+import { PerreoReviewPage } from '@/pages/PerreoReviewPage'
 import { PerreoTributePage } from '@/pages/PerreoTributePage'
 import { PlayerPage } from '@/pages/PlayerPage'
 import { ResultPage } from '@/pages/ResultPage'
@@ -42,6 +43,7 @@ export function App() {
                 <Route path="gustos" element={<TastePage />} />
                 <Route path="revisar" element={<FolderReviewPage />} />
                 <Route path="artistas" element={<PerreoArtistsPage />} />
+                <Route path="por-revisar" element={<PerreoReviewPage />} />
                 <Route path="artistas/:slug" element={<PerreoArtistPage />} />
                 <Route path="homenaje/:slug" element={<PerreoTributePage />} />
                 <Route path="biblioteca" element={<LibraryPage />} />

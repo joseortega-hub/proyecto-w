@@ -8,10 +8,11 @@ import { fileURLToPath } from 'node:url';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { config } from '../config.js';
 import { createDb } from '../db/client.js';
-import { domains, perreoArtists } from '../db/schema.js';
+import { domains, perreoArtists, perreoReview } from '../db/schema.js';
 import { perreoDomain } from '../domains/perreo.domain.js';
 import { upsertItems } from '../catalog/upsert.js';
-import type { PerreoArtistFile, PerreoSongFile } from './perreo.types.js';
+import { mergePerreo } from './perreo.resolve.js';
+import type { IgReview, PerreoArtistFile, PerreoOverlay, PerreoSongFile } from './perreo.types.js';
 
 const prod = process.argv.includes('--prod');
 const target = prod ? process.env.PROD_DATABASE_URL?.trim() : undefined;
@@ -23,13 +24,21 @@ console.log(prod ? 'Base de datos: producción (Neon)' : 'Base de datos: local')
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../');
 const dir = join(root, 'data', 'privado', 'perreo');
-const artists = JSON.parse(readFileSync(join(dir, 'artists.json'), 'utf8')) as PerreoArtistFile[];
-let songs: PerreoSongFile[] = [];
-try {
-  songs = JSON.parse(readFileSync(join(dir, 'songs.json'), 'utf8')) as PerreoSongFile[];
-} catch {
-  console.warn('Sin songs.json: se cargan solo los artistas.');
-}
+const readJson = <T>(file: string, fallback: T): T => {
+  try {
+    return JSON.parse(readFileSync(join(dir, file), 'utf8')) as T;
+  } catch {
+    return fallback;
+  }
+};
+const artists = mergePerreo(
+  readJson<PerreoArtistFile[]>('artists.json', []),
+  readJson<PerreoArtistFile[]>('ig-artists.json', []),
+  readJson<Record<string, PerreoOverlay>>('ig-overlay.json', {}),
+);
+const songs = [...readJson<PerreoSongFile[]>('songs.json', []), ...readJson<PerreoSongFile[]>('ig-songs.json', [])];
+const reviewFile = readJson<IgReview[]>('ig-review.json', []);
+if (!songs.length) console.warn('Sin canciones: se cargan solo los artistas.');
 
 const { db, client } = createDb(target ?? config.databaseUrl);
 try {
@@ -45,7 +54,12 @@ try {
     const values = { ...fields, photo };
     await db.insert(perreoArtists).values(values).onConflictDoUpdate({ target: perreoArtists.slug, set: values });
   }
-  console.log(`Artistas: ${artists.length}`);
+  console.log(`Artistas: ${artists.length} (${artists.filter((a) => a.followed).length} que sigues en Instagram)`);
+
+  // Dudosas de la segunda pasada: la decisión que ya tomaste en la pantalla se conserva.
+  const pending = reviewFile.filter((r) => !artists.some((a) => a.links.instagram?.toLowerCase().endsWith('/' + r.id)));
+  if (pending.length) await db.insert(perreoReview).values(pending).onConflictDoNothing();
+  console.log(`Por revisar: ${pending.length} cuentas`);
 
   // Un mismo vídeo puede salir en dos artistas (colaboraciones): se queda con el más popular.
   const unique = [...new Map(songs.sort((a, b) => a.popularity - b.popularity).map((s) => [s.videoId, s])).values()];
@@ -72,7 +86,7 @@ try {
       })),
     );
     const pending = unique.filter((s) => !s.attributes).length;
-    console.log(`Canciones: ${ids.length}${pending ? ` (${pending} sin analizar: repite pnpm perreo:import)` : ''}`);
+    console.log(`Canciones: ${ids.length}${pending ? ` (${pending} sin analizar: repite pnpm perreo:import o pnpm perreo:instagram:import)` : ''}`);
   }
 } finally {
   await client.end();

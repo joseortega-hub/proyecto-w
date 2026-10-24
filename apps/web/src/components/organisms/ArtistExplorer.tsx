@@ -1,4 +1,4 @@
-import { Button, Chip, SearchField, Text } from '@/components/atoms'
+import { Button, Chip, SearchField, Switch, Text } from '@/components/atoms'
 import { ArtistCard, FameSlider } from '@/components/molecules'
 import { activeFilterCount, NO_FILTERS, type PerreoArtistList, type PerreoFilters, type PerreoSort } from '@/lib/perreo-types'
 import { flagOf } from '@/lib/perreo-format'
@@ -69,6 +69,15 @@ export function ArtistExplorer({ filters, onChange, data, loading, photoUrl, onO
         ))}
       </div>
 
+      {data && data.followedTotal > 0 && (
+        <label className="flex min-h-11 items-center justify-between gap-3 rounded-lg border-[1.5px] border-border bg-card px-3">
+          <span className="font-bold">
+            Solo los que sigo <span className="font-normal text-muted-foreground">{data.followedTotal} en Instagram</span>
+          </span>
+          <Switch label="Solo los que sigo en Instagram" checked={filters.followed} onCheckedChange={(v) => set('followed', v)} />
+        </label>
+      )}
+
       <FameSlider min={filters.fameMin} max={filters.fameMax} onChange={({ min, max }) => onChange({ ...filters, fameMin: min, fameMax: max })} />
 
       {facets && (
@@ -88,7 +97,7 @@ export function ArtistExplorer({ filters, onChange, data, loading, photoUrl, onO
 
       <div className="flex items-center justify-between">
         <Text tone="muted" size="sm" aria-live="polite">
-          {data ? `${data.artists.length} de ${data.total} artistas` : 'Cargando artistas…'}
+          {data ? (data.artists.length === data.total ? `${data.total} artistas` : `${data.artists.length} de ${data.total} artistas`) : 'Cargando artistas…'}
         </Text>
         {(active > 0 || filters.sort !== 'fame') && (
           <Button variant="ghost" size="md" onClick={() => onChange(NO_FILTERS)}>
@@ -105,7 +114,7 @@ export function ArtistExplorer({ filters, onChange, data, loading, photoUrl, onO
         <ul className={cn('grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5', loading && 'opacity-60')}>
           {(data?.artists ?? []).map((a) => (
             <li key={a.slug}>
-              <ArtistCard name={a.name} photoUrl={photoUrl(a.slug)} country={a.country} debutYear={a.debutYear} fame={a.fame} styles={a.styles} onOpen={() => onOpen(a.slug)} />
+              <ArtistCard name={a.name} photoUrl={photoUrl(a.slug)} country={a.country} debutYear={a.debutYear} fame={a.fame} styles={a.styles} followed={a.followed} onOpen={() => onOpen(a.slug)} />
             </li>
           ))}
         </ul>

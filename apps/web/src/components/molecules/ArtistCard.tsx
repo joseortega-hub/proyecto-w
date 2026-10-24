@@ -12,12 +12,14 @@ interface ArtistCardProps {
   /** 0 = underground, 100 = mainstream. */
   fame: number
   styles?: string[]
+  /** La persona lo sigue en Instagram. */
+  followed?: boolean
   onOpen?: () => void
   className?: string
 }
 
 /** Un artista en la galería del explorador: foto, nombre, origen, fama y estilos. */
-export function ArtistCard({ name, photoUrl, country, debutYear, fame, styles = [], onOpen, className }: ArtistCardProps) {
+export function ArtistCard({ name, photoUrl, country, debutYear, fame, styles = [], followed, onOpen, className }: ArtistCardProps) {
   const [failed, setFailed] = useState(false)
   return (
     <button
@@ -34,6 +36,11 @@ export function ArtistCard({ name, photoUrl, country, debutYear, fame, styles = 
         ) : (
           <span aria-hidden className="grid size-full place-items-center bg-domain-soft font-display text-3xl font-extrabold text-domain">
             {initials(name)}
+          </span>
+        )}
+        {followed && (
+          <span className="absolute top-2 right-2 rounded-full bg-card/90 px-2 py-0.5 text-xs font-bold text-domain" title="Lo sigues en Instagram">
+            <span aria-hidden>♥ </span>Lo sigues<span className="sr-only"> en Instagram</span>
           </span>
         )}
         {country && (

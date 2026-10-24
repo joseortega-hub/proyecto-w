@@ -2,7 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, desc, eq, getTableColumns, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
-import { items, perreoArtists } from '../db/schema.js';
+import { items, perreoArtists, perreoReview } from '../db/schema.js';
 import { publicItem } from '../items/items.service.js';
 import { artistFacets, filterArtists, type ArtistQuery, type ArtistSummary } from './perreo.filters.js';
 
@@ -20,6 +20,7 @@ const summary = (a: Artist): ArtistSummary => ({
   fame: a.fame,
   styles: a.styles,
   labels: a.labels.map((l) => l.name),
+  followed: a.followed,
 });
 
 /** Explorador de artistas del Modo Perreo: fichas, fotos y la primera lista de cada artista. */
@@ -38,7 +39,7 @@ export class PerreoService {
 
   async list(query: ArtistQuery) {
     const all = (await this.all()).map(summary);
-    return { artists: filterArtists(all, query), total: all.length, facets: artistFacets(all) };
+    return { artists: filterArtists(all, query), total: all.length, followedTotal: all.filter((a) => a.followed).length, facets: artistFacets(all) };
   }
 
   async photo(slug: string): Promise<Buffer> {
@@ -57,6 +58,18 @@ export class PerreoService {
       .limit(limit);
   }
 
+  /** Cuentas dudosas de la segunda pasada que esperan una decisión. */
+  async pendingReview() {
+    const rows = await this.db.select().from(perreoReview);
+    return { pending: rows.filter((r) => r.status === 'pending'), accepted: rows.filter((r) => r.status === 'accepted').length, rejected: rows.filter((r) => r.status === 'rejected').length };
+  }
+
+  async decide(id: string, status: 'accepted' | 'rejected' | 'pending') {
+    const done = await this.db.update(perreoReview).set({ status }).where(eq(perreoReview.id, id)).returning({ id: perreoReview.id });
+    if (!done.length) throw new NotFoundException('Cuenta no encontrada');
+    return { id, status };
+  }
+
   /** Ficha: datos, parecidos y la primera lista (sus canciones y las de sus parecidos, intercaladas). */
   async get(slug: string) {
     const rows = await this.all();
@@ -70,6 +83,7 @@ export class PerreoService {
     return {
       artist,
       similar: similar.map(summary),
+      alsoFollow: similar.filter((s) => s.followed).map(summary),
       firstList: [...own.slice(0, 8), ...interleave(other, 8)].map(publicItem),
     };
   }

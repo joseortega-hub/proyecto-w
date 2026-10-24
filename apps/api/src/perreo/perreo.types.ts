@@ -19,6 +19,38 @@ export interface PerreoArtistFile {
   similar: string[];
   /** La foto está en photos/<slug>.webp. */
   hasPhoto: boolean;
+  /** 'urbanopedia' (los 66) o 'instagram'. */
+  source?: 'urbanopedia' | 'instagram';
+  /** La persona lo sigue en Instagram. */
+  followed?: boolean;
+}
+
+/** Lo que ig-overlay.json añade a un artista de los 66 que la persona sigue. */
+export interface PerreoOverlay {
+  followed: true;
+  instagram: string;
+  /** Parecidos extra entre los artistas de Instagram. */
+  similar: string[];
+}
+
+/** Un artista de instagram.json (los que sigue la persona). */
+export interface IgArtist {
+  name: string;
+  instagram: string;
+  wikidata?: string | null;
+  mbid?: string | null;
+  via: 'wikidata' | 'musicbrainz' | 'lastfm' | 'revisado';
+}
+
+/** Una cuenta dudosa de la segunda pasada (ig-review.json). */
+export interface IgReview {
+  id: string;
+  name: string;
+  reason: string;
+  listeners: number | null;
+  tags: string[];
+  mbid: string | null;
+  qid: string | null;
 }
 
 export interface PerreoSongFile {

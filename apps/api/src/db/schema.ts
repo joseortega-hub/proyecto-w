@@ -237,7 +237,25 @@ export const perreoArtists = pgTable(
     /** Slugs de artistas parecidos dentro de los 66 (Last.fm). */
     similar: text('similar').array().notNull().default(sql`'{}'::text[]`),
     photo: text('photo'),
+    /** De dónde sale: 'urbanopedia' (los 66) o 'instagram' (los que sigue la persona). */
+    source: text('source').notNull().default('urbanopedia'),
+    /** La persona lo sigue en Instagram (insignia y filtro «Solo los que sigo»). */
+    followed: boolean('followed').notNull().default(false),
   },
   (t) => [index('perreo_artists_fame_idx').on(t.fame)],
 );
+
+/** Cuentas de Instagram dudosas de la segunda pasada: la persona las confirma o descarta en el Modo Perreo. */
+export const perreoReview = pgTable('perreo_review', {
+  /** Usuario de Instagram. */
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  reason: text('reason').notNull(),
+  listeners: integer('listeners'),
+  tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+  mbid: text('mbid'),
+  qid: text('qid'),
+  /** pending | accepted | rejected */
+  status: text('status').notNull().default('pending'),
+});
 export type PerreoArtistRow = typeof perreoArtists.$inferSelect;

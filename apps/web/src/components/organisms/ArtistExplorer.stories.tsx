@@ -5,14 +5,15 @@ import { NO_FILTERS, type PerreoArtistList, type PerreoFilters } from '@/lib/per
 import { ArtistExplorer } from './ArtistExplorer'
 
 const artists = [
-  { slug: 'wisin', name: 'Wisin', country: 'Puerto Rico', city: 'Cayey', countries: ['Puerto Rico'], debutYear: 1998, fame: 90, styles: ['perreo', 'old school'], labels: ['Sony Music Latin'] },
-  { slug: 'feid', name: 'Feid', country: 'Colombia', city: 'Medellín', countries: ['Colombia'], debutYear: 2011, fame: 95, styles: ['romántico', 'perreo'], labels: ['Universal Music Latino'] },
-  { slug: 'dei-v', name: 'Dei V', country: 'Puerto Rico', city: 'Carolina', countries: ['Puerto Rico'], debutYear: 2020, fame: 12, styles: ['trap'], labels: [] },
-  { slug: 'el-alfa', name: 'El Alfa', country: 'República Dominicana', city: 'San Cristóbal', countries: ['República Dominicana'], debutYear: 2008, fame: 70, styles: ['dembow'], labels: [] },
+  { slug: 'wisin', name: 'Wisin', country: 'Puerto Rico', city: 'Cayey', countries: ['Puerto Rico'], debutYear: 1998, fame: 90, styles: ['perreo', 'old school'], labels: ['Sony Music Latin'], followed: false },
+  { slug: 'feid', name: 'Feid', country: 'Colombia', city: 'Medellín', countries: ['Colombia'], debutYear: 2011, fame: 95, styles: ['romántico', 'perreo'], labels: ['Universal Music Latino'], followed: true },
+  { slug: 'dei-v', name: 'Dei V', country: 'Puerto Rico', city: 'Carolina', countries: ['Puerto Rico'], debutYear: 2020, fame: 12, styles: ['trap'], labels: [], followed: false },
+  { slug: 'el-alfa', name: 'El Alfa', country: 'República Dominicana', city: 'San Cristóbal', countries: ['República Dominicana'], debutYear: 2008, fame: 70, styles: ['dembow'], labels: [], followed: false },
 ]
 const data: PerreoArtistList = {
   artists,
   total: 66,
+  followedTotal: 1,
   facets: {
     countries: [{ value: 'Puerto Rico', count: 55 }, { value: 'Colombia', count: 4 }, { value: 'República Dominicana', count: 3 }],
     cities: [{ value: 'Carolina', count: 9 }, { value: 'San Juan', count: 12 }],
@@ -37,5 +38,6 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
 export const WithFilters: Story = { args: { filters: { ...NO_FILTERS, country: 'Puerto Rico', style: 'perreo', fameMin: 40 } } }
+export const OnlyFollowed: Story = { args: { filters: { ...NO_FILTERS, followed: true }, data: { ...data, artists: artists.filter((a) => a.followed) } } }
 export const NoResults: Story = { args: { data: { ...data, artists: [] } } }
 export const Loading: Story = { args: { data: undefined } }

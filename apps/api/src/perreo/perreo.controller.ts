@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Param, Query, StreamableFile } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Header, Param, Post, Query, StreamableFile } from '@nestjs/common';
 import { PerreoService } from './perreo.service.js';
 import type { ArtistSort } from './perreo.filters.js';
 
@@ -21,6 +21,7 @@ export class PerreoController {
     @Query('era') era?: string,
     @Query('label') label?: string,
     @Query('style') style?: string,
+    @Query('followed') followed?: string,
   ) {
     return this.perreo.list({
       sort: (['fame', 'age', 'name'] as const).includes(sort as ArtistSort) ? (sort as ArtistSort) : 'fame',
@@ -32,7 +33,21 @@ export class PerreoController {
       era: text(era),
       label: text(label),
       style: text(style),
+      followed: followed === '1' || followed === 'true',
     });
+  }
+
+  /** Pantalla «Por revisar»: cuentas dudosas de Instagram y las decisiones tomadas. */
+  @Get('review')
+  review() {
+    return this.perreo.pendingReview();
+  }
+
+  @Post('review/:id')
+  decide(@Param('id') id: string, @Body() body: { decision?: string }) {
+    const status = ({ accept: 'accepted', reject: 'rejected', undo: 'pending' } as const)[body?.decision as 'accept'];
+    if (!status) throw new BadRequestException('decision: accept, reject o undo');
+    return this.perreo.decide(id.slice(0, 80).toLowerCase(), status);
   }
 
   @Get('artists/:slug')

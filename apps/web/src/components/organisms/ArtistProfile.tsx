@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils'
 interface ArtistProfileProps {
   artist: PerreoArtistFull
   similar: PerreoArtist[]
+  /** De los parecidos, los que la persona sigue en Instagram. */
+  alsoFollow?: PerreoArtist[]
   /** Primera lista: sus canciones y las de sus parecidos. */
   firstList: Item[]
   photoUrl: string | null
@@ -21,7 +23,7 @@ interface ArtistProfileProps {
 }
 
 /** Ficha de un artista: foto, datos, biografía, sellos, enlaces, parecidos y su primera lista. */
-export function ArtistProfile({ artist, similar, firstList, photoUrl, activeItemId, playing, onPlay, onMakeList, onOpenArtist, className }: ArtistProfileProps) {
+export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, photoUrl, activeItemId, playing, onPlay, onMakeList, onOpenArtist, className }: ArtistProfileProps) {
   const [failed, setFailed] = useState(false)
   const years = careerYears(artist.debutYear)
   const origin = originLabel(artist.city, artist.countries)
@@ -46,6 +48,7 @@ export function ArtistProfile({ artist, similar, firstList, photoUrl, activeItem
                 {flagOf(artist.countries[0] ?? '')} {origin}
               </Chip>
             )}
+            {artist.followed && <Chip>♥ Lo sigues en Instagram</Chip>}
             <Chip variant="outline">{fameLabel(artist.fame)}</Chip>
             {artist.debutYear && (
               <Chip variant="outline">
@@ -111,13 +114,28 @@ export function ArtistProfile({ artist, similar, firstList, photoUrl, activeItem
         </section>
       )}
 
-      {similar.length > 0 && (
+      {alsoFollow.length > 0 && (
+        <section aria-labelledby="also-follow" className="flex flex-col gap-2">
+          <Heading as="h2" size="section" id="also-follow">
+            También sigues a…
+          </Heading>
+          <div className="flex flex-wrap gap-2">
+            {alsoFollow.map((s) => (
+              <button key={s.slug} type="button" onClick={() => onOpenArtist(s.slug)} className="inline-flex min-h-11 items-center rounded-full focus-visible:outline-2 focus-visible:outline-ring">
+                <Chip className="cursor-pointer">♥ {s.name}</Chip>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {similar.filter((s) => !alsoFollow.some((f) => f.slug === s.slug)).length > 0 && (
         <section aria-labelledby="similar" className="flex flex-col gap-2">
           <Heading as="h2" size="section" id="similar">
             Se parecen a él
           </Heading>
           <div className="flex flex-wrap gap-2">
-            {similar.map((s) => (
+            {similar.filter((s) => !alsoFollow.some((f) => f.slug === s.slug)).map((s) => (
               <button key={s.slug} type="button" onClick={() => onOpenArtist(s.slug)} className="inline-flex min-h-11 items-center rounded-full focus-visible:outline-2 focus-visible:outline-ring">
                 <Chip variant="outline" className="cursor-pointer">
                   {s.name}

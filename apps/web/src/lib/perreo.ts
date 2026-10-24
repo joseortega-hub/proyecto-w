@@ -98,6 +98,10 @@ export function usePerreoArtist(slug: string | undefined) {
   return useQuery({ queryKey: ['perreo', 'artist', slug], queryFn: () => api.perreoArtist(slug!), enabled: !!slug, staleTime: 5 * 60_000 })
 }
 
+export function usePerreoReview() {
+  return useQuery({ queryKey: ['perreo', 'review'], queryFn: api.perreoReview, staleTime: 60_000 })
+}
+
 export const photoUrl = (slug: string) => `/api/perreo/artists/${encodeURIComponent(slug)}/photo`
 
 // --------------------------- Tema neón ---------------------------

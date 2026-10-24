@@ -8,11 +8,11 @@ export interface WikiBio {
   qid: string | null;
 }
 
-const USER_AGENT = 'Sintonia/0.1 (https://github.com/joseortega-hub/proyecto-w; easter egg educativo)';
+export const USER_AGENT = 'Sintonia/0.1 (https://github.com/joseortega-hub/proyecto-w; easter egg educativo)';
 const MUSIC_WORDS = /cantante|rapero|raper|reguet|músic|musico|compositor|trap|urban|productor|dj\b/i;
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function getJson<T>(url: string, minGap = 400): Promise<T | null> {
+export async function getJson<T>(url: string, minGap = 400): Promise<T | null> {
   await sleep(minGap);
   for (let attempt = 1; attempt <= 3; attempt++) {
     const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } }).catch(() => null);
@@ -174,11 +174,11 @@ export function fameFromListeners(listeners: (number | null)[]): number[] {
 }
 
 /** Nombres de Last.fm → slugs de los 66, sin repetir y sin el propio artista. */
-export function matchSimilar(names: string[], bySlugName: Map<string, string>, self: string): string[] {
+export function matchSimilar(names: string[], bySlugName: Map<string, string>, self: string, limit = 8): string[] {
   const out: string[] = [];
   for (const n of names) {
     const slug = bySlugName.get(fold(n));
     if (slug && slug !== self && !out.includes(slug)) out.push(slug);
   }
-  return out.slice(0, 8);
+  return out.slice(0, limit);
 }

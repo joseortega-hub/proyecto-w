@@ -12,7 +12,7 @@ export function PerreoArtistPage() {
   const detail = usePerreoArtist(slug)
   if (detail.isPending) return <Spinner label="Abriendo la ficha…" />
   if (detail.isError || !detail.data) return <Navigate to="/perreo/artistas" replace />
-  const { artist, similar, firstList } = detail.data
+  const { artist, similar, alsoFollow, firstList } = detail.data
   const listId = `perreo-${artist.slug}`
 
   const play = (index: number) => {
@@ -24,11 +24,12 @@ export function PerreoArtistPage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-5 py-5 md:px-10 md:py-8">
       <Button variant="ghost" size="md" className="self-start" onClick={() => navigate('/perreo/artistas')}>
-        ← Los 66
+        ← Artistas
       </Button>
       <ArtistProfile
         artist={artist}
         similar={similar}
+        alsoFollow={alsoFollow}
         firstList={firstList}
         photoUrl={photoUrl(artist.slug)}
         activeItemId={player.listId === listId ? player.current?.item.id : null}

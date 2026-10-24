@@ -25,6 +25,7 @@
     "facets": "pnpm --filter @sintonia/api facets",
     "perreo:import": "pnpm --filter @sintonia/api perreo:import",
     "perreo:load": "pnpm --filter @sintonia/api perreo:load",
-    "perreo:instagram": "pnpm --filter @sintonia/api perreo:instagram"
+    "perreo:instagram": "pnpm --filter @sintonia/api perreo:instagram",
+    "perreo:instagram:import": "pnpm --filter @sintonia/api perreo:instagram:import"
   }
 }

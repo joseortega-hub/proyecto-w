@@ -9,6 +9,8 @@ export interface ArtistSummary {
   fame: number;
   styles: string[];
   labels: string[];
+  /** La persona lo sigue en Instagram. */
+  followed: boolean;
 }
 
 export type ArtistSort = 'fame' | 'age' | 'name';
@@ -24,6 +26,8 @@ export interface ArtistQuery {
   era?: string;
   label?: string;
   style?: string;
+  /** Solo los que la persona sigue en Instagram. */
+  followed?: boolean;
 }
 
 /** Épocas por año de debut. */
@@ -56,6 +60,7 @@ export function filterArtists(list: ArtistSummary[], query: ArtistQuery): Artist
   const q = query.q ? fold(query.q) : '';
   const out = list.filter((a) => {
     if (q && !fold(a.name).includes(q)) return false;
+    if (query.followed && !a.followed) return false;
     if (query.fameMin != null && a.fame < query.fameMin) return false;
     if (query.fameMax != null && a.fame > query.fameMax) return false;
     if (query.country && !a.countries.some((c) => fold(c) === fold(query.country!))) return false;

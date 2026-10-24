@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { artistFacets, cityParts, eraOf, filterArtists, type ArtistSummary } from './perreo.filters.js';
 import { interleave } from './perreo.service.js';
+import { accountHash, classify, findDuplicate, freeSlug, mergePerreo } from './perreo.resolve.js';
+import type { PerreoArtistFile } from './perreo.types.js';
 import { cleanTitle, fameFromListeners, matchSimilar, parseFeed, songKey } from './perreo.sources.js';
 
 const artist = (over: Partial<ArtistSummary>): ArtistSummary => ({
-  slug: 'a', name: 'A', country: 'Puerto Rico', city: 'San Juan', countries: ['Puerto Rico'], debutYear: 2010, fame: 50, styles: ['perreo'], labels: [], ...over,
+  slug: 'a', name: 'A', country: 'Puerto Rico', city: 'San Juan', countries: ['Puerto Rico'], debutYear: 2010, fame: 50, styles: ['perreo'], labels: [], followed: false, ...over,
 });
 const list = [
   artist({ slug: 'wisin', name: 'Wisin', debutYear: 1998, fame: 80, styles: ['old school', 'perreo'], labels: ['Sony Music Latin'] }),
@@ -76,5 +78,71 @@ describe('primera lista', () => {
     const s = (id: string, artistSlug: string) => ({ id, facets: { artist: artistSlug } });
     const out = interleave([s('1', 'a'), s('2', 'a'), s('3', 'b'), s('4', 'b'), s('5', 'c')], 4);
     expect(out.map((x) => x.id)).toEqual(['1', '3', '5', '2']);
+  });
+});
+
+describe('segunda pasada de Instagram', () => {
+  const urban = ['reggaeton', 'latin'];
+  it('acepta con seguridad si el enlace de Instagram coincide, aunque el género no sea urbano', () => {
+    expect(classify('x', { name: 'Otro Nombre', listeners: 10, tags: ['rock'], linkMatch: true })?.kind).toBe('sure');
+  });
+  it('acepta nombre exacto + género urbano + oyentes, aunque el usuario lleve «oficial» o signos', () => {
+    expect(classify('jbalvin', { name: 'J Balvin', listeners: 4_000_000, tags: urban })?.kind).toBe('sure');
+    expect(classify('el.alfa_oficial', { name: 'El Alfa', listeners: 900_000, tags: ['dembow'] })?.kind).toBe('sure');
+    expect(classify('alvaro.diaz', { name: 'Álvaro Díaz', listeners: 5000, tags: ['trap latino'] })?.kind).toBe('sure');
+  });
+  it('manda a revisar el nombre exacto sin género claro o con pocos oyentes', () => {
+    expect(classify('luna', { name: 'Luna', listeners: 80_000, tags: ['indie'] })?.kind).toBe('review');
+    expect(classify('dei.v', { name: 'Dei V', listeners: 1500, tags: urban })?.kind).toBe('review');
+  });
+  it('manda a revisar un nombre parecido solo con género urbano y muchos oyentes', () => {
+    expect(classify('mikelatinoficial', { name: 'Mike Latin Boy', listeners: 90_000, tags: urban })?.kind).toBe('review');
+    expect(classify('mikelatinoficial', { name: 'Mike Latin Boy', listeners: 90_000, tags: ['rock'] })).toBeNull();
+  });
+  it('descarta lo que no cuadra: otro nombre, namesake diminuto', () => {
+    expect(classify('panaderia_lola', { name: 'Lola', listeners: 2_000_000, tags: urban })).toBeNull();
+    expect(classify('luna', { name: 'Luna', listeners: 200, tags: urban })).toBeNull();
+  });
+  it('no guarda el nombre de las cuentas vistas, solo un hash estable', () => {
+    expect(accountHash('Wisin')).toBe(accountHash('wisin'));
+    expect(accountHash('wisin')).not.toContain('wisin');
+  });
+});
+
+describe('emparejado y duplicados', () => {
+  const known = [
+    { slug: 'wisin', name: 'Wisin', qid: 'Q1' },
+    { slug: 'jay-wheeler', name: 'Jay Wheeler', qid: null, mbid: 'mb-1' },
+  ];
+  it('empareja por Wikidata, MBID o nombre normalizado', () => {
+    expect(findDuplicate({ name: 'Otro', qid: 'Q1' }, known)?.slug).toBe('wisin');
+    expect(findDuplicate({ name: 'Otro', mbid: 'mb-1' }, known)?.slug).toBe('jay-wheeler');
+    expect(findDuplicate({ name: 'WISÍN' }, known)?.slug).toBe('wisin');
+    expect(findDuplicate({ name: 'Jay  Wheeler.' }, known)?.slug).toBe('jay-wheeler');
+    expect(findDuplicate({ name: 'Feid', qid: 'Q9' }, known)).toBeUndefined();
+  });
+  it('el slug nunca choca', () => {
+    expect(freeSlug('Álvaro Díaz', new Set())).toBe('alvaro-diaz');
+    expect(freeSlug('Álvaro Díaz', new Set(['alvaro-diaz']))).toBe('alvaro-diaz-2');
+  });
+  const file = (o: Partial<PerreoArtistFile>): PerreoArtistFile => ({
+    slug: 'a', name: 'A', realName: null, birthDate: null, country: null, city: null, countries: [], debutYear: null, fame: 0, listeners: null,
+    styles: [], labels: [], links: {}, bio: null, bioSource: null, youtubeChannelId: null, similar: [], hasPhoto: false, ...o,
+  });
+  it('une los 66 y los de Instagram sin duplicar, marca los seguidos y calcula la fama sobre todos', () => {
+    const base = [file({ slug: 'wisin', name: 'Wisin', listeners: 1000, similar: ['yandel'] }), file({ slug: 'yandel', name: 'Yandel', listeners: 500 })];
+    const ig = [file({ slug: 'feid', name: 'Feid', listeners: 5000 }), file({ slug: 'wisin', name: 'Wisin', listeners: 1 })];
+    const all = mergePerreo(base, ig, { wisin: { followed: true, instagram: 'https://www.instagram.com/wisin', similar: ['feid'] } });
+    expect(all.map((a) => a.slug)).toEqual(['wisin', 'yandel', 'feid']);
+    expect(all.map((a) => a.followed)).toEqual([true, false, true]);
+    expect(all[0].similar).toEqual(['yandel', 'feid']);
+    expect(all[0].links.instagram).toContain('instagram.com/wisin');
+    expect(all.map((a) => a.fame)).toEqual([50, 0, 100]);
+    expect(all.map((a) => a.source)).toEqual(['urbanopedia', 'urbanopedia', 'instagram']);
+  });
+  it('«Solo los que sigo» filtra por seguidos y se combina con el resto', () => {
+    const l = [artist({ slug: 'a', followed: true, country: 'Colombia', countries: ['Colombia'] }), artist({ slug: 'b', followed: true }), artist({ slug: 'c' })];
+    expect(filterArtists(l, { followed: true }).map((a) => a.slug)).toEqual(['a', 'b']);
+    expect(filterArtists(l, { followed: true, country: 'colombia' }).map((a) => a.slug)).toEqual(['a']);
   });
 });

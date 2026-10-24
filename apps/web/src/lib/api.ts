@@ -4,7 +4,7 @@ import type { Preference, SessionPreferences } from './preferences'
 import type { CompareResult, Judgement, OpsPanel, TraceRow } from './ops-types'
 import type { ResolvedTheme } from '@sintonia/tokens/engine'
 import type { HomeSummary, RouteIntentResult, StoryView } from './home-types'
-import type { PerreoArtistDetail, PerreoArtistList } from './perreo-types'
+import type { PerreoArtistDetail, PerreoArtistList, PerreoReview } from './perreo-types'
 import { userHeaders } from './user'
 
 export type Answer = 'yes' | 'no' | 'unknown'
@@ -337,6 +337,9 @@ export const api = {
   getDomains: () => request<DomainInfo[]>('/domains?hidden=1'),
   /** Modo Perreo: explorador de artistas (filtros y orden) y ficha. */
   perreoArtists: (query: string) => request<PerreoArtistList>(`/perreo/artists${query ? `?${query}` : ''}`),
+  perreoReview: () => request<PerreoReview>('/perreo/review'),
+  perreoDecide: (id: string, decision: 'accept' | 'reject' | 'undo') =>
+    request<{ id: string; status: string }>(`/perreo/review/${encodeURIComponent(id)}`, { method: 'POST', body: JSON.stringify({ decision }) }),
   perreoArtist: (slug: string) => request<PerreoArtistDetail>(`/perreo/artists/${encodeURIComponent(slug)}`),
   /** `initialText` es el punto de partida opcional (texto o voz) antes de las preguntas. */
   startSession: (
