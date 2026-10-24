@@ -10,16 +10,20 @@ import {
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { INTERVIEW_DECISION_PROVIDER, type DecisionProvider } from '../ai/decision-provider.js';
+import { EMBEDDING_PROVIDER, type EmbeddingProvider } from '../ai/embedding-provider.js';
 import { TEXT_PROVIDER, type TextProvider } from '../ai/text-provider.js';
+import { emitTrace } from '../ai/trace-context.js';
 import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
 import { interviewSessions, type SessionRow } from '../db/schema.js';
 import { DomainsService, type DomainRow } from '../domains/domains.service.js';
 import { config as env } from '../config.js';
 import { domainDefinitions } from '../domains/index.js';
+import { ItemsService, type ItemWithoutEmbedding } from '../items/items.service.js';
 import type { Probe } from '../domains/domain.types.js';
 import { hasTaste, tasteLabel, tasteOnlyProbes } from '../taste/taste.engine.js';
 import { TasteService } from '../taste/taste.service.js';
+import type { FacetFilter } from './interview.engine.js';
 import { collectContext, contextKey, stateExtras, type ContextRequest, type InterviewContext } from './interview.context.js';
 import {
   answerChips,
@@ -29,21 +33,27 @@ import {
   minQuestions,
   mustFinish,
   pending,
+  preferenceFilters,
   profileConfidence,
+  remainingProbes,
   signalChips,
 } from './interview.engine.js';
+import { buildBag, effectiveCount, currentWeights, planNext } from './candidates.js';
 import { anchorsDone, askableProbes, assertNotAsked, autoAnswerExhausted, type InterviewFacts } from './interview.flow.js';
 import { NextQuestionPrefetch } from './interview.prefetch.js';
-import { anchorExample, probeDirection } from './anchors.js';
+import { anchorExample, anchorQueryText, cleanAnchors, probeDirection } from './anchors.js';
 import { AnchorsService, START_COVERAGE_WAIT_MS, type AnchorFocus } from './anchors.service.js';
 import { QuestionBankService } from './question-bank.service.js';
-import type { Anchor, Answer, InterviewTurn, TextSignals } from './interview.types.js';
+import type { Anchor, Answer, BagEntry, EditedUnderstanding, InterviewTurn, Understanding } from './interview.types.js';
+import { PreferencesService } from './preferences.service.js';
+import { emptyUnderstanding, signalsOf, UnderstandingService } from './understanding.service.js';
 
 const ANSWER_TEXT: Record<Answer, string> = { yes: 'sí', no: 'no', unknown: 'no lo sé' };
 const FINISH = 'finish';
 const FIRST_QUESTION_TTL_MS = 30 * 60_000;
-/** Confianza mínima para dar por resuelta una dimensión a partir del texto inicial. */
-const SIGNAL_CONFIDENCE = 0.75;
+/** Cuánto espera la bolsa al parecido semántico con el texto antes de seguir sin él. */
+const SEMANTIC_WAIT_MS = 5_000;
+const BAG_CACHE = 200;
 /** Por debajo de esta confianza, la respuesta automática se queda en "no lo sé". */
 const AUTO_CONFIDENCE = 0.6;
 const contextDefaults = () => ({ timeZone: env.contextTimeZone, latitude: env.contextLatitude, longitude: env.contextLongitude });
@@ -60,7 +70,7 @@ const questionSchema = z.object({
   reason: z.string().describe('Una frase corta que explica por qué preguntas esto ahora'),
 });
 
-type SessionSeed = Pick<SessionRow, 'context' | 'initialText' | 'taste' | 'textSignals' | 'anchors' | 'userId'>;
+type SessionSeed = Pick<SessionRow, 'context' | 'initialText' | 'taste' | 'textSignals' | 'anchors' | 'userId' | 'exclusions' | 'bag' | 'preferences'>;
 
 export interface StartOptions {
   /** Punto de partida opcional (texto o voz transcrita). Se trata como dato, nunca como instrucción. */
@@ -69,6 +79,10 @@ export interface StartOptions {
   userId?: string | null;
   /** Zona horaria y posición aproximada que manda el navegador. */
   client?: ContextRequest;
+  /** Preferencias elegidas con los botones (idioma, plataforma…): ganan a las deducidas del texto. */
+  preferences?: Record<string, string>;
+  /** Lo entendido del texto ya corregido por la persona; si falta, se entiende aquí. */
+  understanding?: EditedUnderstanding;
 }
 
 export interface SessionView {
@@ -80,7 +94,7 @@ export interface SessionView {
   maxQuestions: number;
   confidence: number;
   chips: string[];
-  question: { text: string; reason: string; guess: string; chips: { yes: string; no: string } } | null;
+  question: { text: string; lead: string; reason: string; guess: string; chips: { yes: string; no: string } } | null;
   canUndo: boolean;
   decisionProvider: string;
   /** Hora, día y tiempo con los que se adapta la entrevista. */
@@ -91,6 +105,11 @@ export interface SessionView {
   taste: string[];
   /** Lo concreto que pidió en el texto inicial ("Marvel"): la búsqueda y las preguntas se centran en ello. */
   anchors: string[];
+  /** Filtros previos activos ("Nintendo") y lo que no quiere ("terror"). */
+  filters: string[];
+  excluded: string[];
+  /** Candidatas que quedan (masa efectiva de la bolsa) y cuántas había; null sin bolsa. */
+  candidates: { left: number; total: number } | null;
 }
 
 export interface AutoAnswer {
@@ -106,6 +125,8 @@ export class InterviewService implements OnModuleInit {
   private readonly prefetch = new NextQuestionPrefetch();
   /** La primera pregunta no depende de nada (sin texto inicial ni contexto): se prepara una vez por dominio. */
   private readonly firstQuestion = new Map<string, { turns: Promise<InterviewTurn[]>; at: number }>();
+  /** Elementos de la bolsa de cada sesión (no cambian durante la entrevista). */
+  private readonly bagCache = new Map<string, Promise<Map<string, ItemWithoutEmbedding>>>();
 
   constructor(
     @Inject(DB) private readonly db: Db,
@@ -115,6 +136,10 @@ export class InterviewService implements OnModuleInit {
     private readonly bank: QuestionBankService,
     private readonly tastes: TasteService,
     private readonly anchors: AnchorsService,
+    private readonly understanding: UnderstandingService,
+    private readonly prefs: PreferencesService,
+    private readonly items: ItemsService,
+    @Inject(EMBEDDING_PROVIDER) private readonly embeddings: EmbeddingProvider,
   ) {}
 
   /** Carga el banco de preguntas y calienta la primera pregunta al arrancar, sin bloquear el arranque. */
@@ -130,25 +155,93 @@ export class InterviewService implements OnModuleInit {
     }
   }
 
-  async start(domainId: string, { initialText, userId = null, client = {} }: StartOptions = {}): Promise<SessionView> {
+  /**
+   * Lo que se entiende del texto, sin crear la sesión (la tarjeta "Esto es lo que he entendido").
+   * Arranca ya la búsqueda en directo de lo que pidió, así llega caliente a la primera pregunta.
+   */
+  async understand(domainId: string, text: string, userId: string | null = null): Promise<Understanding> {
     const domain = await this.domains.get(domainId);
+    const understood = await this.understanding.understand(domain, text.trim());
+    if (understood.anchors.length) void this.anchors.ensureCoverage(domain, understood.anchors, userId);
+    return understood;
+  }
+
+  async start(domainId: string, { initialText, userId = null, client = {}, preferences: chosen = {}, understanding: edited }: StartOptions = {}): Promise<SessionView> {
+    const domain = await this.domains.get(domainId);
+    const { config } = domain;
     const text = initialText?.trim() || null;
-    const [context, taste, textSignals, anchors] = await Promise.all([
+    const [context, taste, understood] = await Promise.all([
       collectContext(client, contextDefaults()),
       this.tastes.profile(userId, domainId),
-      text ? this.readSignals(domain, text) : ({} as TextSignals),
-      text ? this.anchors.extract(domain, text) : ([] as Anchor[]),
+      edited ? Promise.resolve(this.fromEdited(edited, domain)) : text ? this.understanding.understand(domain, text) : emptyUnderstanding(),
     ]);
+    const { anchors, exclusions } = understood;
     // Si el catálogo se queda corto para lo que pidió, se busca en directo; la primera pregunta
     // la espera un poco para enfocarse ya en lo encontrado (si tarda más, sigue en segundo plano).
     if (anchors.length) await this.anchors.awaitCoverage(domain, anchors, userId, START_COVERAGE_WAIT_MS);
-    const seed: SessionSeed = { context, initialText: text, taste: hasTaste(taste) ? taste : null, textSignals, anchors, userId };
-    // Sin texto ni gustos, la primera pregunta solo depende del contexto: se reutiliza.
-    const generic = !seed.initialText && !seed.taste;
-    const turns = generic ? await this.firstTurns(domain, context) : await this.advance([], domain, seed);
+    const preferences = this.prefs.merge(domain, chosen, understood.preferences);
+    const filters = preferenceFilters(preferences, config);
+    const textSignals = signalsOf(understood);
+    const seed: SessionSeed = {
+      context,
+      initialText: text,
+      taste: hasTaste(taste) ? taste : null,
+      textSignals,
+      anchors,
+      userId,
+      exclusions,
+      preferences,
+      bag: null,
+    };
+    // Con texto, filtros o exclusiones, la entrevista se guía por una bolsa de candidatas.
+    let loaded: Map<string, ItemWithoutEmbedding> | undefined;
+    if (text || filters.length || exclusions.length || anchors.length) {
+      const catalog = await this.items.catalog(domainId, filters, userId);
+      const semantic = text ? await this.semanticMap(domain, text, anchors, filters, userId) : undefined;
+      const bag = buildBag(catalog, { config, signals: textSignals, anchors, exclusions, filters, taste: seed.taste, semantic });
+      this.logger.log(`Bolsa: ${bag.entries.length} de ${catalog.length} (anclas: ${bag.mode}, ${bag.matched} coinciden)`);
+      if (bag.entries.length) {
+        seed.bag = bag.entries;
+        const byId = new Map(catalog.map((it) => [it.id, it]));
+        loaded = new Map(bag.entries.map((e) => [e.id, byId.get(e.id)!]));
+      }
+    }
+    // Sin texto ni gustos ni bolsa, la primera pregunta solo depende del contexto: se reutiliza.
+    const generic = !seed.initialText && !seed.taste && !seed.bag;
+    const turns = generic ? await this.firstTurns(domain, context) : await this.advance([], domain, seed, loaded);
     const [row] = await this.db.insert(interviewSessions).values({ domainId, turns, ...seed }).returning();
+    if (loaded) this.bagCache.set(row.id, Promise.resolve(loaded));
     this.schedulePrefetch(row, domain);
+    this.traceGain(row);
     return this.view(row, domain);
+  }
+
+  /** La corrección de la persona, validada contra el dominio (confianza total: lo ha visto y aceptado). */
+  private fromEdited(edited: EditedUnderstanding, domain: DomainRow): Understanding {
+    const { config } = domain;
+    const scales = new Set(config.attributes.filter((a) => a.kind === 'scale').map((a) => a.key));
+    const groups = new Set(config.tagGroups.map((g) => g.key));
+    return {
+      moods: edited.moods.filter((m) => scales.has(m.key)).map((m) => ({ ...m, confidence: 1 })),
+      anchors: cleanAnchors(edited.anchors),
+      preferences: Object.fromEntries(Object.entries(edited.preferences).map(([k, value]) => [k, { value, confidence: 1 }])),
+      exclusions: edited.exclusions.filter((g) => groups.has(g)),
+    };
+  }
+
+  /** Parecido semántico del texto con el catálogo, si hay cupo de embeddings; si no, nada. */
+  private async semanticMap(domain: DomainRow, text: string, anchors: Anchor[], filters: FacetFilter[], userId: string | null) {
+    const query = [`${domain.itemNounPlural}. Cómo se siente: ${text.slice(0, 300)}`, anchorQueryText(anchors)].filter(Boolean).join('. ');
+    const timeout = new Promise<null>((r) => setTimeout(() => r(null), SEMANTIC_WAIT_MS));
+    const found = this.embeddings
+      .embed([query], 'query')
+      .then(([vector]) => this.items.nearest(domain.id, vector, 150, { filters, userId }))
+      .then((rows) => new Map(rows.map((r) => [r.id, Number(r.semantic)])))
+      .catch((error: Error) => {
+        this.logger.warn(`Bolsa sin parecido semántico: ${error.message.slice(0, 100)}`);
+        return null;
+      });
+    return (await Promise.race([found, timeout])) ?? undefined;
   }
 
   async get(id: string): Promise<SessionView> {
@@ -184,8 +277,31 @@ export class InterviewService implements OnModuleInit {
 
     const status = pending(turns) ? 'asking' : 'ready';
     const saved = await this.save(row, { turns, status });
-    if (status === 'asking') this.schedulePrefetch(saved, domain);
+    if (status === 'asking') {
+      this.schedulePrefetch(saved, domain);
+      this.traceGain(saved);
+    }
     return this.view(saved, domain);
+  }
+
+  /** Deja en las trazas de "Bajo el capó" la ganancia de la pregunta planteada (solo metadatos). */
+  private traceGain(row: SessionRow) {
+    const current = pending(row.turns);
+    if (current?.gain === undefined) return;
+    emitTrace({
+      sessionId: row.id,
+      task: 'ganancia',
+      subject: current.probeId,
+      provider: 'motor',
+      model: null,
+      ok: true,
+      skipped: [],
+      latencyMs: 0,
+      totalMs: 0,
+      inputTokens: null,
+      outputTokens: null,
+      outcome: `${current.gain.toFixed(2)} bits · quedan ~${current.left ?? '?'}`,
+    });
   }
 
   /**
@@ -251,47 +367,10 @@ export class InterviewService implements OnModuleInit {
     const key = `${domain.id}|${contextKey(context)}`;
     const cached = this.firstQuestion.get(key);
     if (cached && Date.now() - cached.at < FIRST_QUESTION_TTL_MS) return cached.turns;
-    const turns = this.advance([], domain, { context, initialText: null, taste: null, textSignals: {}, anchors: [], userId: null });
+    const turns = this.advance([], domain, { context, initialText: null, taste: null, textSignals: {}, anchors: [], userId: null, exclusions: [], bag: null, preferences: {} });
     turns.catch(() => this.firstQuestion.delete(key));
     this.firstQuestion.set(key, { turns, at: Date.now() });
     return turns;
-  }
-
-  /**
-   * Lo que el texto inicial ya deja claro, una decisión `choice` por atributo de escala
-   * (con la cadena rápida de la entrevista). Solo se quedan las señales confiadas; si falla,
-   * la entrevista pregunta por todo, como sin texto.
-   */
-  private async readSignals(domain: DomainRow, text: string): Promise<TextSignals> {
-    const scales = domain.config.attributes.filter((a) => a.kind === 'scale');
-    const answers = await this.decisions
-      .decide(
-        { textoDeLaPersona: text.slice(0, 500) },
-        Object.fromEntries(
-          scales.map((a) => [
-            a.key,
-            {
-              type: 'choice' as const,
-              instructions: `Según el texto, ¿qué ${a.label.toLowerCase()} (${a.description.toLowerCase()}) le apetece para ${domain.config.verb} ahora? Si el texto no lo dice claramente, elige "unknown".`,
-              criteria: { low: a.lowLabel ?? 'Bajo', high: a.highLabel ?? 'Alto', unknown: 'El texto no lo dice' },
-            },
-          ]),
-        ),
-      )
-      .catch((error: Error) => {
-        this.logger.warn(`Sin señales del texto inicial: ${error.message.slice(0, 120)}`);
-        return null;
-      });
-    if (!answers) return {};
-    const signals: TextSignals = {};
-    for (const a of scales) {
-      const answer = answers[a.key];
-      const confidence = answer?.confidence ?? 0.7;
-      if (!answer || answer.choice === 'unknown' || confidence < SIGNAL_CONFIDENCE) continue;
-      signals[a.key] = { value: answer.choice === 'high' ? 0.85 : 0.15, confidence: Math.round(confidence * 100) / 100 };
-    }
-    this.logger.log(`Texto inicial → ${Object.keys(signals).join(', ') || 'nada claro'}`);
-    return signals;
   }
 
   /** Lo que ya se sabe antes de preguntar: dimensiones del texto y sondas de gustos que sobran. */
@@ -319,7 +398,13 @@ export class InterviewService implements OnModuleInit {
    * que aún aportan algo (`askableProbes`). El texto sale del banco pregenerado: una sola
    * llamada por pregunta. Si la sonda no tiene banco, el TextProvider la redacta en vivo.
    */
-  private async advance(turns: InterviewTurn[], domain: DomainRow, session: SessionSeed): Promise<InterviewTurn[]> {
+  private async advance(
+    turns: InterviewTurn[],
+    domain: DomainRow,
+    session: SessionSeed & { id?: string },
+    loaded?: Map<string, ItemWithoutEmbedding>,
+  ): Promise<InterviewTurn[]> {
+    if (session.bag?.length) return this.advanceGuided(turns, domain, session, session.bag, loaded);
     const { config } = domain;
     const facts = this.facts(session, domain);
     const known = facts.known ?? [];
@@ -430,6 +515,137 @@ export class InterviewService implements OnModuleInit {
     return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null }];
   }
 
+  /** Elementos de la bolsa de una sesión: de memoria si ya se cargaron, si no de la base de datos. */
+  private bagItems(session: SessionSeed & { id?: string }, domain: DomainRow, bag: BagEntry[], loaded?: Map<string, ItemWithoutEmbedding>) {
+    if (loaded) return Promise.resolve(loaded);
+    const key = session.id ?? '';
+    const cached = key ? this.bagCache.get(key) : undefined;
+    if (cached) return cached;
+    const task = this.items.byIds(domain.id, bag.map((e) => e.id), session.userId).then((rows) => new Map(rows.map((r) => [r.id, r])));
+    if (key) {
+      if (this.bagCache.size >= BAG_CACHE) this.bagCache.delete(this.bagCache.keys().next().value!);
+      task.catch(() => this.bagCache.delete(key));
+      this.bagCache.set(key, task);
+    }
+    return task;
+  }
+
+  /**
+   * Siguiente pregunta de una entrevista guiada por candidatas: por cada sonda posible se
+   * estima cuánto reduce la entropía de la bolsa (ganancia de información) y a la IA solo
+   * se le ofrecen las 3 mejores. Lo que el texto ya dejó claro y lo que no quiere no se pregunta.
+   * Termina cuando la bolsa está concentrada, con el mínimo y el máximo de preguntas.
+   */
+  private async advanceGuided(
+    turns: InterviewTurn[],
+    domain: DomainRow,
+    session: SessionSeed & { id?: string },
+    bag: BagEntry[],
+    loaded?: Map<string, ItemWithoutEmbedding>,
+  ): Promise<InterviewTurn[]> {
+    const { config } = domain;
+    const items = await this.bagItems(session, domain, bag, loaded);
+    const known = Object.keys(session.textSignals ?? {});
+    const plan = planNext({ turns, config, bag, items, known, exclusions: session.exclusions ?? [], facts: this.facts(session, domain) });
+    if (plan.finish) {
+      this.logger.log(`terminar: ${plan.finish} (~${Math.round(plan.left)} candidatas)`);
+      return turns;
+    }
+    const { offered } = plan;
+    const ignore = new Set(known);
+    const left = Math.round(plan.left);
+    const history = answered(turns).map((t) => ({ pregunta: t.text, respuesta: ANSWER_TEXT[t.answer!] }));
+
+    const decisionStarted = Date.now();
+    let chosen = offered[0];
+    if (offered.length > 1) {
+      const informed = informedDimensions(turns, config, known);
+      const { next } = await this.decisions
+        .decide(
+          {
+            objetivo: `Entrevista de sí o no, estilo Akinator, para recomendar ${domain.itemNounPlural} según el ánimo de la persona.`,
+            respuestas: history,
+            atributosSinInformacion: config.attributes.filter((a) => !informed.has(a.key)).map((a) => a.label),
+            candidatasQueQuedan: left,
+            gananciaDeInformacionPorPregunta: Object.fromEntries(offered.map((o) => [o.probe.id, Math.round(o.gain * 100) / 100])),
+            ...stateExtras(session, config),
+          },
+          {
+            next: {
+              type: 'choice',
+              instructions:
+                'Elige la pregunta que mejor separa a las candidatas que quedan, teniendo en cuenta lo ya respondido. ' +
+                'No elijas preguntas cuya respuesta ya se deduce de las anteriores.',
+              criteria: Object.fromEntries(offered.map((o) => [o.probe.id, `Preguntar ${o.probe.intent.toLowerCase()}`])),
+            },
+          },
+        )
+        .catch((error: Error) => {
+          this.logger.warn(`Siguiente pregunta sin IA: ${error.message.slice(0, 120)}`);
+          return { next: { choice: offered[0].probe.id } };
+        });
+      chosen = offered.find((o) => o.probe.id === next.choice) ?? offered[0];
+    }
+    const decisionMs = Date.now() - decisionStarted;
+    const { probe } = chosen;
+    assertNotAsked(turns, probe.id);
+    const meta = { gain: Math.round(chosen.gain * 100) / 100, left };
+
+    // Con anclas, la pregunta se redacta con ellas y un ejemplo real ("¿…tipo Guardianes de la Galaxia?").
+    if (session.anchors?.length) {
+      const focus = await this.anchorFocus(session, domain);
+      const dimension = focus ? probe.informs.find((d) => focus.dimensions.includes(d) && !ignore.has(d)) : undefined;
+      const written = await this.writeAnchored(domain, session.anchors, focus, probe, dimension, history);
+      if (written) {
+        this.logger.log(`siguiente: ${probe.id} (${meta.gain} bits, quedan ~${left}, decisión ${decisionMs} ms, enfocada)`);
+        return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null, ...meta }];
+      }
+    }
+    const lead = this.leadLine(turns, session, domain);
+    const fromBank = this.bank.pick(domain, probe.id, turns);
+    if (fromBank) {
+      this.logger.log(`siguiente: ${probe.id} (${meta.gain} bits, quedan ~${left}, decisión ${decisionMs} ms, banco)`);
+      return [...turns, { probeId: probe.id, text: fromBank.question, reason: fromBank.reason, answer: null, lead, ...meta }];
+    }
+    const written = await this.text
+      .write({
+        system: `${config.voice} Redactas preguntas para una entrevista de sí o no sobre lo que le apetece ${config.verb} ahora.`,
+        prompt: [
+          `Qué quieres averiguar: ${probe.intent}.`,
+          history.length ? `Preguntas ya hechas (no repitas su idea ni sus palabras clave):\n${history.map((h) => `- ${h.pregunta} → ${h.respuesta}`).join('\n')}` : 'Es la primera pregunta.',
+          `Escribe la pregunta en positivo, de forma que «sí» signifique exactamente esto: ${probe.intent.toLowerCase()}. Sin negaciones («no», «sin»). Añade una frase corta con el motivo.`,
+        ].join('\n\n'),
+        schema: questionSchema,
+      })
+      .catch((error: Error) => {
+        this.logger.warn(`Sin redacción para "${probe.id}": ${error.message}`);
+        return { question: `¿${probe.intent.replace(/^Si /, '')}?`, reason: '' };
+      });
+    return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null, lead, ...meta }];
+  }
+
+  /** Una línea de contexto por plantilla ("Vale: Marvel · para desconectar · sin terror."), sin gastar IA. */
+  private leadLine(turns: InterviewTurn[], session: SessionSeed, domain: DomainRow): string {
+    const { config } = domain;
+    const parts = [
+      ...(session.anchors ?? []).map((a) => a.label),
+      ...this.filterLabels(session.preferences, config),
+      ...signalChips(session.textSignals ?? {}, config),
+      ...config.tagGroups.filter((g) => session.exclusions?.includes(g.key)).map((g) => `sin ${g.label}`),
+      ...answerChips(turns, config),
+    ].slice(0, 4);
+    if (!parts.length) return '';
+    return answered(turns).length ? `Sigo con ${parts.join(' · ')}` : `Vale: ${parts.join(' · ')}.`;
+  }
+
+  /** Filtros previos activos en palabras ("Nintendo"); "me da igual" no cuenta. */
+  private filterLabels(preferences: SessionSeed['preferences'], config: DomainRow['config']): string[] {
+    return (config.preferences ?? []).flatMap((p) => {
+      const value = preferences?.[p.key]?.value;
+      return value && value !== p.anyValue ? [p.options.find((o) => o.value === value)?.label ?? value] : [];
+    });
+  }
+
   /** Elementos del ancla en el catálogo y lo que más los separa; sin anclas (o si falla), nada. */
   private async anchorFocus(session: SessionSeed, domain: DomainRow): Promise<AnchorFocus | null> {
     if (!session.anchors?.length) return null;
@@ -491,11 +707,17 @@ export class InterviewService implements OnModuleInit {
     return saved;
   }
 
-  view(row: SessionRow, domain: DomainRow): SessionView {
+  async view(row: SessionRow, domain: DomainRow): Promise<SessionView> {
     const { config } = domain;
     const current = pending(row.turns);
     const probe = current && config.probes.find((p) => p.id === current.probeId);
     const known = Object.keys(row.textSignals ?? {});
+    let candidates: SessionView['candidates'] = null;
+    if (row.bag?.length) {
+      const bag = row.bag;
+      const items = await this.bagItems(row, domain, bag).catch(() => null);
+      if (items) candidates = { left: Math.max(1, Math.round(effectiveCount(currentWeights(bag, items, row.turns, config, new Set(known))))), total: bag.length };
+    }
     return {
       id: row.id,
       domainId: row.domainId,
@@ -508,6 +730,7 @@ export class InterviewService implements OnModuleInit {
       question: current
         ? {
             text: current.text,
+            lead: current.lead ?? '',
             reason: current.reason,
             guess: `¿${probe?.yesChip ?? ''}?`,
             chips: { yes: probe?.yesChip ?? '', no: probe?.noChip ?? '' },
@@ -519,6 +742,9 @@ export class InterviewService implements OnModuleInit {
       fromText: signalChips(row.textSignals ?? {}, config),
       taste: (row.taste?.likes ?? []).map((l) => tasteLabel(l, config)),
       anchors: (row.anchors ?? []).map((a) => a.label),
+      filters: this.filterLabels(row.preferences, config),
+      excluded: config.tagGroups.filter((g) => row.exclusions?.includes(g.key)).map((g) => g.label),
+      candidates,
     };
   }
 }

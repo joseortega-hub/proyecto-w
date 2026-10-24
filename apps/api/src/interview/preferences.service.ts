@@ -15,18 +15,29 @@ export class PreferencesService {
   constructor(@Inject(DECISION_PROVIDER) private readonly decisions: DecisionProvider) {}
 
   async resolve(domain: DomainRow, chosen: Record<string, string> = {}, initialText?: string | null) {
-    const prefs = domain.config.preferences ?? [];
+    const open = (domain.config.preferences ?? []).filter((p) => !this.valid(domain, p.key, chosen[p.key]));
+    const guessed = open.length && initialText?.trim() ? await this.guess(domain, initialText, open.map((p) => p.key)) : {};
+    return this.merge(
+      domain,
+      chosen,
+      Object.fromEntries(Object.entries(guessed).map(([k, g]) => [k, { value: g.value, confidence: g.confidence ?? 0.7 }])),
+    );
+  }
+
+  /** Lo elegido con los botones gana a lo deducido; sin ninguna de las dos, "me da igual". */
+  merge(domain: DomainRow, chosen: Record<string, string> = {}, guessed: Record<string, { value: string; confidence: number }> = {}): SessionPreferences {
     const out: SessionPreferences = {};
-    for (const pref of prefs) {
-      const value = chosen[pref.key];
-      if (value && pref.options.some((o) => o.value === value)) {
-        out[pref.key] = { value, source: 'user', confidence: null };
-      }
+    for (const pref of domain.config.preferences ?? []) {
+      if (this.valid(domain, pref.key, chosen[pref.key])) out[pref.key] = { value: chosen[pref.key], source: 'user', confidence: null };
+      else if (this.valid(domain, pref.key, guessed[pref.key]?.value)) {
+        out[pref.key] = { value: guessed[pref.key].value, source: 'guess', confidence: guessed[pref.key].confidence };
+      } else out[pref.key] = { value: pref.anyValue, source: 'user', confidence: null };
     }
-    const open = prefs.filter((p) => !out[p.key]);
-    if (open.length && initialText?.trim()) Object.assign(out, await this.guess(domain, initialText, open.map((p) => p.key)));
-    for (const pref of prefs) out[pref.key] ??= { value: pref.anyValue, source: 'user', confidence: null };
     return out;
+  }
+
+  private valid(domain: DomainRow, key: string, value: string | undefined): value is string {
+    return !!value && !!(domain.config.preferences ?? []).find((p) => p.key === key)?.options.some((o) => o.value === value);
   }
 
   /** Deduce las preferencias a partir del texto inicial. Si falla, no deduce nada. */

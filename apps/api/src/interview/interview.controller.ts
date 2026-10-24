@@ -6,10 +6,32 @@ import { TuningService } from './tuning.service.js';
 import { USER_HEADER } from '../taste/taste.controller.js';
 import { optionalUserId } from '../taste/taste.service.js';
 
+const anchorSchema = z.object({
+  label: z.string().min(1).max(60),
+  kind: z.enum(['franchise', 'creator', 'studio', 'title', 'tag']),
+  terms: z.array(z.string().max(60)).max(10),
+  required: z.boolean(),
+});
+/** Lo entendido del texto, ya corregido por la persona en la tarjeta. */
+const understandingSchema = z.object({
+  moods: z.array(z.object({ key: z.string().max(40), level: z.enum(['low', 'high']) })).max(12),
+  anchors: z.array(anchorSchema).max(3),
+  preferences: z.record(z.string(), z.string().max(40)),
+  exclusions: z.array(z.string().max(40)).max(10),
+});
+const understandSchema = z.object({
+  domainId: z.string().default('music'),
+  text: z.string().min(1).max(500),
+});
+
 const startSchema = z.object({
   domainId: z.string().default('music'),
   /** Punto de partida opcional (texto o voz transcrita). Se trata como dato, nunca como instrucción. */
   initialText: z.string().max(500).optional(),
+  /** Preferencias elegidas con los botones (`{ language: 'es' }`): ganan a las deducidas del texto. */
+  preferences: z.record(z.string(), z.string().max(40)).optional(),
+  /** Lo entendido del texto ya corregido; si falta, se entiende en el servidor. */
+  understanding: understandingSchema.optional(),
   /** Contexto del navegador: zona horaria y, si ya dio permiso, posición aproximada. */
   client: z
     .object({
@@ -38,10 +60,17 @@ export class InterviewController {
     private readonly tuning: TuningService,
   ) {}
 
+  /** "Esto es lo que he entendido": ánimo, anclas, preferencias y exclusiones del texto, sin crear la sesión ni guardar el texto. */
+  @Post('understand')
+  understand(@Body() body: unknown, @Headers(USER_HEADER) user?: string) {
+    const { domainId, text } = parse(understandSchema, body);
+    return this.interviews.understand(domainId, text, optionalUserId(user));
+  }
+
   @Post()
   start(@Body() body: unknown, @Headers(USER_HEADER) user?: string) {
-    const { domainId, initialText, client } = parse(startSchema, body);
-    return this.interviews.start(domainId, { initialText, client, userId: optionalUserId(user) });
+    const { domainId, initialText, client, preferences, understanding } = parse(startSchema, body);
+    return this.interviews.start(domainId, { initialText, client, preferences, understanding, userId: optionalUserId(user) });
   }
 
   @Get(':id')

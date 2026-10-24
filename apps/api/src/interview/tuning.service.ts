@@ -32,6 +32,7 @@ import {
 import { stateExtras } from './interview.context.js';
 import { ANCHOR_BOOST, ANCHOR_MATCH, anchorMatches, anchorMode, anchorNotice, anchorQueryText, bestAnchor, shortReason } from './anchors.js';
 import { AnchorsService } from './anchors.service.js';
+import { currentWeights } from './candidates.js';
 import { InterviewService } from './interview.service.js';
 import type { Anchor, MoodProfile, SessionResult } from './interview.types.js';
 
@@ -47,6 +48,8 @@ const SCORE_LEVELS: [string, string, string, string, string] = ['Muy bajo', 'Baj
 const FIT_BATCH = 8;
 /** Vecinos semánticos que se traen de pgvector antes del ranking híbrido. */
 const SEMANTIC_POOL = 120;
+/** Cuánto empuja a la relevancia (0–1) el peso que dejó la entrevista a cada candidata de la bolsa. */
+const BAG_BOOST = 0.8;
 
 const titleSchema = z.object({
   title: z.string().describe('Título corto y evocador para la lista, de 2 a 4 palabras'),
@@ -98,7 +101,9 @@ export class TuningService {
     const anchors = session.anchors ?? [];
     // Lo que se buscó en directo al empezar tiene que estar guardado antes de leer el catálogo.
     if (anchors.length) await this.anchors.awaitCoverage(domain, anchors, session.userId);
-    const catalog = await this.items.catalog(domain.id, filters, session.userId);
+    const excludedTags = new Set(config.tagGroups.filter((g) => session.exclusions?.includes(g.key)).flatMap((g) => g.tags));
+    // Lo que no quiere ("nada de terror") no sale nunca, tenga o no bolsa la entrevista.
+    const catalog = (await this.items.catalog(domain.id, filters, session.userId)).filter((it) => !it.tags.some((t) => excludedTags.has(t)));
     const matched = anchorMatches(catalog, anchors);
     const plan: AnchorPlan = { anchors, mode: anchorMode(anchors, matched.length, config.result.size), matched: new Set(matched.map((m) => m.id)) };
     if (anchors.length) this.logger.log(`Anclas ${anchors.map((a) => a.label).join(', ')}: ${matched.length} en el catálogo → ${plan.mode}`);
@@ -258,6 +263,7 @@ export class TuningService {
     plan: AnchorPlan,
   ): Promise<HybridCandidate<ItemWithoutEmbedding>[]> {
     const { config } = domain;
+    if (session.bag?.length) return this.findInBag(session, domain, profile, catalog, taste, plan);
     // Con `filter`, la bolsa es solo lo que pidió; si no, lo que pidió entra siempre y sube.
     const scope = plan.mode === 'filter' ? catalog.filter((it) => plan.matched.has(it.id)) : catalog;
     const byAttributes = rankCandidates(scope, profile, config, SEMANTIC_POOL / 2, 2, taste);
@@ -306,6 +312,43 @@ export class TuningService {
     for (const item of missing) pool.set(item.id, { item, semantic: sims.get(item.id) ?? null });
     this.logger.log(`Consulta semántica: "${query}" → ${pool.size - missing.length} vecinos + ${missing.length} por atributos o por ancla`);
     return hybridRank([...pool.values()], profile, config, config.result.candidates, options);
+  }
+
+  /**
+   * Entrevista guiada por candidatas: la lista sale de la MISMA bolsa por la que se preguntó,
+   * con los pesos que dejaron las respuestas como empujón sobre el ranking híbrido (atributos
+   * + semántica + gustos). Nada de fuera de la bolsa: respeta filtros, anclas y exclusiones.
+   */
+  private async findInBag(
+    session: SessionRow,
+    domain: DomainRow,
+    profile: MoodProfile,
+    catalog: ItemWithoutEmbedding[],
+    taste: TasteProfile | null,
+    plan: AnchorPlan,
+  ): Promise<HybridCandidate<ItemWithoutEmbedding>[]> {
+    const { config } = domain;
+    const byId = new Map(catalog.map((it) => [it.id, it]));
+    const present = (session.bag ?? []).filter((e) => byId.has(e.id));
+    const weights = currentWeights(present, byId, session.turns, config, new Set(Object.keys(session.textSignals ?? {})));
+    const pct = percentiles(weights);
+    const boost = new Map(present.map((e, i) => [e.id, BAG_BOOST * pct[i]]));
+    const query = [profileQueryText(profile, config, domain.itemNounPlural, session.initialText), anchorQueryText(plan.anchors)].filter(Boolean).join('. ');
+    const vector = await this.embeddings
+      .embed([query], 'query')
+      .then(([v]) => v)
+      .catch((error: Error) => {
+        this.logger.warn(`Sin búsqueda semántica: ${error.message}`);
+        return null;
+      });
+    const sims = vector ? await this.items.similarities(domain.id, present.map((e) => e.id), vector, session.userId) : new Map<string, number | null>();
+    const pool = present.map((e) => ({ item: byId.get(e.id)!, semantic: sims.get(e.id) ?? null }));
+    this.logger.log(`Lista desde la bolsa: ${pool.length} candidatas${vector ? ' + parecido semántico' : ''}`);
+    return hybridRank(pool, profile, config, config.result.candidates, {
+      taste,
+      perArtist: plan.mode === 'filter' || plan.anchors.some((a) => a.kind === 'creator') ? config.result.size : 2,
+      boost: (item) => boost.get(item.id) ?? 0,
+    });
   }
 
   /**

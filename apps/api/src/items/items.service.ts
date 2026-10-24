@@ -51,6 +51,15 @@ export class ItemsService {
       .where(and(eq(items.domainId, domainId), visibleTo(userId), facetCondition(filters)));
   }
 
+  /** Elementos concretos de un dominio (la bolsa de candidatas de una entrevista), sin embeddings. */
+  byIds(domainId: string, ids: string[], userId: string | null = null): Promise<ItemWithoutEmbedding[]> {
+    if (!ids.length) return Promise.resolve([]);
+    return this.db
+      .select(itemColumns)
+      .from(items)
+      .where(and(eq(items.domainId, domainId), visibleTo(userId), inArray(items.id, ids)));
+  }
+
   /**
    * Los `limit` elementos más cercanos al vector, con su similitud coseno (0–1).
    * Usa el índice HNSW; `iterative_scan` evita quedarse corto al filtrar por dominio.

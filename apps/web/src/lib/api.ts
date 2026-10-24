@@ -16,7 +16,7 @@ export interface SessionView {
   maxQuestions: number
   confidence: number
   chips: string[]
-  question: { text: string; reason: string; guess: string; chips: { yes: string; no: string } } | null
+  question: { text: string; lead: string; reason: string; guess: string; chips: { yes: string; no: string } } | null
   canUndo: boolean
   decisionProvider: string
   /** Hora, día y tiempo con los que se adapta la entrevista. */
@@ -27,6 +27,34 @@ export interface SessionView {
   taste: string[]
   /** Lo concreto que pidió en el punto de partida ("Marvel"): la entrevista y la lista se centran en ello. */
   anchors: string[]
+  /** Filtros previos activos ("Nintendo") y lo que no quiere ("terror"). */
+  filters: string[]
+  excluded: string[]
+  /** Candidatas que quedan (masa efectiva de la bolsa); null si la entrevista no lleva bolsa. */
+  candidates: { left: number; total: number } | null
+}
+
+export interface Anchor {
+  label: string
+  kind: 'franchise' | 'creator' | 'studio' | 'title' | 'tag'
+  terms: string[]
+  required: boolean
+}
+
+/** Lo que la IA entiende del texto inicial ("Esto es lo que he entendido"). */
+export interface Understanding {
+  moods: { key: string; level: 'low' | 'high'; confidence: number }[]
+  anchors: Anchor[]
+  preferences: Record<string, { value: string; confidence: number }>
+  exclusions: string[]
+}
+
+/** Lo entendido ya corregido por la persona, que viaja con la creación de la sesión. */
+export interface EditedUnderstanding {
+  moods: { key: string; level: 'low' | 'high' }[]
+  anchors: Anchor[]
+  preferences: Record<string, string>
+  exclusions: string[]
 }
 
 export interface Item {
@@ -288,8 +316,13 @@ export const api = {
     request<GeneratedTheme>('/themes/generate', { method: 'POST', body: JSON.stringify({ description, variant }) }),
   getDomains: () => request<DomainInfo[]>('/domains'),
   /** `initialText` es el punto de partida opcional (texto o voz) antes de las preguntas. */
-  startSession: (domainId: string, options: { initialText?: string; client?: ClientContext } = {}) =>
-    request<SessionView>('/sessions', { method: 'POST', body: JSON.stringify({ domainId, ...options }) }),
+  startSession: (
+    domainId: string,
+    options: { initialText?: string; client?: ClientContext; preferences?: Record<string, string>; understanding?: EditedUnderstanding } = {},
+  ) => request<SessionView>('/sessions', { method: 'POST', body: JSON.stringify({ domainId, ...options }) }),
+  /** Lo que se entiende del texto, sin crear la sesión (el texto no se guarda). */
+  understand: (domainId: string, text: string) =>
+    request<Understanding>('/sessions/understand', { method: 'POST', body: JSON.stringify({ domainId, text }) }),
   getSession: (id: string) => request<SessionView>(`/sessions/${id}`),
   /** `step` es el número de la pregunta que se responde: el servidor rechaza (409) los dobles envíos. */
   answer: (id: string, answer: Answer, step?: number) =>

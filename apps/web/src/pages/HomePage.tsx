@@ -39,7 +39,8 @@ export function HomePage() {
   }, [taste.data])
 
   // El texto viaja en el estado de la navegación, nunca en la URL ni en el dispositivo.
-  const start = (initialText?: string) => navigate(domain.path('entrevista'), { state: initialText ? { initialText } : null })
+  // Las preferencias elegidas con los botones viajan con él: la entrevista las conoce desde la primera pregunta.
+  const start = (initialText?: string) => navigate(domain.path('entrevista'), { state: { ...(initialText ? { initialText } : {}), preferences: chosen } })
   const liked = taste.data?.likes ?? []
 
   return (

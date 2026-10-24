@@ -1,15 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, IconButton, Text } from '@/components/atoms'
-import { ContextBadge, EmptyState, InterviewProgress } from '@/components/molecules'
+import { ContextBadge, EmptyState, InterviewProgress, UnderstandingCard, type UnderstoodChip } from '@/components/molecules'
 import { DemoDock, InterviewPanel } from '@/components/organisms'
 import { FocusTemplate } from '@/components/templates/FocusTemplate'
-import { ApiError, api, type Answer, type SessionView } from '@/lib/api'
+import { ApiError, api, type Answer, type SessionView, type Understanding } from '@/lib/api'
 import { clientContext } from '@/lib/context'
 import { useDomain } from '@/lib/domain'
 import { rememberSession, useDemoMode, useLiveTraces } from '@/lib/ops'
+import { storedPreferences } from '@/lib/preferences'
 
 /** /:domain/entrevista crea la sesión y redirige a /:domain/entrevista/:sesion. */
 export function InterviewPage() {
@@ -20,22 +21,79 @@ export function InterviewPage() {
   const domain = useDomain()
   // Punto de partida opcional (texto o voz) que llega desde Inicio en el estado de la navegación.
   const location = useLocation()
-  const initialText = (location.state as { initialText?: string } | null)?.initialText
+  const navState = location.state as { initialText?: string; preferences?: Record<string, string> } | null
+  const initialText = navState?.initialText
+  // Lo elegido con los botones ya se aplica en la primera pregunta, no solo al afinar.
+  const [prefs, setPrefs] = useState<Record<string, string>>(() => navState?.preferences ?? storedPreferences(domain.id))
+  // Lo entendido del texto, que la persona corrige en la tarjeta antes de empezar.
+  const [understood, setUnderstood] = useState<Understanding | null>(null)
+  const [removed, setRemoved] = useState<Set<string>>(new Set())
+
+  const understand = useMutation({
+    mutationFn: () => api.understand(domain.id, initialText!),
+    onSuccess: (u) => {
+      setUnderstood(u)
+      setPrefs((prev) => ({ ...Object.fromEntries(Object.entries(u.preferences).map(([k, v]) => [k, v.value])), ...prev }))
+    },
+    // Si no se puede entender, se empieza igual: el servidor lo vuelve a intentar con el texto.
+    onError: () => setUnderstood({ moods: [], anchors: [], preferences: {}, exclusions: [] }),
+  })
+
+  const chips = useMemo<UnderstoodChip[] | null>(() => {
+    if (!understood) return null
+    const out: UnderstoodChip[] = []
+    for (const m of understood.moods) {
+      const attr = domain.info?.attributes.find((a) => a.key === m.key)
+      const label = m.level === 'high' ? attr?.highLabel : attr?.lowLabel
+      if (label) out.push({ id: `mood:${m.key}`, icon: '😴', label })
+    }
+    for (const a of understood.anchors) out.push({ id: `anchor:${a.label}`, icon: '🎯', label: a.label })
+    for (const p of domain.info?.preferences ?? []) {
+      const value = prefs[p.key]
+      if (value && value !== p.anyValue) {
+        out.push({ id: `pref:${p.key}`, icon: p.key === 'platforms' ? '🎮' : '🌐', label: p.label, value, options: p.options })
+      }
+    }
+    for (const g of understood.exclusions) out.push({ id: `out:${g}`, icon: '🚫', label: domain.info?.tagGroups.find((t) => t.key === g)?.label ?? g })
+    return out.filter((c) => !removed.has(c.id))
+  }, [understood, prefs, removed, domain.info])
 
   const start = useMutation({
-    mutationFn: async () => api.startSession(domain.id, { initialText, client: await clientContext() }),
+    mutationFn: async () => {
+      const kept = (id: string) => !removed.has(id)
+      return api.startSession(domain.id, {
+        initialText,
+        client: await clientContext(),
+        preferences: prefs,
+        understanding: understood
+          ? {
+              moods: understood.moods.filter((m) => kept(`mood:${m.key}`)).map(({ key, level }) => ({ key, level })),
+              anchors: understood.anchors.filter((a) => kept(`anchor:${a.label}`)),
+              preferences: {},
+              exclusions: understood.exclusions.filter((g) => kept(`out:${g}`)),
+            }
+          : undefined,
+      })
+    },
     onSuccess: (s) => {
       queryClient.setQueryData(['session', s.id], s)
       navigate(domain.path(`entrevista/${s.id}`), { replace: true })
     },
   })
 
+  // Con texto, primero se enseña lo entendido; sin texto, directo a las preguntas.
   useEffect(() => {
     if (!sesion && !started.current) {
       started.current = true
-      start.mutate()
+      if (initialText) understand.mutate()
+      else start.mutate()
     }
-  }, [sesion, start])
+  }, [sesion, start, understand, initialText])
+
+  // Si no hay nada que corregir, no se hace perder tiempo con la tarjeta.
+  useEffect(() => {
+    if (!sesion && understood && chips?.length === 0 && !start.isPending && !start.isSuccess) start.mutate()
+  }, [sesion, understood, chips, start])
 
   const session = useQuery({
     queryKey: ['session', sesion],
@@ -66,11 +124,12 @@ export function InterviewPage() {
   const undo = useMutation({ mutationFn: () => api.undo(sesion!), onSuccess: update, onError })
 
   const data = session.data
+  const reviewing = !sesion && !!initialText && !start.isPending && !start.isSuccess && !start.isError
   const thinking = start.isPending || answer.isPending || undo.isPending || (!data && !session.isError)
   // Respuesta optimista: su etiqueta aparece al instante mientras llega la siguiente pregunta.
   const pendingAnswer = answer.isPending ? answer.variables?.a : undefined
   const optimisticChip = pendingAnswer && pendingAnswer !== 'unknown' ? data?.question?.chips[pendingAnswer] : undefined
-  const chips = [...(data?.chips ?? []), ...(optimisticChip ? [optimisticChip] : [])]
+  const answerChips = [...(data?.chips ?? []), ...(optimisticChip ? [optimisticChip] : [])]
   const onAnswer = (a: Answer) => {
     // Un solo envío por pregunta, aunque se toque dos veces antes de que se repinte.
     if (!data?.question || answer.isPending) return
@@ -97,6 +156,23 @@ export function InterviewPage() {
     )
   }
 
+  if (reviewing) {
+    return (
+      <FocusTemplate className="justify-center">
+        <UnderstandingCard
+          chips={chips}
+          onRemove={(id) => {
+            if (id.startsWith('pref:')) setPrefs((p) => ({ ...p, [id.slice(5)]: domain.info?.preferences.find((x) => x.key === id.slice(5))?.anyValue ?? 'any' }))
+            else setRemoved((r) => new Set(r).add(id))
+          }}
+          onChange={(id, value) => setPrefs((p) => ({ ...p, [id.slice(5)]: value }))}
+          onStart={() => start.mutate()}
+          starting={start.isPending}
+        />
+      </FocusTemplate>
+    )
+  }
+
   const stepLabel = !data
     ? 'Preparando…'
     : data.question || thinking
@@ -113,7 +189,7 @@ export function InterviewPage() {
         <IconButton icon="undo" label="Deshacer la última respuesta" disabled={!data?.canUndo || thinking} onClick={() => undo.mutate()} />
       </header>
       <InterviewProgress confidence={data?.confidence ?? 0.1} />
-      {data && (data.context.diaSemana || data.taste.length > 0 || data.fromText.length > 0 || data.anchors.length > 0) && (
+      {data && (data.context.diaSemana || data.taste.length > 0 || data.fromText.length > 0 || data.anchors.length > 0 || data.filters.length > 0 || data.excluded.length > 0 || data.candidates) && (
         <div className="flex flex-wrap items-center gap-2" aria-label="Lo que ya tengo en cuenta">
           <ContextBadge context={data.context} />
           {data.taste.length > 0 && (
@@ -127,6 +203,21 @@ export function InterviewPage() {
               🎯 {data.anchors.join(', ')}
             </span>
           )}
+          {data.filters.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-domain-soft px-3 py-1 text-[13px]" title="Tus filtros">
+              🎮 {data.filters.join(', ')}
+            </span>
+          )}
+          {data.excluded.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-domain-soft px-3 py-1 text-[13px]" title="Lo que no quieres">
+              🚫 {data.excluded.join(', ')}
+            </span>
+          )}
+          {data.candidates && (
+            <span className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-[13px] font-bold" aria-live="polite" title="Las que aún pueden encajar contigo">
+              Quedan ~{data.candidates.left} candidatas
+            </span>
+          )}
           {data.fromText.length > 0 && (
             <span className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-[13px] text-muted-foreground">
               Por lo que me has contado: {data.fromText.join(', ')}
@@ -136,7 +227,7 @@ export function InterviewPage() {
       )}
       <InterviewPanel
         question={answer.isPending ? null : (data?.question ?? null)}
-        chips={chips}
+        chips={answerChips}
         thinking={thinking}
         onAnswer={onAnswer}
         onFinish={() => navigate(domain.path(`resultado/${sesion}`))}

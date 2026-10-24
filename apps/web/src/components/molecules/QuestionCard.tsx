@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils'
 
 interface QuestionCardProps {
   question?: string
+  /** Una línea de contexto antes de la pregunta ("Vale: Marvel · para desconectar."). */
+  lead?: string
   reason?: string
   loading?: boolean
   /** En móvil la pregunta va sin tarjeta; en escritorio, dentro de una. */
@@ -11,7 +13,7 @@ interface QuestionCardProps {
 }
 
 /** La pregunta actual y por qué la hace el motor ahora. */
-export function QuestionCard({ question, reason, loading, framed = false }: QuestionCardProps) {
+export function QuestionCard({ question, lead, reason, loading, framed = false }: QuestionCardProps) {
   const body = loading ? (
     <div className="flex flex-col gap-3" aria-busy aria-label="Pensando la siguiente pregunta">
       <Skeleton className="h-9 w-11/12" />
@@ -20,6 +22,11 @@ export function QuestionCard({ question, reason, loading, framed = false }: Ques
     </div>
   ) : (
     <div className="flex flex-col gap-3.5">
+      {lead && (
+        <Text tone="muted" size="sm" className="text-[15px]">
+          {lead}
+        </Text>
+      )}
       <Heading size="question" aria-live="polite">
         {question}
       </Heading>

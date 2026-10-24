@@ -6,6 +6,18 @@ export interface InterviewTurn {
   text: string;
   reason: string;
   answer: Answer | null;
+  /** Una línea de contexto antes de la pregunta ("Vale: Marvel y algo tranquilo."). */
+  lead?: string;
+  /** Ganancia de información de la pregunta (bits), solo en entrevistas guiadas por candidatas. */
+  gain?: number;
+  /** Candidatas efectivas que quedaban al plantear la pregunta. */
+  left?: number;
+}
+
+/** Una candidata de la bolsa y su peso (los pesos suman 1). */
+export interface BagEntry {
+  id: string;
+  w: number;
 }
 
 export interface MoodProfile {
@@ -64,4 +76,25 @@ export interface Anchor {
   terms: string[];
   /** Si lo pide de forma explícita ("algo de Marvel") o es solo una referencia ("tipo Marvel"). */
   required: boolean;
+}
+
+/**
+ * Lo que la IA entiende del texto inicial, en una sola llamada. Es lo que se enseña en la
+ * tarjeta "Esto es lo que he entendido" para que la persona lo corrija antes de empezar.
+ */
+export interface Understanding {
+  moods: { key: string; level: 'low' | 'high'; confidence: number }[];
+  anchors: Anchor[];
+  /** Preferencias deducidas (las elegidas con los botones ganan a estas). */
+  preferences: Record<string, { value: string; confidence: number }>;
+  /** Claves de `tagGroups` que no quiere ("nada de terror"). */
+  exclusions: string[];
+}
+
+/** La comprensión tal y como la corrige la persona en la tarjeta antes de empezar. */
+export interface EditedUnderstanding {
+  moods: { key: string; level: 'low' | 'high' }[];
+  anchors: Anchor[];
+  preferences: Record<string, string>;
+  exclusions: string[];
 }

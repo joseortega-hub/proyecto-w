@@ -5,7 +5,6 @@ import { MoodProfile, PipelineSteps, type PipelineProgress } from '@/components/
 import { FocusTemplate } from '@/components/templates/FocusTemplate'
 import { api, type Attribute, type MoodProfile as Profile, type TuningEvent } from '@/lib/api'
 import { useDomain } from '@/lib/domain'
-import { applyPreferences, storedPreferences } from '@/lib/preferences'
 
 interface TuningPageProps {
   sessionId: string
@@ -16,7 +15,7 @@ interface TuningPageProps {
 }
 
 /** Afinando: estado de carga de /resultado con el progreso real del servidor (SSE). */
-export function TuningPage({ sessionId, domainId, refine, attributes, onDone }: TuningPageProps) {
+export function TuningPage({ sessionId, refine, attributes, onDone }: TuningPageProps) {
   const [profile, setProfile] = useState<Profile>()
   const [progress, setProgress] = useState<PipelineProgress>({ profile: false, explaining: false, done: false })
   const [error, setError] = useState<string>()
@@ -51,18 +50,9 @@ export function TuningPage({ sessionId, domainId, refine, attributes, onDone }: 
       }
     }
 
-    let cancelled = false
-    let stop: (() => void) | undefined
-    // Primero las preferencias previas (idioma…), que filtran la búsqueda. Si fallan, se afina sin ellas.
-    applyPreferences(sessionId, storedPreferences(domainId))
-      .catch(() => undefined)
-      .then(() => {
-        if (!cancelled) stop = api.tune(sessionId, refineKey ? refineKey.split(',') : [], onEvent)
-      })
-    return () => {
-      cancelled = true
-      stop?.()
-    }
+    // Las preferencias previas ya van en la sesión desde que empezó la entrevista.
+    const stop = api.tune(sessionId, refineKey ? refineKey.split(',') : [], onEvent)
+    return () => stop()
     // onDone cambia en cada render del padre; solo relanzamos al cambiar la sesión, los ajustes o al reintentar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, refineKey, attempt])

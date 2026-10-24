@@ -3,7 +3,7 @@ import { AnswerPair, QuestionCard } from '@/components/molecules'
 import type { Answer } from '@/lib/api'
 
 interface InterviewPanelProps {
-  question: { text: string; reason: string; guess: string } | null
+  question: { text: string; lead?: string; reason: string; guess: string } | null
   chips: string[]
   thinking: boolean
   onAnswer: (answer: Answer) => void
@@ -41,7 +41,7 @@ export function InterviewPanel({ question, chips, thinking, onAnswer, onFinish, 
   return (
     <>
       <div className="flex flex-1 flex-col justify-center">
-        <QuestionCard question={question?.text} reason={question?.reason} loading={thinking} framed={framed} />
+        <QuestionCard question={question?.text} lead={question?.lead} reason={question?.reason} loading={thinking} framed={framed} />
       </div>
       <div className="flex min-h-7 flex-wrap gap-1.5" aria-label="Lo que ya sé de ti">
         {chips.map((c) => (

@@ -8,6 +8,7 @@ import { AnchorsService } from './interview/anchors.service.js';
 import { InterviewService } from './interview/interview.service.js';
 import { PreferencesController } from './interview/preferences.controller.js';
 import { PreferencesService } from './interview/preferences.service.js';
+import { UnderstandingService } from './interview/understanding.service.js';
 import { SessionCleanupService } from './interview/session-cleanup.service.js';
 import { QuestionBankService } from './interview/question-bank.service.js';
 import { TuningService } from './interview/tuning.service.js';
@@ -39,6 +40,7 @@ import { YouTubeService } from './youtube/youtube.service.js';
     CreditsService,
     SessionCleanupService,
     PreferencesService,
+    UnderstandingService,
     TasteService,
     YouTubeService,
     FolderService,

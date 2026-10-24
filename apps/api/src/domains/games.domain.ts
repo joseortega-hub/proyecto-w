@@ -44,7 +44,7 @@ export const gamesDomain: DomainDefinition = {
       { id: 'short', intent: 'Si tiene poco tiempo y prefiere partidas cortas', informs: ['length'], yesChip: 'partidas cortas', noChip: 'para largo' },
       { id: 'epic', intent: 'Si quiere perderse durante horas en un mundo enorme', informs: ['length', 'story'], yesChip: 'para perderse', noChip: 'algo acotado' },
       { id: 'fun', intent: 'Si busca algo desenfadado y con humor', informs: ['lightness'], yesChip: 'desenfadado', noChip: 'serio' },
-      { id: 'dark', intent: 'Si le apetece algo oscuro o que dé miedo', informs: ['lightness', 'genres'], yesChip: 'oscuro', noChip: 'sin sustos' },
+      { id: 'dark', intent: 'Si le apetece algo oscuro o que dé miedo', informs: ['lightness', 'genres'], groups: ['horror'], yesChip: 'oscuro', noChip: 'sin sustos' },
       { id: 'action', intent: 'Si le apetece acción, disparos o peleas', informs: ['genres'], yesChip: 'acción', noChip: 'sin tiros' },
       { id: 'rpg', intent: 'Si le apetece rol o aventura', informs: ['genres'], yesChip: 'rol y aventura', noChip: 'sin rol' },
       { id: 'strategy', intent: 'Si le apetece pensar y planificar, como en un juego de estrategia', informs: ['genres'], yesChip: 'estrategia', noChip: 'sin estrategia' },

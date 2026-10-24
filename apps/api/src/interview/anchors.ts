@@ -1,5 +1,6 @@
 // Intención explícita: lo concreto que pide la persona ("algo de Marvel", "Pokémon").
 // Lógica pura, sin IA ni base de datos, común a todos los dominios.
+import { z } from 'zod';
 import type { DomainConfig } from '../domains/domain.types.js';
 import { characterWords, matchHints, normalize, type Rankable } from './interview.engine.js';
 
@@ -145,3 +146,25 @@ export function shortReason(item: AnchorItem & { facets?: Record<string, string 
 /** Texto para la consulta semántica: lo pedido pesa aunque el texto inicial ya se haya borrado. */
 export const anchorQueryText = (anchors: Anchor[]) =>
   anchors.length ? `Pedido concreto: ${anchors.map((a) => [a.label, ...a.terms.slice(0, 5)].join(', ')).join('; ')}` : null;
+
+// --- Extracción: forma que devuelve la IA ---
+
+export const anchorItemSchema = z.object({
+  label: z.string().describe('El nombre tal y como se escribe normalmente ("Marvel", "Pokémon", "Brandon Sanderson", "dembow")'),
+  kind: z
+    .enum(['franchise', 'creator', 'studio', 'title', 'tag'])
+    .describe('franchise: franquicia o saga; creator: persona (artista, autor, director); studio: estudio, compañía o sello; title: una obra concreta; tag: género o estilo concreto'),
+  terms: z
+    .array(z.string())
+    .describe('De 4 a 10 términos para encontrarlo en títulos, etiquetas o sinopsis: el nombre, sus variantes en español e inglés y, en franquicias, sagas y estudios, sus títulos y personajes más conocidos tal como aparecen en los títulos (p. ej. para Marvel: "Vengadores", "Avengers", "Spider-Man", "Iron Man", "Thor", "Capitán América", "Black Panther", "Guardianes de la Galaxia")'),
+  required: z.boolean().describe('true si lo pide de forma explícita ("algo de Marvel"); false si es una referencia de estilo ("algo tipo Marvel")'),
+});
+
+
+/** Como mucho 3 anclas, con el nombre y los términos limpios. */
+export const cleanAnchors = (anchors: Anchor[]): Anchor[] =>
+  anchors
+    .filter((a) => a.label.trim())
+    .slice(0, 3)
+    .map((a) => ({ ...a, label: a.label.trim(), terms: [...new Set(a.terms.map((t) => t.trim()).filter(Boolean))].slice(0, 10) }));
+

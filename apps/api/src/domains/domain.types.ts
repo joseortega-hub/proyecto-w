@@ -27,6 +27,8 @@ export interface Probe {
   intent: string;
   /** Atributos de escala o grupos de etiquetas que informa esta pregunta. */
   informs: string[];
+  /** Grupos de estilo (`tagGroups`) por los que pregunta; por defecto, el grupo con su mismo id. */
+  groups?: string[];
   yesChip: string;
   noChip: string;
 }

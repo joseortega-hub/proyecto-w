@@ -16,7 +16,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import type { DomainConfig } from '../domains/domain.types.js';
 import type { InterviewContext } from '../interview/interview.context.js';
-import type { Anchor, InterviewTurn, MoodProfile, SessionPreferences, SessionResult, TextSignals } from '../interview/interview.types.js';
+import type { Anchor, BagEntry, InterviewTurn, MoodProfile, SessionPreferences, SessionResult, TextSignals } from '../interview/interview.types.js';
 import type { Feedback, TasteProfile } from '../taste/taste.engine.js';
 import type { YouTubeImportState } from '../youtube/youtube.types.js';
 
@@ -112,6 +112,10 @@ export const interviewSessions = pgTable('interview_sessions', {
   textSignals: jsonb('text_signals').$type<TextSignals>().notNull().default({}),
   /** Lo concreto que pidió en el texto inicial ("Marvel"): filtra o sube la búsqueda y enfoca las preguntas. */
   anchors: jsonb('anchors').$type<Anchor[]>().notNull().default([]),
+  /** Lo que no quiere (claves de `tagGroups`, p. ej. `horror`): nunca se pregunta ni se recomienda. */
+  exclusions: jsonb('exclusions').$type<string[]>().notNull().default([]),
+  /** Bolsa de candidatas con su peso inicial (hasta ~150). Null en entrevistas sin texto ni filtros. */
+  bag: jsonb('bag').$type<BagEntry[]>(),
   profile: jsonb('profile').$type<MoodProfile>(),
   result: jsonb('result').$type<SessionResult>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
