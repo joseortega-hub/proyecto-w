@@ -1,7 +1,8 @@
 // Rellena los datos "para frikis" (items.details) de lo ya importado, sin IA: pnpm details [dominio…]
+// Con --prod rellena la BD de producción (PROD_DATABASE_URL del .env); sin él, la local.
 // Tira de las APIs de cada fuente (TMDB, RAWG, Open Library, Jamendo). Se puede reanudar:
 // solo procesa los elementos con details vacío. Los créditos de MusicBrainz no van aquí:
-// se piden al abrir la ficha. Para producción: DATABASE_URL=$PROD_DATABASE_URL pnpm details
+// se piden al abrir la ficha. Para producción: pnpm details --prod
 import { and, eq, sql } from 'drizzle-orm';
 import { config } from '../config.js';
 import { createDb } from '../db/client.js';
@@ -12,7 +13,14 @@ import { RawgAdapter } from './rawg.adapter.js';
 import { TmdbAdapter } from './tmdb.adapter.js';
 
 const only = process.argv.slice(2).filter((a) => !a.startsWith('--'));
-const { db, client } = createDb();
+const prod = process.argv.includes('--prod');
+const target = prod ? process.env.PROD_DATABASE_URL?.trim() : undefined;
+if (prod && !target) {
+  console.error('Falta PROD_DATABASE_URL en el .env (cadena de conexión de Neon).');
+  process.exit(1);
+}
+const { db, client } = createDb(target);
+console.log(prod ? 'Base de datos: producción (Neon)' : 'Base de datos: local');
 
 const sources: Record<string, { domainId: string; source: string; create: () => { details(externalId: string): Promise<ItemDetails> } }> = {
   movies: { domainId: 'movies', source: 'tmdb', create: () => new TmdbAdapter(config.tmdbApiKey) },
