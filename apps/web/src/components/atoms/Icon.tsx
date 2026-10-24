@@ -39,6 +39,9 @@ import {
   CloudLightning,
   CloudFog,
   Wand2,
+  ListPlus,
+  TvMinimalPlay,
+  Unplug,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -83,6 +86,9 @@ const ICONS = {
   snow: CloudSnow,
   storm: CloudLightning,
   fog: CloudFog,
+  youtube: TvMinimalPlay,
+  listPlus: ListPlus,
+  unplug: Unplug,
 }
 
 export type IconName = keyof typeof ICONS

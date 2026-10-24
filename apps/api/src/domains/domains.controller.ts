@@ -1,7 +1,9 @@
-import { BadRequestException, Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
 import { z } from 'zod';
 import { PreferencesService } from '../interview/preferences.service.js';
 import { DomainsService } from './domains.service.js';
+import { USER_HEADER } from '../taste/taste.controller.js';
+import { optionalUserId } from '../taste/taste.service.js';
 
 const guessSchema = z.object({ text: z.string().trim().min(1).max(500) });
 
@@ -13,8 +15,8 @@ export class DomainsController {
   ) {}
 
   @Get()
-  list() {
-    return this.domains.list();
+  list(@Headers(USER_HEADER) user?: string) {
+    return this.domains.list(optionalUserId(user));
   }
 
   /** Preselecciona las preferencias previas (p. ej. idioma) a partir del texto inicial. No guarda el texto. */

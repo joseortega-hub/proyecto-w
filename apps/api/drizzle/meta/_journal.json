@@ -43,6 +43,13 @@
       "when": 1792782020995,
       "tag": "0005_taste_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792799278744,
+      "tag": "0006_youtube",
+      "breakpoints": true
     }
   ]
 }

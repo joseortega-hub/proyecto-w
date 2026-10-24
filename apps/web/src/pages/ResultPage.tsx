@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, Chip, Heading, Icon, IconButton, Skeleton, Text } from '@/components/atoms'
@@ -9,6 +10,7 @@ import { totalMinutes } from '@/lib/format'
 import { agree, useDomain } from '@/lib/domain'
 import { useSavedLists } from '@/lib/saved-lists'
 import { useFeedback, useTaste } from '@/lib/taste'
+import { useSaveToYouTube } from '@/lib/youtube'
 import { usePlayer } from '@/player/player-context'
 import { TuningPage } from './TuningPage'
 
@@ -23,6 +25,13 @@ export function ResultPage() {
   const { save, isSaved } = useSavedLists(domain.id)
   const taste = useTaste(domain.id)
   const feedback = useFeedback(domain.id)
+  const saveToYouTube = useSaveToYouTube(id)
+  const { prepareVideo } = player
+
+  // En "Mi YouTube" se carga ya el reproductor de YouTube: así el primer toque suena también en móvil.
+  useEffect(() => {
+    if (domain.personal) prepareVideo()
+  }, [domain.personal, prepareVideo])
 
   const refineParam = params.get('afinar')
   const tuning = refineParam !== null
@@ -118,6 +127,40 @@ export function ResultPage() {
             {saved ? 'Guardada' : 'Guardar'}
           </Button>
         </div>
+        {domain.personal &&
+          (data.youtube ? (
+            <Button variant="secondary" block asChild>
+              <a href={data.youtube.url} target="_blank" rel="noreferrer">
+                <Icon name="youtube" className="text-domain" /> Abrir en mi YouTube
+              </a>
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              block
+              disabled={saveToYouTube.isPending}
+              onClick={() =>
+                saveToYouTube.mutate(undefined, {
+                  onSuccess: (r) =>
+                    toast.success('Lista creada en tu YouTube (privada)', {
+                      description: r.failed ? `${r.failed} canciones no se han podido añadir.` : undefined,
+                      action: { label: 'Abrir', onClick: () => window.open(r.url, '_blank', 'noopener') },
+                    }),
+                  onError: (e) =>
+                    toast.error(e instanceof ApiError && e.code === 'youtube_reconnect' ? 'Vuelve a conectar tu YouTube' : 'No he podido crear la lista', {
+                      description: e.message,
+                      action:
+                        e instanceof ApiError && e.code === 'youtube_reconnect'
+                          ? { label: 'Conectar', onClick: () => navigate(domain.path()) }
+                          : undefined,
+                    }),
+                })
+              }
+            >
+              <Icon name="listPlus" className="text-domain" />
+              {saveToYouTube.isPending ? 'Creando la lista…' : 'Guardar en mi YouTube'}
+            </Button>
+          ))}
         <ResultList
           entries={data.entries}
           currentId={playingThisList ? player.current?.item.id : null}

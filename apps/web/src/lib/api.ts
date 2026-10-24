@@ -76,6 +76,8 @@ export interface DomainInfo {
   creatorLabel: string
   /** Solo los dominios reproducibles (música) usan el reproductor; el resto enlaza a la fuente. */
   playable: boolean
+  /** Catálogo personal: cada persona importa el suyo (la música de su YouTube) y solo ve lo suyo. */
+  personal: boolean
   /** Fuente de los datos con su atribución obligatoria. */
   source: { name: string; url: string; attribution: string }
   tagGroups: { key: string; label: string; tags: string[] }[]
@@ -111,7 +113,45 @@ export interface SessionResult {
   preferences: SessionPreferences
   /** Aviso cuando un filtro deja pocos elementos (p. ej. pocas en español). */
   notice: string | null
+  /** Lista ya creada en la cuenta de YouTube (solo en "Mi YouTube"). */
+  youtube: { playlistId: string; url: string } | null
   entries: ResultEntry[]
+}
+
+/** Progreso de la importación de la música de YouTube. */
+export interface YouTubeImport {
+  status: 'running' | 'done' | 'error'
+  step: string
+  found: number
+  added: number
+  analyzed: number
+  embedded: number
+  pending: number
+  quotaUnits: number
+  likedMusicPlaylist?: 'ok' | 'unavailable'
+  error?: string
+  startedAt: string
+  finishedAt?: string
+}
+
+export interface YouTubeStatus {
+  /** Si el servidor tiene cliente OAuth de Google. */
+  configured: boolean
+  /** `expired`: Google pide volver a conectar (cada 7 días en modo de pruebas). */
+  status: 'disconnected' | 'connected' | 'expired'
+  channelTitle: string | null
+  connectedAt: string | null
+  expiresAt: string | null
+  itemCount: number
+  import: YouTubeImport | null
+}
+
+export interface SavedPlaylist {
+  playlistId: string
+  url: string
+  added: number
+  failed: number
+  existing: boolean
 }
 
 export interface SimilarItems {
@@ -156,9 +196,12 @@ export interface Taste {
 
 export class ApiError extends Error {
   readonly status: number
-  constructor(status: number, message: string) {
+  /** Código de error de la API (p. ej. `youtube_reconnect`). */
+  readonly code?: string
+  constructor(status: number, message: string, code?: string) {
     super(message)
     this.status = status
+    this.code = code
   }
 }
 
@@ -169,7 +212,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new ApiError(res.status, body.message ?? `Error ${res.status}`)
+    throw new ApiError(res.status, body.message ?? `Error ${res.status}`, body.code)
   }
   return res.json() as Promise<T>
 }
@@ -210,6 +253,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ text }),
     }),
+
+  youtubeStatus: () => request<YouTubeStatus>('/youtube/status'),
+  /** URL de consentimiento de Google; el `state` queda ligado a este navegador con una cookie. */
+  youtubeAuth: () => request<{ url: string }>('/youtube/auth', { method: 'POST' }),
+  youtubeImport: () => request<YouTubeStatus>('/youtube/import', { method: 'POST' }),
+  youtubeDisconnect: () => request<{ disconnected: boolean; removed: number }>('/youtube', { method: 'DELETE' }),
+  /** Crea la lista del resultado en la cuenta de YouTube (privada por defecto). */
+  saveToYouTube: (sessionId: string, privacy: 'private' | 'unlisted' | 'public' = 'private') =>
+    request<SavedPlaylist>('/youtube/playlists', { method: 'POST', body: JSON.stringify({ sessionId, privacy }) }),
 
   /** Sigue el progreso de Afinando por Server-Sent Events. Devuelve la función para cancelar. */
   tune(id: string, refine: string[], onEvent: (e: TuningEvent) => void): () => void {

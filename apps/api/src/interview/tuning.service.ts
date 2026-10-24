@@ -93,7 +93,7 @@ export class TuningService {
 
     // Las preferencias previas (p. ej. idioma) filtran el catálogo antes de buscar, no después.
     const filters = preferenceFilters(session.preferences, config);
-    const catalog = await this.items.catalog(domain.id, filters);
+    const catalog = await this.items.catalog(domain.id, filters, session.userId);
     const candidates = await this.findCandidates(session, domain, profile, catalog, filters, taste);
     yield {
       step: 'candidates',
@@ -208,6 +208,8 @@ export class TuningService {
       notice: session.result.notice ?? null,
       candidates: session.result.candidates,
       catalogSize: session.result.catalogSize,
+      /** Lista ya creada en la cuenta de YouTube de la persona (solo en "Mi YouTube"). */
+      youtube: session.result.youtube ?? null,
       entries: session.result.entries.flatMap((e) => {
         const item = byId.get(e.itemId);
         return item
@@ -258,7 +260,7 @@ export class TuningService {
       );
     }
 
-    const nearest = await this.items.nearest(domain.id, vector, SEMANTIC_POOL, { filters });
+    const nearest = await this.items.nearest(domain.id, vector, SEMANTIC_POOL, { filters, userId: session.userId });
     const pool = new Map<string, { item: ItemWithoutEmbedding; semantic: number | null }>(
       nearest.map(({ semantic, ...item }) => [item.id, { item, semantic: Number(semantic) }]),
     );
@@ -267,6 +269,7 @@ export class TuningService {
       domain.id,
       missing.map((i) => i.id),
       vector,
+      session.userId,
     );
     for (const item of missing) pool.set(item.id, { item, semantic: sims.get(item.id) ?? null });
     this.logger.log(`Consulta semántica: "${query}" → ${nearest.length} vecinos + ${missing.length} por atributos`);

@@ -12,7 +12,7 @@ export function useDomains() {
  * Icono de cada temática. El color va en CSS (`[data-domain]` en index.css), así que
  * cualquier pieza dentro de un dominio puede usar `bg-domain`, `text-domain`…
  */
-const ICONS: Record<string, IconName> = { music: 'music', games: 'games', movies: 'movies', books: 'books' }
+const ICONS: Record<string, IconName> = { music: 'music', youtube: 'youtube', games: 'games', movies: 'movies', books: 'books' }
 export const domainIcon = (id: string): IconName => ICONS[id] ?? 'sparkles'
 
 /** "esta canción", "este videojuego". */
@@ -39,6 +39,8 @@ export function useDomain() {
     nounPlural: info?.itemNounPlural ?? 'elementos',
     icon: domainIcon(domain),
     playable: info?.playable ?? domain === 'music',
+    /** Catálogo personal (la música de YouTube de la persona). */
+    personal: info?.personal ?? false,
     path,
   }
 }

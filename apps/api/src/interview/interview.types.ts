@@ -41,6 +41,8 @@ export interface SessionResult {
   catalogSize: number;
   refinements: string[];
   createdAt: string;
+  /** Lista creada en la cuenta de YouTube de la persona a partir de este resultado. */
+  youtube?: { playlistId: string; url: string } | null;
 }
 
 /**

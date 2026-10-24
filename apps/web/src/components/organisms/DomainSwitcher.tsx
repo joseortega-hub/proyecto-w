@@ -12,7 +12,7 @@ export function DomainSwitcher({ orientation = 'horizontal', className }: { orie
   const { id } = useDomain()
   const domains = useDomains()
   const tabs = (domains.data ?? [])
-    .filter((d) => d.itemCount > 0)
+    .filter((d) => d.itemCount > 0 || d.personal)
     .map((d) => ({ id: d.id, label: d.name, icon: domainIcon(d.id) }))
   if (tabs.length < 2) return null
 

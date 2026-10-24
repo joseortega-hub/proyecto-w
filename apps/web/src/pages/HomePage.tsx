@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
+import { toast } from 'sonner'
 import { Button, Cover, DomainIcon, Heading, Icon, IconButton, Text } from '@/components/atoms'
 import { PreferencePicker, StartingPointField } from '@/components/molecules'
+import { YouTubePanel } from '@/components/organisms'
 import { Card } from '@/components/ui/card'
 import { useDomain } from '@/lib/domain'
 import { timeAgo } from '@/lib/format'
 import { usePreferences } from '@/lib/preferences'
 import { useSavedLists } from '@/lib/saved-lists'
 import { useSaveTaste, useTaste } from '@/lib/taste'
+import { useConnectYouTube, useDisconnectYouTube, useImportYouTube, useYouTubeStatus } from '@/lib/youtube'
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -19,6 +23,9 @@ export function HomePage() {
   const taste = useTaste(domain.id)
   const skipTaste = useSaveTaste(domain.id)
   const [text, setText] = useState('')
+  const youtube = useYouTubeSection(domain.personal)
+  // En "Mi YouTube" no hay entrevista posible hasta tener canciones importadas.
+  const ready = !domain.personal || (youtube.status.data?.itemCount ?? 0) > 0
 
   // Las preferencias habituales guardadas con los gustos vienen marcadas en un dispositivo nuevo.
   useEffect(() => {
@@ -45,7 +52,23 @@ export function HomePage() {
         <Text tone="muted" size="lead">
           Unas pocas preguntas de sí o no. Sin formularios ni registro.
         </Text>
-        {taste.data && !taste.data.onboarded && (
+        {domain.personal && (
+          <YouTubePanel
+            status={youtube.status.data}
+            busy={youtube.busy}
+            onConnect={() =>
+              youtube.connect.mutate(undefined, { onError: (e) => toast.error('No he podido conectar con Google', { description: e.message }) })
+            }
+            onImport={() =>
+              youtube.importNow.mutate(undefined, { onError: (e) => toast.error('No he podido actualizar tu música', { description: e.message }) })
+            }
+            onDisconnect={() => {
+              if (!window.confirm('¿Desconectar YouTube? Borro de Sintonía tu música importada y retiro el permiso de Google.')) return
+              youtube.disconnect.mutate(undefined, { onSuccess: () => toast.success('YouTube desconectado y tu música borrada de Sintonía') })
+            }}
+          />
+        )}
+        {ready && taste.data && !taste.data.onboarded && (
           <Card className="gap-3 rounded-[14px] border-domain/40 bg-domain-soft px-4 py-3.5 shadow-none">
             <div className="flex items-start gap-3">
               <Icon name="heart" className="mt-0.5 size-5 flex-none text-domain" />
@@ -72,26 +95,30 @@ export function HomePage() {
             <span className="truncate">Con tus gustos: {liked.map((l) => l.label).join(', ')}</span>
           </Link>
         )}
-        {preferences.map((p) => (
-          <PreferencePicker key={p.key} preference={p} value={chosen[p.key]} onChange={(v) => choose(p.key, v)} />
-        ))}
-        <StartingPointField
-          value={text}
-          onChange={setText}
-          label={`¿Cómo estás o qué te apetece ${domain.info?.verb ?? ''}?`.replace(' ?', '?')}
-          placeholder="Ej.: vengo reventado del curro y quiero algo tranqui"
-        />
-        <Button block className="mt-2" onClick={() => start(text.trim() || undefined)}>
-          {text.trim() ? 'Empezar con esto' : 'Empezar'}
-        </Button>
-        {text.trim() ? (
-          <Button block variant="ghost" onClick={() => start()}>
-            Saltar e ir a las preguntas
-          </Button>
-        ) : (
-          <Button block variant="secondary" onClick={() => navigate(domain.path('biblioteca'))}>
-            Explorar la biblioteca
-          </Button>
+        {ready && (
+          <>
+            {preferences.map((p) => (
+              <PreferencePicker key={p.key} preference={p} value={chosen[p.key]} onChange={(v) => choose(p.key, v)} />
+            ))}
+            <StartingPointField
+              value={text}
+              onChange={setText}
+              label={`¿Cómo estás o qué te apetece ${domain.info?.verb ?? ''}?`.replace(' ?', '?')}
+              placeholder="Ej.: vengo reventado del curro y quiero algo tranqui"
+            />
+            <Button block className="mt-2" onClick={() => start(text.trim() || undefined)}>
+              {text.trim() ? 'Empezar con esto' : 'Empezar'}
+            </Button>
+            {text.trim() ? (
+              <Button block variant="ghost" onClick={() => start()}>
+                Saltar e ir a las preguntas
+              </Button>
+            ) : (
+              <Button block variant="secondary" onClick={() => navigate(domain.path('biblioteca'))}>
+                Explorar la biblioteca
+              </Button>
+            )}
+          </>
         )}
       </section>
       {last && (
@@ -111,4 +138,40 @@ export function HomePage() {
       )}
     </div>
   )
+}
+
+/**
+ * Estado de "Mi YouTube" en Inicio: avisa al volver de Google (`?youtube=conectado`) y,
+ * al terminar una importación, refresca temáticas y gustos (el vocabulario cambia).
+ */
+function useYouTubeSection(enabled: boolean) {
+  const queryClient = useQueryClient()
+  const [params, setParams] = useSearchParams()
+  const status = useYouTubeStatus(enabled)
+  const connect = useConnectYouTube()
+  const importNow = useImportYouTube()
+  const disconnect = useDisconnectYouTube()
+  const job = status.data?.import?.status
+  const previous = useRef(job)
+
+  useEffect(() => {
+    const result = params.get('youtube')
+    if (!enabled || !result) return
+    if (result === 'conectado') toast.success('¡Conectado! Estoy trayendo tu música de YouTube')
+    else if (result === 'cancelado') toast('Conexión cancelada')
+    else toast.error('Google no ha aceptado la conexión', { description: 'Vuelve a intentarlo desde este navegador.' })
+    setParams({}, { replace: true })
+    void status.refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, params])
+
+  useEffect(() => {
+    if (previous.current === 'running' && job !== 'running') {
+      void queryClient.invalidateQueries({ queryKey: ['domains'] })
+      void queryClient.invalidateQueries({ queryKey: ['taste', 'youtube'] })
+    }
+    previous.current = job
+  }, [job, queryClient])
+
+  return { status, connect, importNow, disconnect, busy: connect.isPending || importNow.isPending || disconnect.isPending }
 }

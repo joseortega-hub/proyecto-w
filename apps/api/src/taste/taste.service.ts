@@ -42,7 +42,7 @@ export class TasteService {
 
   async get(userId: string, domainId: string) {
     const domain = await this.domains.get(domainId);
-    const [row, vocabulary] = await Promise.all([this.row(userId, domainId), this.vocabulary(domain)]);
+    const [row, vocabulary] = await Promise.all([this.row(userId, domainId), this.vocabulary(domain, userId)]);
     return this.view(row, domain, vocabulary);
   }
 
@@ -55,7 +55,7 @@ export class TasteService {
 
   async save(userId: string, domainId: string, input: { likes: string[]; dislikes: string[]; preferences?: Record<string, string> }) {
     const domain = await this.domains.get(domainId);
-    const vocabulary = await this.vocabulary(domain);
+    const vocabulary = await this.vocabulary(domain, userId);
     const valid = this.validIds(vocabulary);
     const likes = unique(input.likes.filter((l) => valid.has(l)));
     // Si algo está en las dos listas, gana "me gusta".
@@ -84,7 +84,7 @@ export class TasteService {
       .from(items)
       .where(and(eq(items.id, itemId), eq(items.domainId, domainId)));
     if (!item) throw new NotFoundException('Elemento no encontrado en esta temática');
-    const vocabulary = await this.vocabulary(domain);
+    const vocabulary = await this.vocabulary(domain, userId);
     const row = await this.row(userId, domainId);
     const previous = row?.feedback[itemId] ?? null;
     const learned = applyFeedback(row?.learned ?? {}, item.tags, previous, value, vocabulary.common);
@@ -106,9 +106,9 @@ export class TasteService {
    * vocabulario del catálogo. No se guarda nada: la persona revisa el resultado y lo guarda.
    * El texto viaja como dato citado, nunca como instrucciones.
    */
-  async interpret(domainId: string, text: string) {
+  async interpret(domainId: string, text: string, userId: string | null = null) {
     const domain = await this.domains.get(domainId);
-    const vocabulary = await this.vocabulary(domain);
+    const vocabulary = await this.vocabulary(domain, userId);
     const valid = this.validIds(vocabulary);
     const entries = [
       ...vocabulary.groups.map((g) => `${g.id} = ${g.label}`),
@@ -138,18 +138,27 @@ export class TasteService {
     };
   }
 
-  /** Grupos del dominio y etiquetas frecuentes del catálogo, con su nombre legible. */
-  async vocabulary(domain: DomainRow): Promise<TasteVocabulary & { common: Set<string> }> {
-    const cached = this.vocabularies.get(domain.id);
+  /**
+   * Grupos del dominio y etiquetas frecuentes del catálogo, con su nombre legible. En un
+   * catálogo personal ("Mi YouTube") el vocabulario sale de los elementos de la persona.
+   */
+  async vocabulary(domain: DomainRow, userId: string | null = null): Promise<TasteVocabulary & { common: Set<string> }> {
+    const owner = domain.config.personal ? (userId ?? '') : '';
+    const key = `${domain.id}:${owner}`;
+    const cached = this.vocabularies.get(key);
     if (cached && Date.now() - cached.at < VOCABULARY_TTL_MS) return cached.value;
+    const minCount = domain.config.personal ? 1 : MIN_TAG_COUNT;
     const value = (async () => {
       const [rows, [{ total }]] = await Promise.all([
         this.db.execute<{ tag: string; count: number }>(
           sql`select t as tag, count(*)::int as count from ${items}, unnest(${items.tags}) t
-              where ${items.domainId} = ${domain.id} group by t having count(*) >= ${MIN_TAG_COUNT}
+              where ${items.domainId} = ${domain.id} and ${items.ownerId} = ${owner} group by t having count(*) >= ${minCount}
               order by count desc, t limit ${VOCABULARY_SIZE}`,
         ),
-        this.db.select({ total: sql<number>`count(*)::int` }).from(items).where(eq(items.domainId, domain.id)),
+        this.db
+          .select({ total: sql<number>`count(*)::int` })
+          .from(items)
+          .where(and(eq(items.domainId, domain.id), eq(items.ownerId, owner))),
       ]);
       const tags = [...rows].map((r) => ({ id: r.tag, label: tasteLabel(r.tag, domain.config), count: Number(r.count) }));
       return {
@@ -158,9 +167,14 @@ export class TasteService {
         common: new Set(tags.filter((t) => total > 0 && t.count / total > COMMON_SHARE).map((t) => t.id)),
       };
     })();
-    value.catch(() => this.vocabularies.delete(domain.id));
-    this.vocabularies.set(domain.id, { at: Date.now(), value });
+    value.catch(() => this.vocabularies.delete(key));
+    this.vocabularies.set(key, { at: Date.now(), value });
     return value;
+  }
+
+  /** Olvida el vocabulario en caché (p. ej. tras importar la música de YouTube de alguien). */
+  forgetVocabulary(domainId: string, userId: string) {
+    this.vocabularies.delete(`${domainId}:${userId}`);
   }
 
   private async row(userId: string, domainId: string): Promise<TasteRow | undefined> {

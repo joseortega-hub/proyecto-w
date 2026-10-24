@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, Headers, Param, Post, Put } from '@nestjs/common';
 import { z } from 'zod';
-import { requireUserId, TasteService } from './taste.service.js';
+import { optionalUserId, requireUserId, TasteService } from './taste.service.js';
 
 export const USER_HEADER = 'x-sintonia-user';
 
@@ -46,7 +46,7 @@ export class TasteController {
 
   /** Texto libre → gustos del vocabulario. No guarda nada (ni el texto). */
   @Post('interpret')
-  interpret(@Param('domainId') domainId: string, @Body() body: unknown) {
-    return this.taste.interpret(domainId, parse(interpretSchema, body).text);
+  interpret(@Param('domainId') domainId: string, @Body() body: unknown, @Headers(USER_HEADER) user?: string) {
+    return this.taste.interpret(domainId, parse(interpretSchema, body).text, optionalUserId(user));
   }
 }

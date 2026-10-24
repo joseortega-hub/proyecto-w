@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import { TEXT_PROVIDER, type TextProvider } from '../ai/text-provider.js';
 import type { Db } from '../db/client.js';
@@ -43,9 +43,35 @@ export async function generateQuestionBank(
   log: (m: string) => void = () => undefined,
 ): Promise<number> {
   const rows = await db.select().from(questionBank).where(eq(questionBank.domainId, domain.id));
-  const missing = domain.config.probes.filter(
+  let missing = domain.config.probes.filter(
     (p) => rows.filter((r) => r.probeId === p.id && r.intent === p.intent).length < VARIANTS,
   );
+  // Una sonda idéntica (mismo id e intención) de otra temática ya tiene variantes revisadas:
+  // se copian en vez de redactar otras (p. ej. "Mi YouTube" reutiliza las de música).
+  if (missing.length) {
+    const others = await db
+      .select()
+      .from(questionBank)
+      .where(and(ne(questionBank.domainId, domain.id), inArray(questionBank.probeId, missing.map((p) => p.id))));
+    const reused = missing.flatMap((p) => {
+      const source = others.find((o) => o.probeId === p.id && o.intent === p.intent)?.domainId;
+      const variants = others.filter((o) => o.domainId === source && o.probeId === p.id && o.intent === p.intent);
+      return variants.length >= VARIANTS ? [{ probe: p, variants }] : [];
+    });
+    if (reused.length) {
+      const ids = reused.map((r) => r.probe.id);
+      await db.transaction(async (tx) => {
+        await tx.delete(questionBank).where(and(eq(questionBank.domainId, domain.id), inArray(questionBank.probeId, ids)));
+        await tx.insert(questionBank).values(
+          reused.flatMap((r) =>
+            r.variants.map(({ variant, intent, question, reason }) => ({ domainId: domain.id, probeId: r.probe.id, variant, intent, question, reason })),
+          ),
+        );
+      });
+      log(`${domain.id}: variantes reutilizadas de otra temática para ${ids.join(', ')}`);
+      missing = missing.filter((p) => !ids.includes(p.id));
+    }
+  }
   for (let i = 0; i < missing.length; i += PROBES_PER_CALL) {
     const batch = missing.slice(i, i + PROBES_PER_CALL);
     const written = await text.write({

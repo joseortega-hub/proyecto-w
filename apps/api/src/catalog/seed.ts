@@ -75,7 +75,7 @@ try {
         .insert(items)
         .values(chunk)
         .onConflictDoUpdate({
-          target: [items.domainId, items.source, items.externalId],
+          target: [items.domainId, items.source, items.externalId, items.ownerId],
           set: {
             title: sql`excluded.title`,
             subtitle: sql`excluded.subtitle`,

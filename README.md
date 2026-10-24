@@ -1,6 +1,6 @@
 # Sintonía
 
-*Un catálogo que te entiende.* Unas pocas preguntas de sí o no, al estilo Akinator, y una lista hecha a tu medida en la que cada elección viene con su explicación. El motor es genérico y sirve a cuatro temáticas:
+*Un catálogo que te entiende.* Unas pocas preguntas de sí o no, al estilo Akinator, y una lista hecha a tu medida en la que cada elección viene con su explicación. El motor es genérico y sirve a cuatro catálogos públicos y a uno personal (la música de YouTube de cada persona):
 
 | Temática | Fuente | Elementos (seed por defecto) | Preferencia previa |
 |---|---|---|---|
@@ -8,6 +8,7 @@
 | Videojuegos | [RAWG](https://rawg.io) | ~400 juegos | Plataforma (PC, PlayStation, Xbox, Nintendo, móvil) |
 | Películas | [TMDB](https://www.themoviedb.org) | ~325 películas | Idioma original |
 | Libros | [Open Library](https://openlibrary.org) | ~250 libros | Idioma con edición |
+| Mi YouTube | La cuenta de YouTube de cada persona (OAuth) | Su música: listas y «Me gusta» | Idioma de la letra |
 
 ## Cómo funciona
 
@@ -84,6 +85,14 @@ Endpoints del catálogo: `GET /api/domains/:id/items?q=&tags=&offset=&limit=` (b
 
 **Preferencias previas.** Cada dominio puede declarar filtros duros que se eligen antes de la entrevista (en música, el idioma de la letra: español, inglés o me da igual). Se guardan en `items.facets`, filtran la búsqueda (SQL y pgvector) y, si dejan pocos elementos, el resultado lo avisa. Las instrumentales pasan siempre el filtro de idioma. El texto inicial de la persona solo se guarda mientras dura la entrevista.
 
+**Mi YouTube (catálogo personal).** La temática "Mi YouTube" no trae catálogo: cada persona conecta su cuenta de Google y Sintonía importa **su** música de YouTube y YouTube Music. Sus canciones solo las ve ella (`items.owner_id`).
+- *Conexión*: OAuth de Google con el permiso `youtube`. El `state` va firmado, caduca a los 10 minutos y solo vale en el navegador que lo pidió (cookie HttpOnly). Los tokens se guardan cifrados (AES-256-GCM) y ligados a la persona anónima. En modo de pruebas, Google caduca el permiso cada 7 días y la web pide volver a conectar.
+- *Importación* (`YouTubeAdapter`): vídeos con "Me gusta", la lista "Me gusta" de YouTube Music (`LM`, accesible con la API oficial) y las listas propias. Solo la categoría Música (10) y piezas de menos de 15 minutos. Sin `search.list` ni librerías no oficiales: todo son lecturas de 1 unidad por página (una importación de 400 canciones gastó 18 de las 10 000 unidades diarias). Los títulos se limpian ("(Official Video)", "- Topic", "VEVO").
+- *Análisis*: la IA (Groq, con Gemini de respaldo) deduce de título, artista y etiquetas los atributos de música, los estilos (reguetón, trap, dembow, bachata, pop urbano…) y el idioma de la letra, así que el filtro de idioma y "Mis gustos" funcionan igual que en el resto. Después se calculan los embeddings por lotes; si se agota el cupo diario, quedan pendientes y "Actualizar mi música" los termina.
+- *Resultado*: "Guardar en mi YouTube" crea la lista en la cuenta (privada; 50 unidades más 50 por canción), y las canciones suenan dentro de la app con el reproductor IFrame oficial de YouTube, integrado en el reproductor global (mini-reproductor, reproductor completo y siguiente/anterior).
+- Endpoints: `POST /api/youtube/auth`, `GET /api/youtube/callback`, `GET /api/youtube/status`, `POST /api/youtube/import`, `DELETE /api/youtube` (revoca y borra) y `POST /api/youtube/playlists`.
+- Configuración: un cliente OAuth "Aplicación web" con la YouTube Data API v3 habilitada y las URI de redirección `http://localhost:5173/api/youtube/callback` y `https://<web>/api/youtube/callback`. Variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY` y `YOUTUBE_IMPORT_LIMIT`.
+
 **Sintonía dentro de Claude (MCP).** `apps/mcp` es un servidor MCP con el SDK oficial que reutiliza la API REST: temáticas, biblioteca, ficha, "Mis gustos" y listas a partir de una petición en texto ("hazme una lista para el gimnasio"), con % de encaje y explicaciones. La petición es el punto de partida de la entrevista y cada pregunta restante se responde a partir de ella (`POST /api/sessions/:id/auto-answer`, o "no lo sé" si no lo dice). También se puede jugar la entrevista de sí/no dentro del chat. Cómo conectarlo a Claude Desktop y guion de la demo: [`apps/mcp/README.md`](apps/mcp/README.md).
 
 Otros comandos: `pnpm storybook` (en :6006), `pnpm test` (pruebas del motor), `pnpm typecheck` y `pnpm tokens`.
@@ -101,7 +110,7 @@ Producción: **https://proyecto-w-phi.vercel.app** (web) → **https://sintonia-
 - **Un solo origen.** La web llama siempre a `/api` y Vercel lo redirige a Render (`rewrites` en `vercel.json`), igual que el proxy de Vite en local. Así no hace falta CORS y el `EventSource` de Afinando (SSE) funciona tal cual: Vercel transmite los eventos en directo. El resto de rutas va a `index.html` (SPA) y `sw.js` no se cachea, para que las actualizaciones de la PWA lleguen.
 - **API en Render.** Build: `pnpm install --frozen-lockfile --prod=false` y `nest build`. Arranque: `node apps/api/dist/db/migrate.js && node apps/api/dist/main.js`, así que las migraciones nuevas se aplican solas en cada despliegue. Comprobación de salud: `/api/domains`. Solo se redespliega si cambia `apps/api` o el lockfile (`buildFilter`).
   - Variables fijas en `render.yaml`: `DECISION_CHAIN=groq,gemini` (sin Laya, que es local), `TEXT_CHAIN=groq,gemini` y `DECISION_PROVIDER=gemini`.
-  - Secretos que se rellenan en el panel de Render: `DATABASE_URL` (la cadena directa de Neon, sin `-pooler`), `GROQ_API_KEY`, `GEMINI_API_KEY` y `WEB_URL`. Las claves de los catálogos no hacen falta en producción: solo las usa `pnpm seed`.
+  - Secretos que se rellenan en el panel de Render: `DATABASE_URL` (la cadena directa de Neon, sin `-pooler`), `GROQ_API_KEY`, `GEMINI_API_KEY`, `WEB_URL`, `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` (`TOKEN_ENCRYPTION_KEY` la genera el Blueprint). Las claves de los catálogos no hacen falta en producción: solo las usa `pnpm seed`.
   - Arranque en frío: el plan gratuito duerme el servicio tras 15 minutos sin tráfico y despertarlo tarda unos 30-60 s. Al arrancar, la API carga el banco de preguntas (ya completo en la BD, no redacta nada) y calienta la primera pregunta de cada temática: 4 decisiones de Groq.
 - **Base de datos.** Se cargó con un volcado de la local (sin sesiones ni gustos), para no repetir los seeds ni gastar cupo de embeddings:
 
@@ -119,4 +128,5 @@ Producción: **https://proyecto-w-phi.vercel.app** (web) → **https://sintonia-
 - **Música**: Jamendo, con licencias Creative Commons; el reproductor enlaza cada pista con su página original.
 - **Videojuegos**: [RAWG API](https://rawg.io/apidocs), clave gratuita para proyectos personales con atribución y enlace a RAWG en cada página que muestra sus datos (biblioteca, ficha y resultado lo llevan).
 - **Películas**: [TMDB API](https://developer.themoviedb.org), clave gratuita de desarrollador para uso no comercial. *This product uses the TMDB API but is not endorsed or certified by TMDB.*
+- **Mi YouTube**: [YouTube Data API v3](https://developers.google.com/youtube/v3) y [reproductor IFrame](https://developers.google.com/youtube/iframe_api_reference) oficiales, con la cuenta de cada persona. No se guarda audio ni vídeo, solo los metadatos y lo que deduce la IA.
 - **Libros**: [Open Library](https://openlibrary.org/developers/api), sin clave. Las peticiones se identifican con un User-Agent (límite de 1 petición/s, o 3/s con un contacto en `OPEN_LIBRARY_CONTACT`).

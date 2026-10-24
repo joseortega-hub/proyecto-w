@@ -32,24 +32,35 @@ export const facetCondition = (filters: FacetFilter[] = []) =>
       )
     : undefined;
 
+/**
+ * Elementos que puede ver una persona: los públicos (sin dueño) y los suyos. Los de un
+ * catálogo personal ("Mi YouTube") nunca salen de su dueño.
+ */
+export const visibleTo = (userId: string | null | undefined) => inArray(items.ownerId, userId ? ['', userId] : ['']);
+
 /** Búsquedas por similitud coseno con pgvector, siempre dentro de un dominio. */
 @Injectable()
 export class ItemsService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
   /** Catálogo de un dominio sin embeddings, para el ranking por atributos. */
-  catalog(domainId: string, filters?: FacetFilter[]): Promise<ItemWithoutEmbedding[]> {
+  catalog(domainId: string, filters?: FacetFilter[], userId: string | null = null): Promise<ItemWithoutEmbedding[]> {
     return this.db
       .select(itemColumns)
       .from(items)
-      .where(and(eq(items.domainId, domainId), facetCondition(filters)));
+      .where(and(eq(items.domainId, domainId), visibleTo(userId), facetCondition(filters)));
   }
 
   /**
    * Los `limit` elementos más cercanos al vector, con su similitud coseno (0–1).
    * Usa el índice HNSW; `iterative_scan` evita quedarse corto al filtrar por dominio.
    */
-  nearest(domainId: string, vector: number[], limit: number, options: { excludeId?: string; filters?: FacetFilter[] } = {}) {
+  nearest(
+    domainId: string,
+    vector: number[],
+    limit: number,
+    options: { excludeId?: string; filters?: FacetFilter[]; userId?: string | null } = {},
+  ) {
     const distance = cosineDistance(items.embedding, vector);
     return this.db.transaction(async (tx) => {
       await tx.execute(sql`SET LOCAL hnsw.iterative_scan = relaxed_order`);
@@ -60,6 +71,7 @@ export class ItemsService {
         .where(
           and(
             eq(items.domainId, domainId),
+            visibleTo(options.userId),
             isNotNull(items.embedding),
             options.excludeId ? ne(items.id, options.excludeId) : undefined,
             facetCondition(options.filters),
@@ -73,7 +85,7 @@ export class ItemsService {
   }
 
   /** Similitud coseno con el vector para unos elementos concretos (null si no tienen embedding). */
-  async similarities(domainId: string, ids: string[], vector: number[]): Promise<Map<string, number | null>> {
+  async similarities(domainId: string, ids: string[], vector: number[], userId: string | null = null): Promise<Map<string, number | null>> {
     if (!ids.length) return new Map();
     const rows = await this.db
       .select({
@@ -83,15 +95,16 @@ export class ItemsService {
         >`case when ${items.embedding} is null then null else 1 - (${cosineDistance(items.embedding, vector)}) end`,
       })
       .from(items)
-      .where(and(eq(items.domainId, domainId), inArray(items.id, ids)));
+      .where(and(eq(items.domainId, domainId), visibleTo(userId), inArray(items.id, ids)));
     return new Map(rows.map((r) => [r.id, r.semantic === null ? null : Number(r.semantic)]));
   }
 
   /** Biblioteca de un dominio: búsqueda por título o autor y filtro por etiquetas, de más a menos popular. */
-  async browse(domainId: string, options: { q?: string; tags?: string[]; offset: number; limit: number }) {
+  async browse(domainId: string, options: { q?: string; tags?: string[]; offset: number; limit: number; userId?: string | null }) {
     const q = options.q?.trim().replace(/[%_\\]/g, (c) => `\\${c}`);
     const where = and(
       eq(items.domainId, domainId),
+      visibleTo(options.userId),
       q ? or(ilike(items.title, `%${q}%`), ilike(items.subtitle, `%${q}%`)) : undefined,
       options.tags?.length ? arrayOverlaps(items.tags, options.tags) : undefined,
     );
@@ -108,21 +121,21 @@ export class ItemsService {
     return { total, items: rows.map(publicItem) };
   }
 
-  async get(id: string) {
-    const [item] = await this.db.select(itemColumns).from(items).where(eq(items.id, id));
+  async get(id: string, userId: string | null = null) {
+    const [item] = await this.db.select(itemColumns).from(items).where(and(eq(items.id, id), visibleTo(userId)));
     if (!item) throw new NotFoundException('Elemento no encontrado');
     return publicItem(item);
   }
 
   /** Elementos parecidos a uno dado, del mismo dominio (para la Ficha). */
-  async similar(id: string, limit: number) {
+  async similar(id: string, limit: number, userId: string | null = null) {
     const [item] = await this.db
       .select({ domainId: items.domainId, embedding: items.embedding })
       .from(items)
-      .where(eq(items.id, id));
+      .where(and(eq(items.id, id), visibleTo(userId)));
     if (!item) throw new NotFoundException('Elemento no encontrado');
     if (!item.embedding) return { itemId: id, items: [] };
-    const rows = await this.nearest(item.domainId, item.embedding, limit, { excludeId: id });
+    const rows = await this.nearest(item.domainId, item.embedding, limit, { excludeId: id, userId });
     return {
       itemId: id,
       items: rows.map(({ semantic, ...row }) => ({

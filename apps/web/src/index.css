@@ -12,6 +12,9 @@
 [data-domain='music'] {
   --domain: #3d4bf0;
 }
+[data-domain='youtube'] {
+  --domain: #d92d20;
+}
 [data-domain='games'] {
   --domain: #8a3fd1;
 }
@@ -23,6 +26,9 @@
 }
 html.dark [data-domain='music'] {
   --domain: #8290ff;
+}
+html.dark [data-domain='youtube'] {
+  --domain: #ff7a6e;
 }
 html.dark [data-domain='games'] {
   --domain: #c59bff;

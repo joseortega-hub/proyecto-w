@@ -16,6 +16,7 @@ import type { DomainConfig } from '../domains/domain.types.js';
 import type { InterviewContext } from '../interview/interview.context.js';
 import type { InterviewTurn, MoodProfile, SessionPreferences, SessionResult, TextSignals } from '../interview/interview.types.js';
 import type { Feedback, TasteProfile } from '../taste/taste.engine.js';
+import type { YouTubeImportState } from '../youtube/youtube.types.js';
 
 /** Un dominio del catálogo (música, películas…) con su configuración de entrevista. */
 export const domains = pgTable('domains', {
@@ -55,6 +56,11 @@ export const items = pgTable(
       .references(() => domains.id, { onDelete: 'cascade' }),
     source: text('source').notNull(),
     externalId: text('external_id').notNull(),
+    /**
+     * Dueño de un elemento privado (catálogo personal, p. ej. "Mi YouTube"): la persona
+     * anónima que lo importó. Vacío en los catálogos públicos. Solo lo ve su dueño.
+     */
+    ownerId: text('owner_id').notNull().default(''),
     title: text('title').notNull(),
     subtitle: text('subtitle'),
     description: text('description'),
@@ -73,7 +79,8 @@ export const items = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex('items_source_uq').on(t.domainId, t.source, t.externalId),
+    uniqueIndex('items_source_uq').on(t.domainId, t.source, t.externalId, t.ownerId),
+    index('items_owner_idx').on(t.domainId, t.ownerId),
     index('items_domain_idx').on(t.domainId),
     index('items_tags_idx').using('gin', t.tags),
     index('items_embedding_idx').using('hnsw', t.embedding.op('vector_cosine_ops')),
@@ -130,6 +137,26 @@ export const tasteProfiles = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.domainId] })],
 );
 
+/**
+ * Cuenta de YouTube conectada por una persona anónima (OAuth de Google). Los tokens van
+ * cifrados (AES-256-GCM, `youtube/youtube.crypto.ts`); nunca salen del servidor.
+ */
+export const youtubeAccounts = pgTable('youtube_accounts', {
+  userId: text('user_id').primaryKey(),
+  channelId: text('channel_id'),
+  channelTitle: text('channel_title'),
+  refreshToken: text('refresh_token').notNull(),
+  accessToken: text('access_token'),
+  accessExpiresAt: timestamp('access_expires_at', { withTimezone: true }),
+  /** `expired` cuando Google rechaza el refresh token (en modo de pruebas caduca a los 7 días). */
+  status: text('status').$type<'connected' | 'expired'>().notNull().default('connected'),
+  /** Estado de la última importación, para la barra de progreso de la web. */
+  importState: jsonb('import_state').$type<YouTubeImportState>(),
+  connectedAt: timestamp('connected_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type YouTubeAccountRow = typeof youtubeAccounts.$inferSelect;
 export type TasteRow = typeof tasteProfiles.$inferSelect;
 export type ItemRow = typeof items.$inferSelect;
 export type NewItemRow = typeof items.$inferInsert;

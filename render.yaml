@@ -40,6 +40,15 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
-      # URL pública de la web en Vercel (para CORS), p. ej. https://sintonia.vercel.app
+      # URL pública de la web en Vercel (para CORS y para la redirección de OAuth), p. ej. https://sintonia.vercel.app
       - key: WEB_URL
         sync: false
+      # Conectar YouTube: cliente OAuth de Google ("Aplicación web"). La URI de redirección es
+      # WEB_URL + /api/youtube/callback (llega a la API por el rewrite /api de Vercel).
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Clave para cifrar los tokens de Google en la BD; Render genera una aleatoria.
+      - key: TOKEN_ENCRYPTION_KEY
+        generateValue: true

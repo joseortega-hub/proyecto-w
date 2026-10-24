@@ -38,11 +38,16 @@ export function DomainPickerPage() {
                       id={d.id}
                       name={d.name}
                       icon={domainIcon(d.id)}
-                      disabled={d.itemCount === 0}
+                      // El catálogo personal empieza vacío: se llena al conectar la cuenta.
+                      disabled={d.itemCount === 0 && !d.personal}
                       description={
-                        d.itemCount
-                          ? `${formatInt(d.itemCount)} ${d.itemNounPlural} de ${d.source?.name ?? 'su catálogo'}`
-                          : `Próximamente · catálogo de ${d.source?.name ?? '—'}`
+                        d.personal
+                          ? d.itemCount
+                            ? `${formatInt(d.itemCount)} ${d.itemNounPlural} de tu ${d.source.name}`
+                            : `Conecta tu ${d.source.name} y usa tu propia música`
+                          : d.itemCount
+                            ? `${formatInt(d.itemCount)} ${d.itemNounPlural} de ${d.source?.name ?? 'su catálogo'}`
+                            : `Próximamente · catálogo de ${d.source?.name ?? '—'}`
                       }
                       onSelect={() => navigate(`/${d.id}`)}
                     />

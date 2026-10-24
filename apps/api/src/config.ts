@@ -64,6 +64,18 @@ export const config = {
   contextTimeZone: optional('CONTEXT_TIME_ZONE', 'Europe/Madrid'),
   contextLatitude: Number(optional('CONTEXT_LATITUDE', '40.4168')),
   contextLongitude: Number(optional('CONTEXT_LONGITUDE', '-3.7038')),
+  /** Cliente OAuth de Google ("Aplicación web") para conectar YouTube. */
+  googleClientId: optional('GOOGLE_CLIENT_ID'),
+  googleClientSecret: optional('GOOGLE_CLIENT_SECRET'),
+  /**
+   * URI de redirección registrada en Google. Llega a la API a través del proxy `/api` de
+   * la web (Vite en local, Vercel en producción), así que cuelga de WEB_URL.
+   */
+  googleRedirectUri: optional('GOOGLE_REDIRECT_URI', `${optional('WEB_URL', 'http://localhost:5173')}/api/youtube/callback`),
+  /** Clave para cifrar los tokens de Google en la BD. Sin ella, se deriva de GOOGLE_CLIENT_SECRET. */
+  tokenEncryptionKey: optional('TOKEN_ENCRYPTION_KEY') || optional('GOOGLE_CLIENT_SECRET'),
+  /** Canciones como máximo por importación de YouTube (cada una gasta un embedding del cupo diario). */
+  youtubeImportLimit: Number(optional('YOUTUBE_IMPORT_LIMIT', '400')),
   jamendoClientId: optional('JAMENDO_CLIENT_ID'),
   rawgApiKey: optional('RAWG_API_KEY'),
   /** API Key (v3) o token de lectura (v4) de TMDB. */

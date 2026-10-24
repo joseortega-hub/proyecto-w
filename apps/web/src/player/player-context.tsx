@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Item } from '@/lib/api'
+import { VideoDock } from './VideoDock'
+import { loadYouTubeApi, YT_STATE, type YTPlayer } from './youtube-iframe'
 
 export interface QueueEntry {
   item: Item
@@ -20,18 +22,34 @@ interface PlayerState {
 
 interface PlayerApi extends PlayerState {
   current: QueueEntry | null
+  /** Si lo que suena es un vídeo de YouTube (reproductor IFrame) en vez de audio. */
+  video: boolean
   playList: (entries: QueueEntry[], opts: { title: string; id: string; domainId: string; start?: number }) => void
   toggle: () => void
   next: () => void
   previous: () => void
   seek: (seconds: number) => void
+  /** Hueco donde se coloca el vídeo (el reproductor a pantalla completa); sin hueco, va en una ventanita flotante. */
+  setVideoSlot: (el: HTMLElement | null) => void
+  /** Carga la API de YouTube por adelantado, para que el primer toque ya suene (móvil). */
+  prepareVideo: () => void
 }
 
 const PlayerContext = createContext<PlayerApi | null>(null)
 
-/** Un único <audio> para toda la app: la música sigue sonando al cambiar de pantalla. */
+/** Las canciones de "Mi YouTube" se reproducen con el reproductor oficial de YouTube. */
+const isVideo = (entry: QueueEntry | null | undefined) => entry?.item.source === 'youtube'
+
+/**
+ * Un único reproductor para toda la app: la música sigue sonando al cambiar de pantalla.
+ * Dos motores detrás de la misma interfaz: un <audio> (Jamendo) y el IFrame de YouTube.
+ */
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audio = useRef<HTMLAudioElement | null>(null)
+  const yt = useRef<YTPlayer | null>(null)
+  const ytReady = useRef<Promise<YTPlayer> | null>(null)
+  const videoHost = useRef<HTMLDivElement>(null)
+  const [videoSlot, setVideoSlot] = useState<HTMLElement | null>(null)
   const [state, setState] = useState<PlayerState>({
     queue: [],
     index: 0,
@@ -43,17 +61,62 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     duration: 0,
   })
   const current = state.queue[state.index] ?? null
+  const video = isVideo(current)
   const stateRef = useRef(state)
   stateRef.current = state
+  const goToRef = useRef<(index: number) => void>(() => undefined)
 
   if (!audio.current && typeof Audio !== 'undefined') audio.current = new Audio()
 
-  const load = useCallback((entry: QueueEntry | undefined) => {
-    const el = audio.current
-    if (!el || !entry?.item.mediaUrl) return
-    el.src = entry.item.mediaUrl
-    el.play().catch(() => setState((s) => ({ ...s, playing: false })))
+  const ensureYouTube = useCallback(() => {
+    ytReady.current ??= loadYouTubeApi().then(
+      (YT) =>
+        new Promise<YTPlayer>((resolve) => {
+          const el = document.createElement('div')
+          videoHost.current?.appendChild(el)
+          const player = new YT.Player(el, {
+            width: '100%',
+            height: '100%',
+            playerVars: { playsinline: 1, rel: 0, origin: window.location.origin },
+            events: {
+              onReady: () => {
+                yt.current = player
+                resolve(player)
+              },
+              onStateChange: ({ data }) => {
+                // Los eventos de un vídeo que ya no suena (se pasó a audio) no cuentan.
+                if (!isVideo(stateRef.current.queue[stateRef.current.index])) return
+                if (data === YT_STATE.PLAYING) setState((s) => ({ ...s, playing: true }))
+                else if (data === YT_STATE.PAUSED) setState((s) => ({ ...s, playing: false }))
+                else if (data === YT_STATE.ENDED) goToRef.current(stateRef.current.index + 1)
+              },
+              // Vídeo retirado o que no se deja incrustar: a la siguiente.
+              onError: () => goToRef.current(stateRef.current.index + 1),
+            },
+          })
+        }),
+    )
+    ytReady.current.catch(() => (ytReady.current = null))
+    return ytReady.current
   }, [])
+
+  const load = useCallback(
+    (entry: QueueEntry | undefined) => {
+      const el = audio.current
+      if (isVideo(entry)) {
+        el?.pause()
+        const id = entry!.item.externalId
+        if (yt.current) yt.current.loadVideoById(id)
+        else void ensureYouTube().then((p) => p.loadVideoById(id))
+        return
+      }
+      yt.current?.pauseVideo()
+      if (!el || !entry?.item.mediaUrl) return
+      el.src = entry.item.mediaUrl
+      el.play().catch(() => setState((s) => ({ ...s, playing: false })))
+    },
+    [ensureYouTube],
+  )
 
   const goTo = useCallback(
     (index: number) => {
@@ -64,13 +127,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     },
     [load],
   )
+  goToRef.current = goTo
 
   useEffect(() => {
     const el = audio.current
     if (!el) return
     const onTime = () => setState((s) => ({ ...s, position: el.currentTime, duration: el.duration || s.duration }))
     const onPlay = () => setState((s) => ({ ...s, playing: true }))
-    const onPause = () => setState((s) => ({ ...s, playing: false }))
+    const onPause = () => setState((s) => (isVideo(s.queue[s.index]) ? s : { ...s, playing: false }))
     const onEnded = () => goTo(stateRef.current.index + 1)
     el.addEventListener('timeupdate', onTime)
     el.addEventListener('loadedmetadata', onTime)
@@ -86,6 +150,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [goTo])
 
+  // El IFrame no emite "timeupdate": se pregunta la posición mientras suena.
+  useEffect(() => {
+    if (!video || !state.playing) return
+    const timer = window.setInterval(() => {
+      const p = yt.current
+      if (p) setState((s) => ({ ...s, position: p.getCurrentTime(), duration: p.getDuration() || s.duration }))
+    }, 500)
+    return () => window.clearInterval(timer)
+  }, [video, state.playing])
+
   const playList = useCallback<PlayerApi['playList']>(
     (entries, { title, id, domainId, start = 0 }) => {
       setState((s) => ({ ...s, queue: entries, index: start, listTitle: title, listId: id, domainId, position: 0, duration: 0 }))
@@ -95,6 +169,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   )
 
   const toggle = useCallback(() => {
+    if (isVideo(stateRef.current.queue[stateRef.current.index])) {
+      const p = yt.current
+      if (!p) return
+      if (p.getPlayerState() === YT_STATE.PLAYING) p.pauseVideo()
+      else p.playVideo()
+      return
+    }
     const el = audio.current
     if (!el || !el.src) return
     if (el.paused) el.play().catch(() => undefined)
@@ -103,13 +184,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const next = useCallback(() => goTo(state.index + 1), [goTo, state.index])
   const previous = useCallback(() => {
-    const el = audio.current
-    if (el && el.currentTime > 3) el.currentTime = 0
-    else goTo(Math.max(0, state.index - 1))
-  }, [goTo, state.index])
-  const seek = useCallback((seconds: number) => {
-    if (audio.current) audio.current.currentTime = seconds
-  }, [])
+    const position = video ? (yt.current?.getCurrentTime() ?? 0) : (audio.current?.currentTime ?? 0)
+    if (position > 3) {
+      if (video) yt.current?.seekTo(0, true)
+      else if (audio.current) audio.current.currentTime = 0
+    } else goTo(Math.max(0, state.index - 1))
+  }, [goTo, state.index, video])
+  const seek = useCallback(
+    (seconds: number) => {
+      if (video) yt.current?.seekTo(seconds, true)
+      else if (audio.current) audio.current.currentTime = seconds
+    },
+    [video],
+  )
+  const prepareVideo = useCallback(() => void ensureYouTube().catch(() => undefined), [ensureYouTube])
 
   // Controles en la pantalla de bloqueo del móvil (Media Session API).
   useEffect(() => {
@@ -127,10 +215,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [current, state.listTitle, toggle, next, previous])
 
   const value = useMemo<PlayerApi>(
-    () => ({ ...state, current, playList, toggle, next, previous, seek }),
-    [state, current, playList, toggle, next, previous, seek],
+    () => ({ ...state, current, video, playList, toggle, next, previous, seek, setVideoSlot, prepareVideo }),
+    [state, current, video, playList, toggle, next, previous, seek, prepareVideo],
   )
-  return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>
+  return (
+    <PlayerContext.Provider value={value}>
+      {children}
+      <VideoDock ref={videoHost} visible={video} slot={videoSlot} title={current?.item.title} />
+    </PlayerContext.Provider>
+  )
 }
 
 export function usePlayer() {

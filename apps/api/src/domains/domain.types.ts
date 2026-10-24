@@ -82,6 +82,11 @@ export interface DomainConfig {
   creatorLabel: string;
   /** Si los elementos se reproducen dentro de la app (audio). Si no, la ficha enlaza a la fuente. */
   playable: boolean;
+  /**
+   * Catálogo personal: cada persona importa sus propios elementos (p. ej. su música de
+   * YouTube) y solo ve los suyos. Los públicos (Jamendo, RAWG…) no lo llevan.
+   */
+  personal?: boolean;
   source: DomainSource;
   attributes: DomainAttribute[];
   tagGroups: TagGroup[];

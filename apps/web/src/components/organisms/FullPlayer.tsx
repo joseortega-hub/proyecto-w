@@ -15,11 +15,14 @@ interface FullPlayerProps {
   onPrevious: () => void
   onNext: () => void
   onSeek: (s: number) => void
+  /** Si suena un vídeo de YouTube: hueco donde se coloca su reproductor en lugar de la portada. */
+  videoSlot?: (el: HTMLElement | null) => void
 }
 
 /** Reproductor a pantalla completa con la explicación de lo que suena. */
-export function FullPlayer({ entry, listTitle, onClose, ...p }: FullPlayerProps) {
+export function FullPlayer({ entry, listTitle, onClose, videoSlot, ...p }: FullPlayerProps) {
   const { item } = entry
+  const youtube = item.source === 'youtube'
   return (
     <div className="flex flex-1 flex-col gap-[18px]">
       <header className="flex items-center justify-between gap-3">
@@ -29,7 +32,11 @@ export function FullPlayer({ entry, listTitle, onClose, ...p }: FullPlayerProps)
         </Text>
         <span className="size-11" aria-hidden />
       </header>
-      <Cover src={item.imageUrl} alt={`Portada de ${item.title}`} className="w-full rounded-lg shadow-lg" />
+      {videoSlot ? (
+        <div ref={videoSlot} className="aspect-video w-full rounded-lg bg-black" aria-hidden />
+      ) : (
+        <Cover src={item.imageUrl} alt={`Portada de ${item.title}`} className="w-full rounded-lg shadow-lg" />
+      )}
       <div className="flex items-end justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <Heading as="h1" size="section" className="text-[26px] leading-tight">
@@ -44,7 +51,7 @@ export function FullPlayer({ entry, listTitle, onClose, ...p }: FullPlayerProps)
       {entry.reason && <Explanation reason={entry.reason} label="Por qué suena" collapsible={false} />}
       {item.externalUrl && (
         <a href={item.externalUrl} target="_blank" rel="noreferrer" className="text-center text-xs text-muted-foreground underline-offset-2 hover:underline">
-          Música con licencia Creative Commons · escuchar en Jamendo
+          {youtube ? 'Reproducido con YouTube · abrir en YouTube Music' : 'Música con licencia Creative Commons · escuchar en Jamendo'}
         </a>
       )}
     </div>

@@ -14,10 +14,12 @@ import { ItemsController } from './items/items.controller.js';
 import { ItemsService } from './items/items.service.js';
 import { TasteController } from './taste/taste.controller.js';
 import { TasteService } from './taste/taste.service.js';
+import { YouTubeController } from './youtube/youtube.controller.js';
+import { YouTubeService } from './youtube/youtube.service.js';
 
 @Module({
   imports: [DbModule, AiModule],
-  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController],
+  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController],
   providers: [
     DomainsService,
     InterviewService,
@@ -27,6 +29,7 @@ import { TasteService } from './taste/taste.service.js';
     SessionCleanupService,
     PreferencesService,
     TasteService,
+    YouTubeService,
   ],
 })
 export class AppModule {}

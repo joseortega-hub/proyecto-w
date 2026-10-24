@@ -33,6 +33,7 @@ export function PlayerPage() {
         onPrevious={player.previous}
         onNext={player.next}
         onSeek={player.seek}
+        videoSlot={player.video ? player.setVideoSlot : undefined}
       />
     </FocusTemplate>
   )
