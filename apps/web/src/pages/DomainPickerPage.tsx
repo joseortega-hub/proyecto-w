@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router'
 import { Heading, IconButton, Skeleton, Text } from '@/components/atoms'
 import { DomainCard, EmptyState } from '@/components/molecules'
+import { ThemeMenu } from '@/components/organisms'
 import { domainIcon, useDomains } from '@/lib/domain'
 import { formatInt } from '@/lib/format'
 import { useTheme } from '@/lib/theme'
@@ -17,7 +18,10 @@ export function DomainPickerPage() {
         <Heading as="span" size="brand">
           Sintonía
         </Heading>
-        <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
+        <div className="flex gap-2">
+          <ThemeMenu />
+          <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
+        </div>
       </header>
       <section className="flex flex-1 flex-col justify-center gap-5 py-8">
         <div className="flex flex-col gap-2">

@@ -42,6 +42,8 @@ import {
   ListPlus,
   TvMinimalPlay,
   Unplug,
+  Palette,
+  Monitor,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -89,6 +91,8 @@ const ICONS = {
   youtube: TvMinimalPlay,
   listPlus: ListPlus,
   unplug: Unplug,
+  palette: Palette,
+  system: Monitor,
 }
 
 export type IconName = keyof typeof ICONS

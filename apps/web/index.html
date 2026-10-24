@@ -7,6 +7,17 @@
     <meta name="theme-color" content="#3d4bf0" />
     <meta name="description" content="Dime cómo estás y te pongo lo que encaja." />
     <title>Sintonía</title>
+    <script>
+      // Tema y modo guardados, antes de pintar (sin parpadeo). Mismas claves que src/lib/theme.ts.
+      try {
+        var r = document.documentElement, s = localStorage, m = s.getItem('sintonia.theme')
+        var dark = m === 'dark' || (m !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
+        r.classList.toggle('dark', dark)
+        r.dataset.theme = s.getItem('sintonia.palette') || 'sintonia'
+        var c = s.getItem('sintonia.theme-color')
+        if (c) document.querySelector('meta[name="theme-color"]').setAttribute('content', c)
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

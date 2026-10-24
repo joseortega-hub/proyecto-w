@@ -4,6 +4,7 @@ import { useDomain } from '@/lib/domain'
 import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 import { DomainSwitcher } from './DomainSwitcher'
+import { ThemeMenu } from './ThemeMenu'
 
 const LINKS: { to: string; label: string; icon: IconName }[] = [
   { to: '', label: 'Inicio', icon: 'home' },
@@ -74,7 +75,8 @@ export function SideNav() {
         <span className="label-caps px-3 pb-1">Temáticas</span>
         <DomainSwitcher orientation="vertical" />
       </div>
-      <div className="mt-auto">
+      <div className="mt-auto flex gap-2">
+        <ThemeMenu side="top" align="start" />
         <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
       </div>
     </nav>

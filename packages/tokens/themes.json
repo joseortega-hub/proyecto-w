@@ -1,0 +1,201 @@
+{
+  "default": "sintonia",
+  "themes": [
+    {
+      "id": "sintonia",
+      "label": "Sintonía",
+      "description": "Cobalto y naranja señal: el diseño original.",
+      "fonts": [],
+      "modes": {
+        "light": {
+          "swatches": [
+            "#f3f4f8",
+            "#3d4bf0",
+            "#e86a1c",
+            "#e3e6ff"
+          ],
+          "themeColor": "#3d4bf0"
+        },
+        "dark": {
+          "swatches": [
+            "#0e1020",
+            "#8290ff",
+            "#ffa060",
+            "#252a57"
+          ],
+          "themeColor": "#0e1020"
+        }
+      }
+    },
+    {
+      "id": "grafito",
+      "label": "Grafito",
+      "description": "Sobrio y monocromo, para concentrarse.",
+      "inspiredBy": "Modern Minimal / Mono",
+      "fonts": [
+        "inter"
+      ],
+      "modes": {
+        "light": {
+          "swatches": [
+            "#fafafa",
+            "#171717",
+            "#e47602",
+            "#ebebeb"
+          ],
+          "themeColor": "#171717"
+        },
+        "dark": {
+          "swatches": [
+            "#0a0a0a",
+            "#f2f2f2",
+            "#ffa666",
+            "#2a2a2a"
+          ],
+          "themeColor": "#0a0a0a"
+        }
+      }
+    },
+    {
+      "id": "neon",
+      "label": "Neón",
+      "description": "Noche urbana: magenta y cian con brillo.",
+      "inspiredBy": "Cyberpunk / Synthwave",
+      "fonts": [
+        "unbounded"
+      ],
+      "modes": {
+        "light": {
+          "swatches": [
+            "#fbf7ff",
+            "#c0168a",
+            "#0dadb4",
+            "#fde0f3"
+          ],
+          "themeColor": "#c0168a"
+        },
+        "dark": {
+          "swatches": [
+            "#0b0414",
+            "#ff3fbf",
+            "#00d7e0",
+            "#3d1040"
+          ],
+          "themeColor": "#0b0414"
+        }
+      }
+    },
+    {
+      "id": "atardecer",
+      "label": "Atardecer",
+      "description": "Cálido: terracota, crema y serifa con carácter.",
+      "inspiredBy": "Claude / Mocha Mousse",
+      "fonts": [
+        "fraunces"
+      ],
+      "modes": {
+        "light": {
+          "swatches": [
+            "#faf5ee",
+            "#b4471f",
+            "#c58d04",
+            "#f8dfcb"
+          ],
+          "themeColor": "#b4471f"
+        },
+        "dark": {
+          "swatches": [
+            "#1a120d",
+            "#f08a5d",
+            "#f0b135",
+            "#412c1e"
+          ],
+          "themeColor": "#1a120d"
+        }
+      }
+    },
+    {
+      "id": "oceano",
+      "label": "Océano",
+      "description": "Fresco: azul profundo y coral.",
+      "inspiredBy": "Ocean Breeze",
+      "fonts": [],
+      "modes": {
+        "light": {
+          "swatches": [
+            "#f2f8fb",
+            "#0b6e99",
+            "#f3625c",
+            "#d4ecf7"
+          ],
+          "themeColor": "#0b6e99"
+        },
+        "dark": {
+          "swatches": [
+            "#06141c",
+            "#4cc3ee",
+            "#fe9fa5",
+            "#0f3446"
+          ],
+          "themeColor": "#06141c"
+        }
+      }
+    },
+    {
+      "id": "chicle",
+      "label": "Chicle",
+      "description": "Pastel y redondo: violeta suave y rosa.",
+      "inspiredBy": "Soft Pop / Pastel Dreams",
+      "fonts": [],
+      "modes": {
+        "light": {
+          "swatches": [
+            "#fdf7fb",
+            "#7446d4",
+            "#c18f0a",
+            "#ffe3f1"
+          ],
+          "themeColor": "#7446d4"
+        },
+        "dark": {
+          "swatches": [
+            "#17121f",
+            "#b79bff",
+            "#e9b532",
+            "#3b2541"
+          ],
+          "themeColor": "#17121f"
+        }
+      }
+    },
+    {
+      "id": "brutal",
+      "label": "Brutal",
+      "description": "Neobrutalismo: esquinas rectas y sombras duras.",
+      "inspiredBy": "Neo Brutalism",
+      "fonts": [
+        "space-grotesk"
+      ],
+      "modes": {
+        "light": {
+          "swatches": [
+            "#fff6d6",
+            "#1f3bff",
+            "#b39609",
+            "#c9f0ff"
+          ],
+          "themeColor": "#1f3bff"
+        },
+        "dark": {
+          "swatches": [
+            "#111111",
+            "#ffd400",
+            "#dcbc33",
+            "#14324a"
+          ],
+          "themeColor": "#111111"
+        }
+      }
+    }
+  ]
+}

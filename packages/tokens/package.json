@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     "./theme.css": "./theme.css",
-    "./tokens.json": "./tokens.json"
+    "./tokens.json": "./tokens.json",
+    "./themes.json": "./themes.json"
   },
   "scripts": {
     "build": "node gen-tokens.mjs"
