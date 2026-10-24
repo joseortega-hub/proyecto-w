@@ -1,20 +1,29 @@
 import { Link } from 'react-router'
 import { Cover, Icon, IconButton, MatchBadge } from '@/components/atoms'
 import { PlaybackControls, SeekBar } from '@/components/molecules'
-import type { QueueEntry } from '@/player/player-context'
+import { usePlayerVideoSlot, type QueueEntry } from '@/player/player-context'
 
 interface PlayerViewProps {
   entry: QueueEntry
   playing: boolean
   onToggle: () => void
+  /** Si suena un vídeo de YouTube: hueco donde se ve, en lugar de la portada. */
+  videoSlot?: (el: HTMLElement | null) => (() => void) | undefined
 }
 
 /** Mini-reproductor del móvil, encima de la navegación. Al tocarlo se abre el reproductor. */
-export function MiniPlayer({ entry, playing, onToggle }: PlayerViewProps) {
+export function MiniPlayer({ entry, playing, onToggle, videoSlot: slotProp }: PlayerViewProps) {
+  // El hook va siempre (reglas de los hooks); la prop, si llega, manda.
+  const contextSlot = usePlayerVideoSlot()
+  const videoSlot = slotProp ?? contextSlot
   return (
     <div className="mx-2.5 mb-2 flex items-center gap-2.5 rounded-[14px] bg-foreground py-2 pr-1.5 pl-2.5 text-background md:hidden">
       <Link to="/reproductor" className="flex min-w-0 flex-1 items-center gap-2.5" aria-label={`Abrir el reproductor: ${entry.item.title}`}>
-        <Cover src={entry.item.imageUrl} alt="" className="size-10 flex-none rounded-[8px]" />
+        {videoSlot ? (
+          <span ref={videoSlot} className="aspect-video h-10 flex-none rounded-[8px] bg-black" aria-hidden />
+        ) : (
+          <Cover src={entry.item.imageUrl} alt="" className="size-10 flex-none rounded-[8px]" />
+        )}
         <span className="flex min-w-0 flex-col">
           <strong className="truncate text-sm">{entry.item.title}</strong>
           <span className="truncate text-xs opacity-75">{entry.item.subtitle}</span>
@@ -36,11 +45,18 @@ interface PlayerBarProps extends PlayerViewProps {
 }
 
 /** Barra de reproducción de escritorio (≥ 768 px). */
-export function PlayerBar({ entry, playing, onToggle, position, duration, hasPrevious, hasNext, onPrevious, onNext, onSeek }: PlayerBarProps) {
+export function PlayerBar({ entry, playing, onToggle, position, duration, hasPrevious, hasNext, onPrevious, onNext, onSeek, videoSlot: slotProp }: PlayerBarProps) {
+  // El hook va siempre (reglas de los hooks); la prop, si llega, manda.
+  const contextSlot = usePlayerVideoSlot()
+  const videoSlot = slotProp ?? contextSlot
   return (
     <div className="hidden items-center gap-6 border-t border-border bg-card px-6 py-3 md:flex">
       <Link to="/reproductor" className="flex w-72 min-w-0 items-center gap-3">
-        <Cover src={entry.item.imageUrl} alt="" className="size-12 flex-none rounded-[8px]" />
+        {videoSlot ? (
+          <span ref={videoSlot} className="aspect-video h-12 flex-none rounded-[8px] bg-black" aria-hidden />
+        ) : (
+          <Cover src={entry.item.imageUrl} alt="" className="size-12 flex-none rounded-[8px]" />
+        )}
         <span className="flex min-w-0 flex-col">
           <strong className="truncate text-[15px]">{entry.item.title}</strong>
           <span className="truncate text-[13px] text-muted-foreground">{entry.item.subtitle}</span>

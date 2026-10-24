@@ -31,8 +31,11 @@ interface PlayerApi extends PlayerState {
   next: () => void
   previous: () => void
   seek: (seconds: number) => void
-  /** Hueco donde se coloca el vídeo (el reproductor a pantalla completa); sin hueco, va en una ventanita flotante. */
-  setVideoSlot: (el: HTMLElement | null) => void
+  /**
+   * Ref de callback para un hueco donde se coloca el vídeo de YouTube (la portada del
+   * mini-reproductor, de la barra o del reproductor completo). Se usa el hueco visible más grande.
+   */
+  setVideoSlot: (el: HTMLElement | null) => (() => void) | undefined
   /** Carga la API de YouTube por adelantado, para que el primer toque ya suene (móvil). */
   prepareVideo: () => void
 }
@@ -51,7 +54,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const yt = useRef<YTPlayer | null>(null)
   const ytReady = useRef<Promise<YTPlayer> | null>(null)
   const videoHost = useRef<HTMLDivElement>(null)
-  const [videoSlot, setVideoSlot] = useState<HTMLElement | null>(null)
+  const [videoSlots, setVideoSlots] = useState<HTMLElement[]>([])
+  // React 19: la ref de callback devuelve su limpieza, así se sabe qué hueco desaparece.
+  const setVideoSlot = useCallback((el: HTMLElement | null) => {
+    if (!el) return undefined
+    setVideoSlots((slots) => (slots.includes(el) ? slots : [...slots, el]))
+    return () => setVideoSlots((slots) => slots.filter((s) => s !== el))
+  }, [])
   const [state, setState] = useState<PlayerState>({
     queue: [],
     index: 0,
@@ -79,7 +88,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           const player = new YT.Player(el, {
             width: '100%',
             height: '100%',
-            playerVars: { playsinline: 1, rel: 0, origin: window.location.origin },
+            // Sin controles de YouTube: se maneja solo con los de Sintonía (un único reproductor).
+            playerVars: { playsinline: 1, rel: 0, controls: 0, disablekb: 1, fs: 0, iv_load_policy: 3, origin: window.location.origin },
             events: {
               onReady: () => {
                 yt.current = player
@@ -229,12 +239,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<PlayerApi>(
     () => ({ ...state, current, video, playList, toggle, next, previous, seek, setVideoSlot, prepareVideo }),
-    [state, current, video, playList, toggle, next, previous, seek, prepareVideo],
+    [state, current, video, playList, toggle, next, previous, seek, setVideoSlot, prepareVideo],
   )
   return (
     <PlayerContext.Provider value={value}>
       {children}
-      <VideoDock ref={videoHost} visible={video} slot={videoSlot} title={current?.item.title} />
+      <VideoDock ref={videoHost} visible={video} slots={videoSlots} title={current?.item.title} />
     </PlayerContext.Provider>
   )
 }
@@ -243,4 +253,13 @@ export function usePlayer() {
   const ctx = useContext(PlayerContext)
   if (!ctx) throw new Error('usePlayer debe usarse dentro de <PlayerProvider>')
   return ctx
+}
+
+/**
+ * Hueco para el vídeo de YouTube si lo que suena es un vídeo (si no, `undefined`). No falla
+ * fuera de <PlayerProvider>, para poder pintar las piezas del reproductor sueltas (Storybook).
+ */
+export function usePlayerVideoSlot() {
+  const ctx = useContext(PlayerContext)
+  return ctx?.video ? ctx.setVideoSlot : undefined
 }

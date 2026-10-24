@@ -16,7 +16,7 @@ interface FullPlayerProps {
   onNext: () => void
   onSeek: (s: number) => void
   /** Si suena un vídeo de YouTube: hueco donde se coloca su reproductor en lugar de la portada. */
-  videoSlot?: (el: HTMLElement | null) => void
+  videoSlot?: (el: HTMLElement | null) => (() => void) | undefined
 }
 
 /** Reproductor a pantalla completa con la explicación de lo que suena. */
