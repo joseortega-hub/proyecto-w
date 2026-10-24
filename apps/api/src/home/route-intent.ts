@@ -13,6 +13,8 @@ export const DIRECT_GAP = 0.2;
 /** Por debajo de esto una opción ni se ofrece como chip. */
 const MIN_OPTION = 0.12;
 const MAX_OPTIONS = 3;
+/** Qué temáticas se ofrecen primero cuando no hay ninguna pista. */
+const FALLBACK_ORDER = ['movies', 'games', 'music', 'books'];
 
 export interface AvailableDomain {
   id: string;
@@ -120,12 +122,10 @@ export function decideRoute(raw: z.infer<typeof intentSchema> | null, text: stri
   const options = candidates.filter((o) => o.confidence >= MIN_OPTION).slice(0, MAX_OPTIONS);
   const [first, second] = options;
   if (!first) {
-    // Ni el modelo ni las reglas: se ofrecen las temáticas públicas para elegir.
-    return {
-      domainId: null,
-      options: available.slice(0, MAX_OPTIONS).map((d) => ({ domainId: d.id, confidence: 0 })),
-      via,
-    };
+    // Ni el modelo ni las reglas: se ofrecen tres temáticas para elegir, las públicas primero.
+    const order = (id: string) => (FALLBACK_ORDER.includes(id) ? FALLBACK_ORDER.indexOf(id) : FALLBACK_ORDER.length);
+    const offered = [...available].sort((a, b) => order(a.id) - order(b.id)).slice(0, MAX_OPTIONS);
+    return { domainId: null, options: offered.map((d) => ({ domainId: d.id, confidence: 0 })), via };
   }
   const direct = first.confidence >= DIRECT_CONFIDENCE && first.confidence - (second?.confidence ?? 0) >= DIRECT_GAP;
   return { domainId: direct ? first.domainId : null, options, via };

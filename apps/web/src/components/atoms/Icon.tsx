@@ -49,6 +49,7 @@ import {
   Palette,
   Monitor,
   Activity,
+  CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -103,6 +104,7 @@ const ICONS = {
   palette: Palette,
   system: Monitor,
   activity: Activity,
+  calendar: CalendarDays,
 }
 
 export type IconName = keyof typeof ICONS

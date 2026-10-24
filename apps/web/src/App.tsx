@@ -4,7 +4,6 @@ import { AppShell } from '@/components/templates/AppShell'
 import { DomainGate } from '@/components/templates/DomainGate'
 import { Toaster } from '@/components/ui/sonner'
 import { BajoElCapoPage } from '@/pages/BajoElCapoPage'
-import { DomainPickerPage } from '@/pages/DomainPickerPage'
 import { FolderReviewPage } from '@/pages/FolderReviewPage'
 import { HomePage } from '@/pages/HomePage'
 import { InterviewPage } from '@/pages/InterviewPage'
@@ -13,7 +12,9 @@ import { LibraryPage } from '@/pages/LibraryPage'
 import { ListsPage } from '@/pages/ListsPage'
 import { PlayerPage } from '@/pages/PlayerPage'
 import { ResultPage } from '@/pages/ResultPage'
+import { StoryPage } from '@/pages/StoryPage'
 import { TastePage } from '@/pages/TastePage'
+import { TodayPage } from '@/pages/TodayPage'
 import { PlayerProvider } from '@/player/player-context'
 
 const queryClient = new QueryClient({
@@ -26,8 +27,9 @@ export function App() {
       <PlayerProvider>
         <BrowserRouter>
           <Routes>
-            {/* "/" es el selector de temáticas. */}
-            <Route index element={<DomainPickerPage />} />
+            {/* "/" es «Hoy para ti»; "/historia", «Tu historia». */}
+            <Route index element={<TodayPage />} />
+            <Route path="historia" element={<StoryPage />} />
             {/* Cada temática tiene su biblioteca, sus listas y sus entrevistas. */}
             <Route path=":domain" element={<DomainGate />}>
               <Route element={<AppShell />}>

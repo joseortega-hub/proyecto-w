@@ -11,19 +11,21 @@ const LINKS: { to: string; label: string; icon: IconName }[] = [
   { to: 'biblioteca', label: 'Biblioteca', icon: 'library' },
   { to: 'listas', label: 'Mis listas', icon: 'lists' },
   { to: 'gustos', label: 'Mis gustos', icon: 'heart' },
+  { to: '/historia', label: 'Tu historia', icon: 'calendar' },
 ]
 
 /** Los enlaces se quedan dentro del dominio actual. */
 function useLinks() {
   const { path } = useDomain()
-  return LINKS.map((l) => ({ ...l, to: path(l.to), end: l.to === '' }))
+  // Las rutas que empiezan por «/» son globales («Tu historia») y no cuelgan de la temática.
+  return LINKS.map((l) => ({ ...l, to: l.to.startsWith('/') ? l.to : path(l.to), end: l.to === '' }))
 }
 
 /** Navegación inferior del móvil (< 768 px). */
 export function BottomNav() {
   const links = useLinks()
   return (
-    <nav aria-label="Principal" className="grid grid-cols-4 border-t border-border bg-card pt-2 pb-[max(env(safe-area-inset-bottom),14px)] short:pt-0 short:pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav aria-label="Principal" className="grid grid-cols-5 border-t border-border bg-card pt-2 pb-[max(env(safe-area-inset-bottom),14px)] short:pt-0 short:pb-[env(safe-area-inset-bottom)] md:hidden">
       {links.map((l) => (
         <NavLink
           key={l.to}

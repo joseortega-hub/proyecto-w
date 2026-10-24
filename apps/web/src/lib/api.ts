@@ -3,6 +3,7 @@ import type { ClientContext, InterviewContext } from './context'
 import type { Preference, SessionPreferences } from './preferences'
 import type { CompareResult, Judgement, OpsPanel, TraceRow } from './ops-types'
 import type { ResolvedTheme } from '@sintonia/tokens/engine'
+import type { HomeSummary, RouteIntentResult, StoryView } from './home-types'
 import { userHeaders } from './user'
 
 export type Answer = 'yes' | 'no' | 'unknown'
@@ -321,6 +322,12 @@ export interface GeneratedTheme {
 }
 
 export const api = {
+  /** «Hoy para ti»: contexto, combo de esta noche y actividad por temática. */
+  getHome: (client: ClientContext) => request<HomeSummary>('/home', { method: 'POST', body: JSON.stringify({ client }) }),
+  /** A qué temática lleva lo escrito en la barra universal (el texto no se guarda). */
+  routeIntent: (text: string) => request<RouteIntentResult>('/route-intent', { method: 'POST', body: JSON.stringify({ text }) }),
+  /** «Tu historia»: calendario, top, lo aprendido y la IA en números de esta persona. */
+  getStory: () => request<StoryView>('/story'),
   /** Genera un tema a partir de una descripción (no se guarda). `variant` > 0 pide otra versión. */
   generateTheme: (description: string, variant = 0) =>
     request<GeneratedTheme>('/themes/generate', { method: 'POST', body: JSON.stringify({ description, variant }) }),
