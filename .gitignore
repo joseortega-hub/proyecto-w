@@ -29,3 +29,6 @@ Thumbs.db
 
 # Claude Code: ajustes locales de cada máquina
 .claude/settings.local.json
+
+# Datos personales del usuario (exportaciones de Instagram, etc.): nunca a Git
+data/privado/
