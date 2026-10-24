@@ -21,12 +21,14 @@ import { FolderService } from './folder/folder.service.js';
 import { OpsController } from './ops/ops.controller.js';
 import { OpsService } from './ops/ops.service.js';
 import { TraceService } from './ops/trace.service.js';
+import { ThemesController } from './themes/themes.controller.js';
+import { ThemesService } from './themes/themes.service.js';
 import { YouTubeController } from './youtube/youtube.controller.js';
 import { YouTubeService } from './youtube/youtube.service.js';
 
 @Module({
   imports: [DbModule, AiModule],
-  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController],
+  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController],
   providers: [
     DomainsService,
     AnchorsService,
@@ -42,6 +44,7 @@ import { YouTubeService } from './youtube/youtube.service.js';
     FolderService,
     TraceService,
     OpsService,
+    ThemesService,
   ],
 })
 export class AppModule {}

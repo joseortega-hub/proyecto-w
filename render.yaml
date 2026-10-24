@@ -12,6 +12,7 @@ services:
     buildFilter:
       paths:
         - apps/api/**
+        - packages/tokens/**
         - package.json
         - pnpm-lock.yaml
         - pnpm-workspace.yaml

@@ -23,3 +23,18 @@ export const Interactivo: Story = {
   render: (args) => <InteractivePicker {...args} />,
 }
 export const MuestrasEnOscuro: Story = { args: { palette: 'neon', mode: 'dark', theme: 'dark' } }
+
+const mine = {
+  id: 'ia-1',
+  label: 'Noche urbana',
+  description: 'neón, reguetón de noche',
+  fonts: [],
+  modes: {
+    light: { swatches: ['#fbf7ff', '#c0168a', '#0f8aa8', '#fde0f3'], themeColor: '#c0168a' },
+    dark: { swatches: ['#0b0414', '#ff3fbf', '#5ee0ff', '#3d1040'], themeColor: '#0b0414' },
+  },
+}
+/** Con un tema propio (con botón de borrar) y la opción de crear otro con IA. */
+export const ConTemaPropio: Story = {
+  args: { themes: [...THEMES, mine], palette: 'ia-1', customIds: ['ia-1'], onRemove: () => {}, onCreate: () => {} },
+}

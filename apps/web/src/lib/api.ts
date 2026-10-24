@@ -2,6 +2,7 @@
 import type { ClientContext, InterviewContext } from './context'
 import type { Preference, SessionPreferences } from './preferences'
 import type { CompareResult, Judgement, OpsPanel, TraceRow } from './ops-types'
+import type { ResolvedTheme } from '@sintonia/tokens/engine'
 import { userHeaders } from './user'
 
 export type Answer = 'yes' | 'no' | 'unknown'
@@ -275,7 +276,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+/** Tema propuesto por la IA con el contraste ya comprobado; `notices` lista lo que se corrigió. */
+export interface GeneratedTheme {
+  theme: ResolvedTheme
+  notices: string[]
+}
+
 export const api = {
+  /** Genera un tema a partir de una descripción (no se guarda). `variant` > 0 pide otra versión. */
+  generateTheme: (description: string, variant = 0) =>
+    request<GeneratedTheme>('/themes/generate', { method: 'POST', body: JSON.stringify({ description, variant }) }),
   getDomains: () => request<DomainInfo[]>('/domains'),
   /** `initialText` es el punto de partida opcional (texto o voz) antes de las preguntas. */
   startSession: (domainId: string, options: { initialText?: string; client?: ClientContext } = {}) =>

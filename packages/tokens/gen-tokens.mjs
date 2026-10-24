@@ -4,58 +4,14 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  BASE_FONTS, FONT_CHOICES, MODES, SOFT_PAIRS, contrast, deriveColors, domainBase, failingPairs, glowShadow, hardShadow,
+  menuModes, r3, resolveDomains, shadowCss, softShadow, themeCssLines
+} from './theme-engine.mjs';
 
 const out = process.argv[2] ?? dirname(fileURLToPath(import.meta.url));
 mkdirSync(out, { recursive: true });
 
-// ---------- Color: sRGB ↔ OKLCH y contraste WCAG 2.x ----------
-const hexToRgb = (hex) => [0, 2, 4].map((i) => parseInt(hex.replace('#', '').slice(i, i + 2), 16) / 255);
-const rgbToHex = (rgb) => '#' + rgb.map((c) => Math.round(Math.min(1, Math.max(0, c)) * 255).toString(16).padStart(2, '0')).join('');
-const toLin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-const fromLin = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.cbrt(c) ** (3 / 2.4) - 0.055);
-function hexToOklch(hex) {
-  const [r, g, b] = hexToRgb(hex).map(toLin);
-  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-  const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
-  const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
-  const B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
-  return [L, Math.hypot(A, B), ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360];
-}
-function oklchToRgb([L, C, h]) {
-  const A = C * Math.cos((h * Math.PI) / 180), B = C * Math.sin((h * Math.PI) / 180);
-  const l = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3;
-  const m = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3;
-  const s = (L - 0.0894841775 * A - 1.291485548 * B) ** 3;
-  return [
-    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s
-  ].map(fromLin);
-}
-/** OKLCH → hex, bajando el croma hasta que cabe en sRGB (conserva tono y luminosidad). */
-function oklch(L, C, h) {
-  let c = C;
-  for (; c > 0; c -= 0.002) {
-    const rgb = oklchToRgb([L, c, h]);
-    if (rgb.every((v) => v >= -0.001 && v <= 1.001)) return rgbToHex(rgb);
-  }
-  return rgbToHex(oklchToRgb([L, 0, h]));
-}
-const luminance = (hex) => { const [r, g, b] = hexToRgb(hex).map(toLin); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
-const contrast = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-/** Ajusta la luminosidad (oscurece en claro, aclara en oscuro) hasta llegar al contraste pedido frente a todos los fondos. */
-function ensureContrast(hex, against, mode, min = 4.5, chroma = 1) {
-  let [L, C, h] = hexToOklch(hex);
-  C *= chroma;
-  let v = oklch(L, C, h);
-  for (let i = 0; i < 100 && against.some((bg) => contrast(v, bg) < min); i++) {
-    L = Math.min(1, Math.max(0, L + (mode === 'dark' ? 0.01 : -0.01)));
-    v = oklch(L, C, h);
-  }
-  return v;
-}
 
 // ---------- Paleta y semánticos del tema por defecto (Sintonía) ----------
 const palette = {
@@ -93,15 +49,8 @@ const semantic = {
   yes: ['green.700', 'green.400'],
   no: ['rose.600', 'rose.400']
 };
-const MODES = ['light', 'dark'];
-// Sí y No tienen significado: son iguales en todos los temas (igual que destructive).
-const FIXED = Object.fromEntries(['yes', 'no', 'destructive'].map((n) => [n, semantic[n].map(hexOf)]));
 
-const fonts = {
-  display: ['Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Segoe UI', 'system-ui', 'sans-serif'],
-  body: ['Atkinson Hyperlegible', 'Segoe UI', 'system-ui', 'sans-serif'],
-  mono: ['JetBrains Mono Variable', 'JetBrains Mono', 'Cascadia Mono', 'ui-monospace', 'monospace']
-};
+const fonts = BASE_FONTS;
 const sizes = { xs: 12, sm: 14, base: 16, lg: 20, xl: 25, '2xl': 31, '3xl': 39, '4xl': 49 };
 const space = { 1: 4, 2: 8, 3: 12, 4: 16, 6: 24, 8: 32, 12: 48, 16: 64 };
 const radius = { sm: 6, md: 12, lg: 20, full: 999 };
@@ -111,43 +60,6 @@ const shadows = {
   lg: [0, 12, 32, -8, 0.18]
 };
 
-// Color de cada temática (el de Sintonía); en cada tema se ajusta su luminosidad hasta pasar AA sobre fondo y tarjeta.
-const domainBase = {
-  music: ['#3d4bf0', '#8290ff'],
-  youtube: ['#d92d20', '#ff7a6e'],
-  folder: ['#b45309', '#ffb454'],
-  games: ['#8a3fd1', '#c59bff'],
-  movies: ['#c22e6e', '#ff80b5'],
-  books: ['#0b7f7a', '#4fd1c5']
-};
-
-// ---------- Sombras: capas [x, y, blur, spread, color, alfa] ----------
-const softShadow = (tint, k = 1) => (mode) => {
-  const color = mode === 'dark' ? '#000000' : tint;
-  const f = mode === 'dark' ? 2.2 * k : k;
-  return {
-    xs: [[0, 1, 1, 0, color, 0.05 * f]],
-    sm: [[0, 1, 2, 0, color, 0.08 * f]],
-    md: [[0, 4, 12, -2, color, 0.12 * f]],
-    lg: [[0, 12, 32, -8, color, 0.18 * f]],
-    xl: [[0, 20, 44, -12, color, 0.24 * f]]
-  };
-};
-const glowShadow = (mode, c) => {
-  const a = mode === 'dark' ? 1.4 : 1;
-  const ring = [0, 0, 0, 1, c.primary, 0.18 * a];
-  return {
-    xs: [[0, 1, 2, 0, c.primary, 0.12 * a]],
-    sm: [ring, [0, 2, 8, -2, c.primary, 0.22 * a]],
-    md: [ring, [0, 6, 20, -6, c.primary, 0.32 * a]],
-    lg: [ring, [0, 14, 36, -10, c.primary, 0.4 * a]],
-    xl: [ring, [0, 22, 56, -14, c.primary, 0.46 * a]]
-  };
-};
-const hardShadow = (mode, c) => {
-  const col = mode === 'dark' ? c.border : c.foreground;
-  return { xs: [[1, 1, 0, 0, col, 1]], sm: [[2, 2, 0, 0, col, 1]], md: [[4, 4, 0, 0, col, 1]], lg: [[6, 6, 0, 0, col, 1]], xl: [[8, 8, 0, 0, col, 1]] };
-};
 
 // ---------- Temas ----------
 // Valores propios, inspirados en el estilo de algunos temas de tweakcn (https://tweakcn.com, Apache-2.0),
@@ -162,8 +74,7 @@ const themes = {
     label: 'Grafito',
     description: 'Sobrio y monocromo, para concentrarse.',
     inspiredBy: 'Modern Minimal / Mono',
-    fonts: { display: ['Inter Variable', 'Segoe UI', 'system-ui', 'sans-serif'], body: ['Inter Variable', 'Segoe UI', 'system-ui', 'sans-serif'] },
-    load: ['inter'],
+    font: 'inter',
     radius: 6,
     signalHue: 55,
     domainChroma: 0.8,
@@ -175,8 +86,7 @@ const themes = {
     label: 'Neón',
     description: 'Noche urbana: magenta y cian con brillo.',
     inspiredBy: 'Cyberpunk / Synthwave',
-    fonts: { display: ['Unbounded Variable', 'Segoe UI', 'system-ui', 'sans-serif'] },
-    load: ['unbounded'],
+    font: 'unbounded',
     radius: 8,
     signalHue: 200,
     domainChroma: 1.2,
@@ -188,8 +98,7 @@ const themes = {
     label: 'Atardecer',
     description: 'Cálido: terracota, crema y serifa con carácter.',
     inspiredBy: 'Claude / Mocha Mousse',
-    fonts: { display: ['Fraunces Variable', 'Georgia', 'serif'] },
-    load: ['fraunces'],
+    font: 'fraunces',
     radius: 14,
     signalHue: 80,
     shadow: softShadow('#3b2414'),
@@ -218,8 +127,7 @@ const themes = {
     label: 'Brutal',
     description: 'Neobrutalismo: esquinas rectas y sombras duras.',
     inspiredBy: 'Neo Brutalism',
-    fonts: { display: ['Space Grotesk Variable', 'Segoe UI', 'system-ui', 'sans-serif'], body: ['Space Grotesk Variable', 'Segoe UI', 'system-ui', 'sans-serif'] },
-    load: ['space-grotesk'],
+    font: 'space-grotesk',
     radius: 0,
     signalHue: 95,
     domainChroma: 1.1,
@@ -230,89 +138,38 @@ const themes = {
 };
 const DEFAULT_THEME = 'sintonia';
 
-/** Señal derivada del primario: tono complementario desplazado (o el fijado por el tema), con contraste comprobado. */
-function deriveSignal(c, mode, hue) {
-  const [, , ph] = hexToOklch(c.primary);
-  const h = hue ?? (ph + 150) % 360;
-  const signal = mode === 'dark' ? oklch(0.8, 0.15, h) : oklch(0.68, 0.18, h);
-  return {
-    signal,
-    'signal-foreground': ensureContrast(mode === 'dark' ? oklch(0.82, 0.14, h) : oklch(0.52, 0.15, h), [c.background, c.card], mode),
-    'signal-muted': mode === 'dark' ? oklch(0.27, 0.05, h) : oklch(0.95, 0.04, h)
-  };
-}
 
 /** Los 23 colores semánticos de un tema en un modo. */
 function resolveColors(id, mode) {
-  const i = MODES.indexOf(mode);
-  if (id === DEFAULT_THEME) return Object.fromEntries(Object.entries(semantic).map(([n, refs]) => [n, hexOf(refs[i])]));
-  const m = themes[id][mode];
-  const c = {
-    background: m.background,
-    foreground: m.foreground,
-    card: m.card,
-    'card-foreground': m.foreground,
-    popover: m.card,
-    'popover-foreground': m.foreground,
-    primary: m.primary,
-    'primary-foreground': m['primary-foreground'],
-    secondary: m.secondary,
-    'secondary-foreground': m.foreground,
-    muted: m.secondary,
-    'muted-foreground': m['muted-foreground'],
-    accent: m.accent,
-    'accent-foreground': m['accent-foreground'],
-    destructive: FIXED.destructive[i],
-    border: m.border,
-    input: m.border,
-    ring: m.primary
-  };
-  Object.assign(c, deriveSignal(c, mode, themes[id].signalHue));
-  c.yes = FIXED.yes[i];
-  c.no = FIXED.no[i];
-  return Object.fromEntries(Object.keys(semantic).map((n) => [n, c[n].toLowerCase()]));
+  if (id === DEFAULT_THEME) return Object.fromEntries(Object.entries(semantic).map(([n, refs]) => [n, hexOf(refs[MODES.indexOf(mode)])]));
+  const derived = deriveColors(themes[id][mode], mode, themes[id].signalHue);
+  return Object.fromEntries(Object.keys(semantic).map((n) => [n, derived[n]]));
 }
 
 const resolved = Object.fromEntries(
   Object.keys(themes).map((id) => {
     const t = themes[id];
     const modes = Object.fromEntries(
-      MODES.map((mode, i) => {
+      MODES.map((mode) => {
         const colors = resolveColors(id, mode);
-        const domains = Object.fromEntries(
-          Object.entries(domainBase).map(([d, base]) => [d, ensureContrast(base[i], [colors.background, colors.card], mode, 4.5, t.domainChroma ?? 1)])
-        );
+        const domains = resolveDomains(colors, mode, t.domainChroma ?? 1);
         return [mode, { colors, domains, shadow: t.shadow(mode, colors) }];
       })
     );
-    return [id, { ...t, fonts: { ...fonts, ...t.fonts }, radius: t.radius ?? radius.md, modes }];
+    return [id, { ...t, fonts: { ...fonts, ...FONT_CHOICES[t.font ?? 'sintonia'].fonts }, load: FONT_CHOICES[t.font ?? 'sintonia'].load, radius: t.radius ?? radius.md, modes }];
   })
 );
 
 // ---------- Contraste WCAG ----------
-const TEXT_PAIRS = [
-  ['foreground', 'background'], ['foreground', 'card'], ['muted-foreground', 'background'], ['muted-foreground', 'card'],
-  ['primary-foreground', 'primary'], ['secondary-foreground', 'secondary'], ['accent-foreground', 'accent'],
-  ['signal-foreground', 'background'], ['signal-foreground', 'card']
-];
-// Sí/No son fijos: se avisa si en algún tema quedan justos, sin fallar.
-const SOFT_PAIRS = [['muted-foreground', 'secondary'], ['yes', 'card'], ['no', 'card'], ['primary', 'background']];
 const failures = [];
 const warnings = [];
 for (const [id, t] of Object.entries(resolved)) {
   for (const mode of MODES) {
     const { colors: c, domains } = t.modes[mode];
-    for (const [fg, bg] of TEXT_PAIRS) {
-      const r = contrast(c[fg], c[bg]);
-      if (r < 4.5) failures.push(`${id}/${mode}: ${fg} sobre ${bg} = ${r.toFixed(2)}`);
-    }
+    failures.push(...failingPairs(c, domains).map((m) => `${id}/${mode}: ${m}`));
     for (const [fg, bg] of SOFT_PAIRS) {
       const r = contrast(c[fg], c[bg]);
       if (r < (fg === 'primary' ? 3 : 4.5)) warnings.push(`${id}/${mode}: ${fg} sobre ${bg} = ${r.toFixed(2)}`);
-    }
-    for (const [d, v] of Object.entries(domains)) {
-      const r = Math.min(contrast(v, c.background), contrast(v, c.card));
-      if (r < 4.5) failures.push(`${id}/${mode}: dominio ${d} = ${r.toFixed(2)}`);
     }
   }
 }
@@ -331,7 +188,6 @@ const hexToColor = (hex, alpha = 1) => {
   return v;
 };
 const px = (n) => ({ value: n, unit: 'px' });
-const r3 = (n) => Math.round(n * 1000) / 1000;
 const shadowToken = (layers) => layers.map(([x, y, b, s, col, a]) => ({ color: hexToColor(col, r3(a)), offsetX: px(x), offsetY: px(y), blur: px(b), spread: px(s) }));
 const modesExt = (dark) => ({ 'app.sintonia.modes': { dark } });
 
@@ -396,33 +252,12 @@ const tokens = {
 writeFileSync(join(out, 'tokens.json'), JSON.stringify(tokens, null, 2) + '\n');
 
 // ---------- theme.css ----------
-const fam = (a) => a.map((f) => (f.includes(' ') ? `"${f}"` : f)).join(', ');
-const rgbCss = (hex, a) => `rgb(${hexToRgb(hex).map((v) => Math.round(v * 255)).join(' ')} / ${r3(a)})`;
-const shadowCss = (layers) => layers.map(([x, y, b, s, col, a]) => `${x}px ${y}px ${b}px ${s}px ${a === 1 ? col : rgbCss(col, a)}`).join(', ');
 const lines = ['/* Generado por gen-tokens.mjs junto con tokens.json: cambia los tokens, no este archivo. */', '@custom-variant dark (&:where(.dark, .dark *));', ''];
-const block = (selector, decls) => { lines.push(`${selector} {`, ...decls.map((d) => `  ${d}`), '}', ''); };
-const modeDecls = (t, mode, withShape) => {
-  const m = t.modes[mode];
-  const d = Object.entries(m.colors).map(([n, v]) => `--${n}: ${v};`);
-  if (withShape) d.push(`--radius: ${t.radius}px;`, `--display-font: ${fam(t.fonts.display)};`, `--body-font: ${fam(t.fonts.body)};`, `--mono-font: ${fam(t.fonts.mono)};`);
-  for (const [k, layers] of Object.entries(m.shadow)) d.push(`--elevation-${k}: ${shadowCss(layers)};`);
-  return d;
-};
-// El tema va en <html data-theme> y el modo en <html class="dark">. Especificidad: :root (0,1,0) < .dark (0,1,0, después)
 // < :root[data-theme] (0,2,0) < :root.dark[data-theme] (0,3,0), así que cada tema pisa al de por defecto en los dos modos.
 for (const [id, t] of Object.entries(resolved)) {
   const isDefault = id === DEFAULT_THEME;
-  const light = isDefault ? ':root' : `:root[data-theme='${id}']`;
-  const dark = isDefault ? '.dark' : `:root.dark[data-theme='${id}']`;
-  lines.push(`/* ${t.label}: ${t.description}${t.inspiredBy ? ` Inspirado en tweakcn (${t.inspiredBy}).` : ''} */`);
-  block(light, modeDecls(t, 'light', true));
-  block(dark, modeDecls(t, 'dark', false));
-  // Color de cada temática: lo fija [data-domain] en el marco y en cada tarjeta del selector.
-  for (const d of Object.keys(domainBase)) {
-    lines.push(`${isDefault ? '' : light + ' '}[data-domain='${d}'] { --domain: ${t.modes.light.domains[d]}; }`);
-    lines.push(`${dark} [data-domain='${d}'] { --domain: ${t.modes.dark.domains[d]}; }`);
-  }
-  lines.push('');
+  lines.push(`/* ${t.label}: ${t.description}${t.inspiredBy ? ` Inspirado en tweakcn (${t.inspiredBy}).` : ""} */`);
+  lines.push(...themeCssLines(id, t, isDefault), '');
 }
 lines.push('@theme inline {');
 for (const n of Object.keys(semantic)) lines.push(`  --color-${n}: var(--${n});`);
@@ -443,12 +278,7 @@ const menu = Object.entries(resolved).map(([id, t]) => ({
   description: t.description,
   ...(t.inspiredBy ? { inspiredBy: t.inspiredBy } : {}),
   fonts: t.load ?? [],
-  modes: Object.fromEntries(
-    MODES.map((mode) => {
-      const c = t.modes[mode].colors;
-      return [mode, { swatches: [c.background, c.primary, c.signal, c.accent], themeColor: mode === 'dark' ? c.background : c.primary }];
-    })
-  )
+  modes: menuModes(t)
 }));
 writeFileSync(join(out, 'themes.json'), JSON.stringify({ default: DEFAULT_THEME, themes: menu }, null, 2) + '\n');
 console.log(`ok: ${menu.length} temas`);

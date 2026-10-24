@@ -14,6 +14,9 @@
         var dark = m === 'dark' || (m !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
         r.classList.toggle('dark', dark)
         r.dataset.theme = s.getItem('sintonia.palette') || 'sintonia'
+        // Temas propios guardados (generados con IA): su CSS se inyecta antes de pintar.
+        var css = s.getItem('sintonia.custom-css')
+        if (css) { var st = document.createElement('style'); st.id = 'tema-ia'; st.textContent = css; document.head.appendChild(st) }
         var c = s.getItem('sintonia.theme-color')
         if (c) document.querySelector('meta[name="theme-color"]').setAttribute('content', c)
       } catch (e) {}
