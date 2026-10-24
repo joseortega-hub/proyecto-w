@@ -4,7 +4,7 @@ import { TEXT_PROVIDER, type TextProvider } from '../ai/text-provider.js';
 import type { DomainConfig } from '../domains/domain.types.js';
 import { normalize } from './interview.engine.js';
 import { anchorItemSchema, cleanAnchors } from './anchors.js';
-import { anchorsFromEntities, genreVocabulary, pickWithoutAI, type Entity } from './catalog-match.js';
+import { anchorsFromEntities, genreVocabulary, pickWithoutAI, saidAsLike, type Entity } from './catalog-match.js';
 import type { Anchor, TextSignals, Understanding } from './interview.types.js';
 
 /** Confianza mínima para dar una señal de ánimo por resuelta (no se vuelve a preguntar). */
@@ -72,7 +72,7 @@ interface Extracted {
 }
 
 /** Lo que dice el modelo, limpio y validado contra la configuración del dominio. */
-export function toUnderstanding(raw: Extracted, config: DomainConfig, entities: Entity[] = []): Understanding {
+export function toUnderstanding(raw: Extracted, config: DomainConfig, entities: Entity[] = [], text = ''): Understanding {
   const scales = new Set(config.attributes.filter((a) => a.kind === 'scale').map((a) => a.key));
   const seen = new Set<string>();
   const moods = (raw.moods ?? []).filter((m) => {
@@ -90,6 +90,11 @@ export function toUnderstanding(raw: Extracted, config: DomainConfig, entities: 
   const exclusions = [...new Set(raw.exclusions ?? [])].filter((g) => groups.has(g));
   // Lo elegido entre las entidades del catálogo (la IA elige, no inventa) + géneros del vocabulario cerrado.
   const uses = new Map((raw.picks ?? []).filter((p) => entities.some((e) => e.id === p.id)).map((p) => [p.id, p.use] as const));
+  // "Parecido" solo si el texto lo dice ("tipo Marvel", "como Pokémon"); si no, lo que nombra es lo que quiere.
+  for (const [id, use] of uses) {
+    const e = entities.find((x) => x.id === id);
+    if (e && text && use === 'like' && !saidAsLike(text, e.said)) uses.set(id, e.kind === 'title' ? 'include' : 'only');
+  }
   // Si la IA lo puso como ancla suelta pero está en el catálogo, vale la entidad real.
   for (const a of raw.anchors ?? []) {
     const label = normalize(a.label);
@@ -170,7 +175,7 @@ export class UnderstandingService {
         this.logger.warn(`Sin entendimiento del texto: ${error.message.slice(0, 120)}`);
         return null;
       });
-    const understood = written ? toUnderstanding(written as Extracted, config, entities) : understandWithoutAI(text, config, entities);
+    const understood = written ? toUnderstanding(written as Extracted, config, entities, text) : understandWithoutAI(text, config, entities);
     this.logger.log(
       `Texto → ánimo: ${understood.moods.map((m) => `${m.key}:${m.level}`).join(', ') || '—'} · anclas: ${understood.anchors.map((a) => a.label).join(', ') || '—'} · ` +
         `prefs: ${Object.entries(understood.preferences).map(([k, v]) => `${k}=${v.value}`).join(', ') || '—'} · sin: ${understood.exclusions.join(', ') || '—'} (${Date.now() - started} ms)`,
