@@ -179,6 +179,8 @@ export type EntityIndex = ReturnType<typeof entityIndex>;
  */
 export function findEntities(text: string, catalog: MatchableItem[], config: DomainConfig, built?: EntityIndex): Entity[] {
   const { index, stems } = built ?? entityIndex(catalog, config);
+  // Una etiqueta que no es un género del dominio ("marvel", "superhero") nombra una saga o un tema concreto.
+  const genres = new Set(genreVocabulary(config).map(clean));
   const tokens = wordsOf(text);
   // Las mismas palabras, como las escribió (mismos cortes: quitar tildes no cambia los límites).
   const raw = text.normalize('NFC').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
@@ -190,7 +192,7 @@ export function findEntities(text: string, catalog: MatchableItem[], config: Dom
     if (prev && prev.span >= span) return;
     found.set(key, {
       id: '',
-      kind: entry.kind,
+      kind: entry.kind === 'tag' && !genres.has(entry.condition.values[0]) ? 'franchise' : entry.kind,
       name: entry.name,
       said,
       written: original.slice(at, at + span).join(' '),

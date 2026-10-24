@@ -92,3 +92,12 @@ describe('ediciones repetidas', () => {
     expect(titleKey('Vengadores: Infinity War')).not.toBe(titleKey('Vengadores'));
   });
 });
+
+describe('etiquetas que no son géneros', () => {
+  it('"marvel" como etiqueta suelta es una saga: filtra aunque haya una', () => {
+    const catalog = [item('Capitana Marvel', { tags: ['acción', 'marvel'] }), item('Titanic', { tags: ['romance'] })];
+    const [marvel] = resolve('algo de Marvel', catalog);
+    expect(marvel.kind).toBe('franchise');
+    expect(anchorMode([marvel], 1, 10)).toBe('filter');
+  });
+});
