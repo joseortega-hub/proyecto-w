@@ -40,6 +40,15 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      # Búsqueda en directo de la intención explícita ("algo de Marvel"): las mismas claves del seed.
+      - key: TMDB_API_KEY
+        sync: false
+      - key: RAWG_API_KEY
+        sync: false
+      - key: JAMENDO_CLIENT_ID
+        sync: false
+      - key: OPEN_LIBRARY_CONTACT
+        sync: false
       # URL pública de la web en Vercel (para CORS y para la redirección de OAuth), p. ej. https://sintonia.vercel.app
       - key: WEB_URL
         sync: false
