@@ -14,6 +14,7 @@ import { JevDecisionProvider } from './jev/jev-decision.provider.js';
 import { LayaDecisionProvider } from './laya/laya-decision.provider.js';
 import { DecisionChain, TextChain } from './provider-chain.js';
 import { TEXT_PROVIDER, type TextProvider } from './text-provider.js';
+import { TracedEmbeddingProvider } from './traced-embedding.js';
 
 const logger = new Logger('IA');
 const announce = <P extends { name: string }>(task: string, provider: P) => {
@@ -39,11 +40,20 @@ const jev = config.typesafeApiKey
   ? new JevDecisionProvider({ apiKey: config.typesafeApiKey, model: config.jevModel, maxRetries: 0 })
   : null;
 
+/** Una sola instancia de Laya (y un solo precalentamiento) para la cadena y la comparativa. */
+let layaInstance: LayaDecisionProvider | null = null;
+function sharedLaya(): LayaDecisionProvider {
+  if (!layaInstance) {
+    layaInstance = new LayaDecisionProvider(config.layaBaseUrl, config.layaModel, config.layaTimeoutMs);
+    void layaInstance.warmUp();
+  }
+  return layaInstance;
+}
+
 /** Perfil (`score`) y encaje (`noul`): Gemini, o Jev con Gemini de respaldo. */
 function mainDecisions(): DecisionProvider {
   if (config.decisionProvider === 'jev' && !jev) logger.warn('DECISION_PROVIDER=jev pero falta TYPESAFE_API_KEY; uso Gemini');
-  const provider = config.decisionProvider === 'jev' && jev ? new DecisionChain([jev, gemini.decisions]) : gemini.decisions;
-  return announce('Perfil y encaje', provider);
+  return announce('Perfil y encaje', new DecisionChain(config.decisionProvider === 'jev' && jev ? [jev, gemini.decisions] : [gemini.decisions]));
 }
 
 /** Siguiente pregunta de la entrevista: la cadena de DECISION_CHAIN (por defecto Groq → Laya → Gemini). */
@@ -57,11 +67,8 @@ function interviewDecisions(): DecisionProvider {
         logger.warn(`DECISION_CHAIN incluye ${name} pero falta su clave; se salta`);
         return [];
       }
-      case 'laya': {
-        const laya = new LayaDecisionProvider(config.layaBaseUrl, config.layaModel, config.layaTimeoutMs);
-        void laya.warmUp();
-        return [laya];
-      }
+      case 'laya':
+        return [sharedLaya()];
       case 'groq':
         if (groq) return [new GroqDecisionProvider(groq, chain(config.groqModel, config.groqFallbackModels, config.groqTextModel))];
         logger.warn('DECISION_CHAIN incluye groq pero falta GROQ_API_KEY; se salta');
@@ -77,7 +84,28 @@ function interviewDecisions(): DecisionProvider {
         return [];
     }
   });
-  return announce('Siguiente pregunta', providers.length > 1 ? new DecisionChain(providers) : (providers[0] ?? gemini.decisions));
+  return announce('Siguiente pregunta', new DecisionChain(providers.length ? providers : [gemini.decisions]));
+}
+
+/** Todos los proveedores de decisión configurados (con clave), para la comparativa de "Bajo el capó". */
+export interface DecisionCandidate {
+  name: string;
+  provider: DecisionProvider;
+}
+export const DECISION_CANDIDATES = Symbol('DecisionCandidates');
+
+function decisionCandidates(): DecisionCandidate[] {
+  const out: DecisionCandidate[] = [];
+  if (groq) out.push({ name: 'groq', provider: new GroqDecisionProvider(groq, chain(config.groqModel, config.groqFallbackModels, config.groqTextModel)) });
+  // Laya solo existe en local (Ollaya): si no está en la cadena, no se comprueba.
+  if (config.decisionChain.includes('laya')) out.push({ name: 'laya', provider: sharedLaya() });
+  out.push({ name: 'gemini', provider: gemini.decisions });
+  for (const name of ['cerebras', 'openrouter'] as const) {
+    const extra = compatible[name];
+    if (extra) out.push({ name, provider: extra.decisions });
+  }
+  if (jev) out.push({ name: 'jev', provider: jev });
+  return out;
 }
 
 /** Texto: la cadena de TEXT_CHAIN (por defecto Groq → Gemini). */
@@ -89,7 +117,7 @@ function textProvider(): TextProvider {
     logger.warn(`TEXT_CHAIN: "${name}" no disponible; se salta`);
     return [];
   });
-  return announce('Texto', providers.length > 1 ? new TextChain(providers) : (providers[0] ?? gemini.text));
+  return announce('Texto', new TextChain(providers.length ? providers : [gemini.text]));
 }
 
 @Global()
@@ -98,8 +126,12 @@ function textProvider(): TextProvider {
     { provide: DECISION_PROVIDER, useFactory: mainDecisions },
     { provide: INTERVIEW_DECISION_PROVIDER, useFactory: interviewDecisions },
     { provide: TEXT_PROVIDER, useFactory: textProvider },
-    { provide: EMBEDDING_PROVIDER, useFactory: () => new GeminiEmbeddingProvider(google, config.geminiEmbeddingModel) },
+    { provide: DECISION_CANDIDATES, useFactory: decisionCandidates },
+    {
+      provide: EMBEDDING_PROVIDER,
+      useFactory: () => new TracedEmbeddingProvider(new GeminiEmbeddingProvider(google, config.geminiEmbeddingModel)),
+    },
   ],
-  exports: [DECISION_PROVIDER, INTERVIEW_DECISION_PROVIDER, TEXT_PROVIDER, EMBEDDING_PROVIDER],
+  exports: [DECISION_PROVIDER, INTERVIEW_DECISION_PROVIDER, TEXT_PROVIDER, EMBEDDING_PROVIDER, DECISION_CANDIDATES],
 })
 export class AiModule {}

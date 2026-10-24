@@ -5,6 +5,7 @@ import type { z } from 'zod';
 import type { DecisionAnswer, DecisionProvider, DecisionQuestion } from '../decision-provider.js';
 import type { EmbeddingProvider } from '../embedding-provider.js';
 import { withModelFallback } from '../model-fallback.js';
+import { noteUsage } from '../trace-context.js';
 import type { TextProvider } from '../text-provider.js';
 
 /** Si un modelo no responde en este tiempo, se pasa al siguiente de la cadena. */
@@ -34,8 +35,8 @@ export class GeminiDecisionProvider implements DecisionProvider {
   async decide<Q extends Record<string, DecisionQuestion>>(state: string | Record<string, unknown>, questions: Q) {
     const { answers } = await withModelFallback(
       this.models,
-      (model) =>
-        experimental_decide({
+      async (model) => {
+        const res = await experimental_decide({
           model: this.google.decisionModel(model),
           maxRetries: 0,
           abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
@@ -43,7 +44,10 @@ export class GeminiDecisionProvider implements DecisionProvider {
           questions: Object.fromEntries(
             Object.entries(questions).map(([id, q]) => [id, q.type === 'noul' ? { type: 'boolean', instructions: q.instructions } : q]),
           ),
-        }),
+        });
+        noteUsage(undefined, model);
+        return res;
+      },
       logger,
     );
 
@@ -78,8 +82,8 @@ export class GeminiTextProvider implements TextProvider {
   async write<S extends z.ZodType>({ system, prompt, schema }: { system: string; prompt: string; schema: S }) {
     const { output } = await withModelFallback(
       this.models,
-      (model) =>
-        generateText({
+      async (model) => {
+        const res = await generateText({
           model: this.google(model),
           system,
           prompt,
@@ -88,7 +92,10 @@ export class GeminiTextProvider implements TextProvider {
           maxRetries: 0,
           // Los textos largos (explicaciones de toda la lista) necesitan algo más de margen.
           timeout: CALL_TIMEOUT_MS * 1.5,
-        }),
+        });
+        noteUsage(res.usage, model);
+        return res;
+      },
       logger,
     );
     return output as z.infer<S>;

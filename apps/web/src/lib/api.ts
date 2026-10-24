@@ -1,6 +1,7 @@
 // Cliente REST de la API de Sintonía. Vite redirige /api a la API en local.
 import type { ClientContext, InterviewContext } from './context'
 import type { Preference, SessionPreferences } from './preferences'
+import type { CompareResult, Judgement, OpsPanel, TraceRow } from './ops-types'
 import { userHeaders } from './user'
 
 export type Answer = 'yes' | 'no' | 'unknown'
@@ -322,6 +323,12 @@ export const api = {
     request<FolderTrack>(`/folder/tracks/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   folderResume: () => request<FolderStatus & { quota: boolean }>('/folder/resume', { method: 'POST' }),
   folderForget: () => request<{ removed: number }>('/folder', { method: 'DELETE' }),
+
+  opsPanel: (session: string | null) => request<OpsPanel>(`/ops/panel${session ? `?session=${session}` : ''}`),
+  opsTraces: (session: string, since?: string) =>
+    request<{ rows: TraceRow[] }>(`/ops/traces?session=${session}${since ? `&since=${encodeURIComponent(since)}` : ''}`),
+  opsCompare: (session: string) => request<CompareResult>('/ops/compare', { method: 'POST', body: JSON.stringify({ session }) }),
+  opsJudge: (session: string) => request<Judgement>('/ops/judge', { method: 'POST', body: JSON.stringify({ session }) }),
 
   youtubeStatus: () => request<YouTubeStatus>('/youtube/status'),
   /** URL de consentimiento de Google; el `state` queda ligado a este navegador con una cookie. */

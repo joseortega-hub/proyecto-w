@@ -18,12 +18,15 @@ import { TasteService } from './taste/taste.service.js';
 import { CreditsService } from './items/credits.service.js';
 import { FolderController } from './folder/folder.controller.js';
 import { FolderService } from './folder/folder.service.js';
+import { OpsController } from './ops/ops.controller.js';
+import { OpsService } from './ops/ops.service.js';
+import { TraceService } from './ops/trace.service.js';
 import { YouTubeController } from './youtube/youtube.controller.js';
 import { YouTubeService } from './youtube/youtube.service.js';
 
 @Module({
   imports: [DbModule, AiModule],
-  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController],
+  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController],
   providers: [
     DomainsService,
     AnchorsService,
@@ -37,6 +40,8 @@ import { YouTubeService } from './youtube/youtube.service.js';
     TasteService,
     YouTubeService,
     FolderService,
+    TraceService,
+    OpsService,
   ],
 })
 export class AppModule {}

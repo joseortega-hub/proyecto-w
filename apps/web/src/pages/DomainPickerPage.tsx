@@ -19,6 +19,7 @@ export function DomainPickerPage() {
           Sintonía
         </Heading>
         <div className="flex gap-2">
+          <IconButton icon="activity" variant="ghost" label="Bajo el capó: la IA por dentro" onClick={() => navigate('/bajo-el-capo')} />
           <ThemeMenu />
           <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
         </div>

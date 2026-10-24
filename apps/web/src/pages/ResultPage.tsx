@@ -8,6 +8,7 @@ import { MoodProfile, ResultList } from '@/components/organisms'
 import { ApiError, api } from '@/lib/api'
 import { totalMinutes } from '@/lib/format'
 import { agree, useDomain } from '@/lib/domain'
+import { rememberSession } from '@/lib/ops'
 import { useSavedLists } from '@/lib/saved-lists'
 import { useFeedback, useTaste } from '@/lib/taste'
 import { useSaveToYouTube } from '@/lib/youtube'
@@ -17,6 +18,7 @@ import { TuningPage } from './TuningPage'
 /** /:domain/resultado/:id. Sin lista todavía (o con ?afinar=…) muestra Afinando. */
 export function ResultPage() {
   const { id = '' } = useParams()
+  useEffect(() => rememberSession(id), [id])
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()

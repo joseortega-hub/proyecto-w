@@ -1,4 +1,4 @@
-import { Link, NavLink } from 'react-router'
+import { Link, NavLink, useNavigate } from 'react-router'
 import { Heading, Icon, IconButton, type IconName } from '@/components/atoms'
 import { useDomain } from '@/lib/domain'
 import { useTheme } from '@/lib/theme'
@@ -48,6 +48,7 @@ export function BottomNav() {
 export function SideNav() {
   const { theme, toggle } = useTheme()
   const links = useLinks()
+  const navigate = useNavigate()
   return (
     <nav aria-label="Principal" className="hidden w-60 flex-none flex-col gap-1 border-r border-border bg-card p-4 md:flex">
       <Link to="/" className="rounded-sm px-3 pt-2 pb-6">
@@ -78,6 +79,7 @@ export function SideNav() {
       <div className="mt-auto flex gap-2">
         <ThemeMenu side="top" align="start" />
         <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
+        <IconButton icon="activity" variant="ghost" label="Bajo el capó: la IA por dentro" onClick={() => navigate('/bajo-el-capo')} />
       </div>
     </nav>
   )

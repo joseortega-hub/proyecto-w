@@ -45,6 +45,7 @@ import {
   Unplug,
   Palette,
   Monitor,
+  Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -95,6 +96,7 @@ const ICONS = {
   unplug: Unplug,
   palette: Palette,
   system: Monitor,
+  activity: Activity,
 }
 
 export type IconName = keyof typeof ICONS

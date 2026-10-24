@@ -4,11 +4,12 @@ import { useLocation, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, IconButton, Text } from '@/components/atoms'
 import { ContextBadge, EmptyState, InterviewProgress } from '@/components/molecules'
-import { InterviewPanel } from '@/components/organisms'
+import { DemoDock, InterviewPanel } from '@/components/organisms'
 import { FocusTemplate } from '@/components/templates/FocusTemplate'
 import { ApiError, api, type Answer, type SessionView } from '@/lib/api'
 import { clientContext } from '@/lib/context'
 import { useDomain } from '@/lib/domain'
+import { rememberSession, useDemoMode, useLiveTraces } from '@/lib/ops'
 
 /** /:domain/entrevista crea la sesión y redirige a /:domain/entrevista/:sesion. */
 export function InterviewPage() {
@@ -41,6 +42,12 @@ export function InterviewPage() {
     queryFn: () => api.getSession(sesion!),
     enabled: !!sesion,
   })
+
+  const [demo, setDemo] = useDemoMode()
+  const traces = useLiveTraces(sesion, demo)
+  useEffect(() => {
+    if (sesion) rememberSession(sesion)
+  }, [sesion])
 
   const update = (s: SessionView) => queryClient.setQueryData(['session', s.id], s)
   const onError = (e: Error) => {
@@ -135,6 +142,7 @@ export function InterviewPage() {
         onFinish={() => navigate(domain.path(`resultado/${sesion}`))}
         onRestart={restart}
       />
+      {demo && <DemoDock rows={traces} onClose={() => setDemo(false)} />}
     </FocusTemplate>
   )
 }

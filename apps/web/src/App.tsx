@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AppShell } from '@/components/templates/AppShell'
 import { DomainGate } from '@/components/templates/DomainGate'
 import { Toaster } from '@/components/ui/sonner'
+import { BajoElCapoPage } from '@/pages/BajoElCapoPage'
 import { DomainPickerPage } from '@/pages/DomainPickerPage'
 import { FolderReviewPage } from '@/pages/FolderReviewPage'
 import { HomePage } from '@/pages/HomePage'
@@ -42,6 +43,7 @@ export function App() {
               <Route path="entrevista/:sesion" element={<InterviewPage key="sesion" />} />
             </Route>
             {/* El reproductor es global: la música sigue al cambiar de dominio. */}
+            <Route path="bajo-el-capo" element={<BajoElCapoPage />} />
             <Route path="reproductor" element={<PlayerPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

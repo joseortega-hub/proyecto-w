@@ -4,6 +4,7 @@ import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import type { DecisionAnswer, DecisionProvider, DecisionQuestion } from '../decision-provider.js';
 import { withModelFallback } from '../model-fallback.js';
+import { noteUsage } from '../trace-context.js';
 import type { TextProvider } from '../text-provider.js';
 
 /** Groq es rápido (~0,2-0,6 s); si tarda más, algo va mal y se pasa al siguiente. */
@@ -96,8 +97,8 @@ export class GroqDecisionProvider implements DecisionProvider {
     const schema = choiceSchema(questions);
     const { output } = await withModelFallback(
       this.models,
-      (model) =>
-        generateText({
+      async (model) => {
+        const res = await generateText({
           model: this.groq(model),
           system:
             'Eres un motor de decisiones. Para cada pregunta, elige una de sus opciones según el estado y ' +
@@ -107,7 +108,10 @@ export class GroqDecisionProvider implements DecisionProvider {
           providerOptions: (this.options.providerOptions ?? groqOptions)(model),
           maxRetries: 0,
           timeout: DECISION_TIMEOUT_MS,
-        }),
+        });
+        noteUsage(res.usage, model);
+        return res;
+      },
       this.options.logger ?? logger,
     );
 
@@ -134,8 +138,8 @@ export class GroqTextProvider implements TextProvider {
   async write<S extends z.ZodType>({ system, prompt, schema }: { system: string; prompt: string; schema: S }) {
     const { output } = await withModelFallback(
       this.models,
-      (model) =>
-        generateText({
+      async (model) => {
+        const res = await generateText({
           model: this.groq(model),
           system,
           prompt,
@@ -143,7 +147,10 @@ export class GroqTextProvider implements TextProvider {
           providerOptions: (this.options.providerOptions ?? groqOptions)(model),
           maxRetries: 0,
           timeout: TEXT_TIMEOUT_MS,
-        }),
+        });
+        noteUsage(res.usage, model);
+        return res;
+      },
       this.options.logger ?? logger,
     );
     return output as z.infer<S>;

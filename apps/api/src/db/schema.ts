@@ -1,6 +1,7 @@
 import type { ItemDetails } from '../catalog/item-details.js';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -161,6 +162,37 @@ export const youtubeAccounts = pgTable('youtube_accounts', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+/**
+ * Trazas de IA ("Bajo el capó"): una fila por llamada, solo metadatos. Nunca guarda el texto
+ * de la persona ni el estado de la decisión. Se borran pasadas 48 h.
+ */
+export const aiTraces = pgTable(
+  'ai_traces',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    sessionId: uuid('session_id'),
+    domainId: text('domain_id'),
+    task: text('task').notNull(),
+    subject: text('subject').notNull(),
+    provider: text('provider'),
+    model: text('model'),
+    ok: boolean('ok').notNull(),
+    skipped: jsonb('skipped').$type<{ provider: string; reason: string; ms: number }[]>().notNull().default([]),
+    latencyMs: integer('latency_ms').notNull(),
+    totalMs: integer('total_ms').notNull(),
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    /** Lo que costaría a precios de lista, en euros. */
+    listCostEur: real('list_cost_eur').notNull().default(0),
+    /** true si el proveedor está en un plan gratuito: se paga 0 €. */
+    free: boolean('free').notNull().default(true),
+    outcome: text('outcome'),
+  },
+  (t) => [index('ai_traces_session_idx').on(t.sessionId, t.createdAt), index('ai_traces_created_idx').on(t.createdAt)],
+);
+
+export type AiTraceRow = typeof aiTraces.$inferSelect;
 export type YouTubeAccountRow = typeof youtubeAccounts.$inferSelect;
 export type TasteRow = typeof tasteProfiles.$inferSelect;
 export type ItemRow = typeof items.$inferSelect;

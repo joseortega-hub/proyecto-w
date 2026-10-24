@@ -64,6 +64,13 @@
       "when": 1792824113500,
       "tag": "0008_item_details",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792826337049,
+      "tag": "0009_ai_traces",
+      "breakpoints": true
     }
   ]
 }
