@@ -1,3 +1,4 @@
+import { bookDetails, type ItemDetails } from './item-details.js';
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorMatchesText } from '../interview/anchors.js';
 import type { CatalogAdapter, ImportedItem } from './catalog-adapter.js';
@@ -176,6 +177,18 @@ export class OpenLibraryAdapter implements CatalogAdapter {
     return docs.map((d) => this.toItem(d, null, LIVE_MAX_READING_LOG));
   }
 
+  /** Autoría, año, páginas y temas de un libro ya importado (script de relleno). */
+  async details(externalId: string): Promise<ItemDetails> {
+    const url = new URL('https://openlibrary.org/search.json');
+    url.search = new URLSearchParams({
+      q: `key:/works/${externalId}`,
+      fields: 'key,author_name,first_publish_year,number_of_pages_median,subject',
+      limit: '1',
+    }).toString();
+    const body = await this.get<{ docs: OpenLibraryDoc[] }>(url);
+    return body.docs[0] ? bookDetails(body.docs[0]) : {};
+  }
+
   private toItem(d: OpenLibraryDoc, description: string | null, maxLog: number): ImportedItem {
     const tags = bookTags(d.subject);
     // Con `lang=es`, Open Library adjunta la edición en español si existe: se usa su título,
@@ -196,6 +209,7 @@ export class OpenLibraryAdapter implements CatalogAdapter {
       attributes: deriveBookAttributes(d, tags),
       tags: [...new Set([...tags, ...raw])],
       popularity: logScale(d.readinglog_count ?? 0, maxLog),
+      details: bookDetails(d),
       facets: {
         languages: languagesFacet(d.language),
         ...(d.first_publish_year ? { year: String(d.first_publish_year) } : {}),

@@ -30,6 +30,8 @@ export async function upsertItems(db: Db, domainId: string, imported: ImportedIt
           popularity: sql`greatest(${items.popularity}, excluded.popularity)`,
           // Lo que trae la fuente manda, pero no se pierde lo que ya se clasificó antes.
           facets: sql`${items.facets} || excluded.facets`,
+          // Los créditos nuevos se suman a los ya guardados (p. ej. los de MusicBrainz).
+          details: sql`${items.details} || excluded.details`,
         },
       })
       .returning({ id: items.id });

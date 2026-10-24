@@ -8,6 +8,8 @@ interface ItemRowProps {
   subtitle?: string | null
   imageUrl?: string | null
   durationSec?: number | null
+  /** Línea friki bajo el subtítulo ("Dir. James Gunn · 2014 · Chris Pratt"). */
+  detail?: string | null
   match?: number
   active?: boolean
   playing?: boolean
@@ -20,7 +22,7 @@ interface ItemRowProps {
 }
 
 /** Un elemento del catálogo en una lista: portada, título, autor y encaje. */
-export function ItemRow({ title, subtitle, imageUrl, durationSec, match, active, playing, onSelect, actionLabel, children, className }: ItemRowProps) {
+export function ItemRow({ title, subtitle, imageUrl, durationSec, detail, match, active, playing, onSelect, actionLabel, children, className }: ItemRowProps) {
   const content = (
     <>
       <div className="relative size-12 flex-none">
@@ -37,6 +39,7 @@ export function ItemRow({ title, subtitle, imageUrl, durationSec, match, active,
           {subtitle}
           {durationSec ? <> · <span className="font-mono tabular-nums">{formatDuration(durationSec)}</span></> : null}
         </span>
+        {detail && <span className="truncate text-[12px] text-muted-foreground/90">{detail}</span>}
       </div>
       {match !== undefined && <MatchBadge value={match} />}
     </>

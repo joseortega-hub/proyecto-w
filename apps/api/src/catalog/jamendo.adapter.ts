@@ -1,5 +1,6 @@
 import { anchorMatchesText } from '../interview/anchors.js';
 import type { Anchor } from '../interview/interview.types.js';
+import { compactDetails } from './item-details.js';
 import type { CatalogAdapter, ImportedItem } from './catalog-adapter.js';
 
 interface JamendoTrack {
@@ -8,6 +9,7 @@ interface JamendoTrack {
   duration: number;
   artist_name: string;
   album_name: string;
+  releasedate?: string;
   image: string;
   audio: string;
   shareurl: string;
@@ -196,6 +198,7 @@ export class JamendoAdapter implements CatalogAdapter {
       tags: [...new Set([...genres, ...moods])],
       popularity: Math.round(popularity * 100) / 100,
       facets: language ? { language } : {},
+      details: compactDetails({ album: t.album_name || undefined, year: Number(t.releasedate?.slice(0, 4)) || undefined }),
       classifyHints: t.lyrics ? `Letra: ${t.lyrics.replace(/\s+/g, ' ').slice(0, 300)}` : undefined,
     };
   }

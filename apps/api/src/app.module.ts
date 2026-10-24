@@ -31,11 +31,12 @@ import { YouTubeService } from './youtube/youtube.service.js';
     QuestionBankService,
     TuningService,
     ItemsService,
+    CreditsService,
     SessionCleanupService,
     PreferencesService,
     TasteService,
     YouTubeService,
-  ],
     FolderService,
+  ],
 })
 export class AppModule {}

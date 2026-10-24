@@ -1,6 +1,7 @@
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorMatchesText } from '../interview/anchors.js';
 import { anchorTag, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
+import { gameDetails, type ItemDetails } from './item-details.js';
 import { clamp, logScale, mapLimit, nudge, politeFetcher, priorAverage } from './derive.js';
 
 interface RawgNamed {
@@ -23,6 +24,7 @@ export interface RawgGame {
   genres: RawgNamed[];
   tags?: RawgNamed[];
   parent_platforms?: { platform: RawgNamed }[];
+  platforms?: { platform: RawgNamed }[];
   esrb_rating?: { slug: string } | null;
 }
 
@@ -191,6 +193,11 @@ export class RawgAdapter implements CatalogAdapter {
     return url;
   }
 
+  /** Estudio, editora y plataformas de un juego ya importado (script de relleno). */
+  async details(externalId: string): Promise<ItemDetails> {
+    return gameDetails(await this.get<RawgDetail>(this.url(`games/${externalId}`)));
+  }
+
   private toItem(g: RawgDetail, maxAdded: number): ImportedItem {
     // Solo las etiquetas en inglés (RAWG mezcla etiquetas en ruso) y sin las de tienda (logros, nube…).
     const tags = (g.tags ?? [])
@@ -215,6 +222,7 @@ export class RawgAdapter implements CatalogAdapter {
         platforms: platformFacet(g),
         ...(g.released ? { year: g.released.slice(0, 4) } : {}),
       },
+      details: gameDetails(g),
     };
   }
 }

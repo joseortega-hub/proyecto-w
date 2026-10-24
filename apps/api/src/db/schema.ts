@@ -1,3 +1,4 @@
+import type { ItemDetails } from '../catalog/item-details.js';
 import { sql } from 'drizzle-orm';
 import {
   index,
@@ -74,6 +75,8 @@ export const items = pgTable(
     /** Valores categóricos para las preferencias previas del dominio (`language: 'es'`, `platforms: ['pc', 'switch']`). */
     facets: jsonb('facets').$type<Record<string, string | string[]>>().notNull().default({}),
     popularity: real('popularity').notNull().default(0),
+    /** Datos "para frikis" (créditos, ficha técnica) que traen las APIs; nunca los genera la IA. */
+    details: jsonb('details').$type<ItemDetails>().notNull().default({}),
     /** Embedding del texto del elemento (`pnpm embed`); null hasta calcularlo. */
     embedding: vector('embedding', { dimensions: 768 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

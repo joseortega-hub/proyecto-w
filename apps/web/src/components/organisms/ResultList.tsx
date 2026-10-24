@@ -1,5 +1,6 @@
 import { Icon } from '@/components/atoms'
 import { Explanation, FeedbackButtons, ItemRow } from '@/components/molecules'
+import { geekLine } from '@/lib/details'
 import type { Feedback, ResultEntry } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ export function ResultList({ entries, currentId, playing, onSelect, opensDetail,
               subtitle={e.item.subtitle}
               imageUrl={e.item.imageUrl}
               durationSec={e.item.durationSec}
+              detail={geekLine(e.item.domainId, e.item.details)}
               match={e.match}
               active={e.item.id === currentId}
               playing={playing}

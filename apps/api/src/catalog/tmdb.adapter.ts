@@ -1,5 +1,6 @@
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorTag, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
+import { movieDetails, type ItemDetails } from './item-details.js';
 import { clamp, logScale, mapLimit, nudge, politeFetcher, priorAverage, yearScale } from './derive.js';
 
 export interface TmdbMovie {
@@ -15,7 +16,7 @@ export interface TmdbMovie {
   vote_average: number;
   vote_count: number;
   runtime?: number | null;
-  credits?: { crew: { job: string; name: string }[] };
+  credits?: { crew: { job: string; name: string }[]; cast?: { name: string; order?: number }[] };
   keywords?: { keywords: { name: string }[] };
 }
 
@@ -177,6 +178,11 @@ export class TmdbAdapter implements CatalogAdapter {
     });
   }
 
+  /** Créditos de una película ya importada (script de relleno). */
+  async details(externalId: string): Promise<ItemDetails> {
+    return movieDetails(await this.get<TmdbMovie>(this.url(`movie/${externalId}`, { language: 'es-ES', append_to_response: 'credits' })));
+  }
+
   private url(path: string, params: Record<string, string> = {}) {
     const url = new URL(`https://api.themoviedb.org/3/${path}`);
     url.search = new URLSearchParams(this.bearer ? params : { api_key: this.apiKey, ...params }).toString();
@@ -201,6 +207,7 @@ export class TmdbAdapter implements CatalogAdapter {
       tags: [...new Set([...movieGenres(m), ...keywords])],
       popularity: logScale(m.vote_count, maxVotes),
       facets: { language: originalLanguageFacet(m.original_language), ...(year ? { year } : {}) },
+      details: movieDetails(m),
     };
   }
 }

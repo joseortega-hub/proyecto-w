@@ -22,6 +22,9 @@ export const WithExplanation: Story = {
     children: <Explanation reason="Instrumental, tempo lento (84 BPM) y tono cálido. Acompaña sin distraer." defaultOpen />,
   },
 }
+export const WithGeekLine: Story = {
+  args: { title: 'Guardianes de la Galaxia', subtitle: 'James Gunn', durationSec: null, detail: 'Dir. James Gunn · 2014 · Chris Pratt, Zoe Saldaña' },
+}
 export const OpensDetail: Story = {
   args: { title: 'Hollow Knight', subtitle: 'Team Cherry', durationSec: null, match: 91, actionLabel: 'Ver la ficha de' },
 }

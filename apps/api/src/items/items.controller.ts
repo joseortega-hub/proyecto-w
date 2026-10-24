@@ -1,5 +1,6 @@
-import { Controller, Get, Headers, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Controller, Get, Headers, NotFoundException, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { DomainsService } from '../domains/domains.service.js';
+import { CreditsService } from './credits.service.js';
 import { ItemsService } from './items.service.js';
 import { USER_HEADER } from '../taste/taste.controller.js';
 import { optionalUserId } from '../taste/taste.service.js';
@@ -8,6 +9,7 @@ import { optionalUserId } from '../taste/taste.service.js';
 export class ItemsController {
   constructor(
     private readonly items: ItemsService,
+    private readonly credits: CreditsService,
     private readonly domains: DomainsService,
   ) {}
 
@@ -34,6 +36,14 @@ export class ItemsController {
   @Get('items/:id')
   get(@Param('id', ParseUUIDPipe) id: string, @Headers(USER_HEADER) user?: string) {
     return this.items.get(id, optionalUserId(user));
+  }
+
+  /** Datos "para frikis" del elemento; en música completa los créditos desde MusicBrainz la primera vez. */
+  @Get('items/:id/details')
+  async details(@Param('id', ParseUUIDPipe) id: string, @Headers(USER_HEADER) user?: string) {
+    const details = await this.credits.details(id, optionalUserId(user));
+    if (!details) throw new NotFoundException('Elemento no encontrado');
+    return details;
   }
 
   /** Elementos parecidos por embedding (`?limit=10`, máximo 30). */

@@ -1,6 +1,7 @@
 import { Button, Chip, Cover, Heading, Icon, Text } from '@/components/atoms'
-import { AttributeMeter, ItemRow, SourceAttribution } from '@/components/molecules'
-import type { Attribute, DomainInfo, Item } from '@/lib/api'
+import { AttributeMeter, ItemRow, SourceAttribution, TechSheet } from '@/components/molecules'
+import type { Attribute, DomainInfo, Item, ItemDetails } from '@/lib/api'
+import { techSheet } from '@/lib/details'
 import { formatDuration } from '@/lib/format'
 import { itemYear } from './ItemGrid'
 
@@ -8,6 +9,8 @@ interface ItemDetailProps {
   item: Item
   domain: Pick<DomainInfo, 'creatorLabel' | 'playable' | 'source' | 'itemNounPlural'>
   attributes: Attribute[]
+  /** Detalles más recientes (en música llegan después, desde MusicBrainz); por defecto, los del elemento. */
+  details?: ItemDetails
   similar?: { similarity: number; item: Item }[]
   playing?: boolean
   onPlay?: () => void
@@ -18,8 +21,9 @@ interface ItemDetailProps {
  * Ficha de un elemento. En música se reproduce aquí; en el resto de temáticas no hay
  * contenido que reproducir, así que se enlaza a la fuente con su atribución.
  */
-export function ItemDetail({ item, domain, attributes, similar, playing, onPlay, onOpenSimilar }: ItemDetailProps) {
+export function ItemDetail({ item, domain, attributes, details, similar, playing, onPlay, onOpenSimilar }: ItemDetailProps) {
   const scales = attributes.filter((a) => a.kind === 'scale' && item.attributes[a.key] !== undefined)
+  const sheet = techSheet(item.domainId, details ?? item.details)
   const meta = [itemYear(item), item.durationSec ? formatDuration(item.durationSec) : null].filter(Boolean).join(' · ')
   return (
     <div className="flex flex-col gap-6 md:flex-row md:items-start">
@@ -65,6 +69,7 @@ export function ItemDetail({ item, domain, attributes, similar, playing, onPlay,
             ))}
           </div>
         )}
+        <TechSheet rows={sheet} source={domain.source.name + (item.domainId === 'music' || item.domainId === 'youtube' ? ' y MusicBrainz' : '')} />
         {scales.length > 0 && (
           <section className="flex flex-col gap-2.5" aria-label="Carácter">
             <Text font="label">Carácter</Text>

@@ -14,6 +14,13 @@ export function ItemPage() {
   const domain = useDomain()
   const player = usePlayer()
   const item = useQuery({ queryKey: ['item', itemId], queryFn: () => api.getItem(itemId) })
+  // En música los créditos se piden a MusicBrainz al abrir la ficha (la API los guarda en caché).
+  const details = useQuery({
+    queryKey: ['details', itemId],
+    queryFn: () => api.getDetails(itemId),
+    enabled: item.data?.domainId === 'music' || item.data?.domainId === 'youtube',
+    staleTime: Infinity,
+  })
   const similar = useQuery({ queryKey: ['similar', itemId], queryFn: () => api.getSimilar(itemId, 6) })
 
   const back = (
@@ -49,6 +56,7 @@ export function ItemPage() {
           item={data}
           domain={domain.info}
           attributes={domain.info.attributes}
+          details={details.data}
           similar={similar.data?.items}
           playing={isCurrent && player.playing}
           onPlay={() =>
