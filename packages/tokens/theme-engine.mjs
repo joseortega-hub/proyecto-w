@@ -58,7 +58,8 @@ export const domainBase = {
   folder: ['#b45309', '#ffb454'],
   games: ['#8a3fd1', '#c59bff'],
   movies: ['#c22e6e', '#ff80b5'],
-  books: ['#0b7f7a', '#4fd1c5']
+  books: ['#0b7f7a', '#4fd1c5'],
+  perreo: ['#c4137f', '#ff5cc8']
 };
 
 // ---------- Sombras: capas [x, y, blur, spread, color, alfa] ----------

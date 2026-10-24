@@ -93,6 +93,8 @@ export interface DomainConfig {
    * YouTube) y solo ve los suyos. Los públicos (Jamendo, RAWG…) no lo llevan.
    */
   personal?: boolean;
+  /** Temática secreta: existe en la API pero la web solo la muestra a quien la ha desbloqueado. */
+  hidden?: boolean;
   source: DomainSource;
   attributes: DomainAttribute[];
   tagGroups: TagGroup[];

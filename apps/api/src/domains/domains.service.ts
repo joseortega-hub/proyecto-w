@@ -42,7 +42,7 @@ export class DomainsService implements OnModuleInit {
   }
 
   /** Temáticas con su número de elementos; en las personales, solo cuentan los de la persona. */
-  async list(userId: string | null = null) {
+  async list(userId: string | null = null, includeHidden = false) {
     const [rows, counts] = await Promise.all([
       this.db.select().from(domains),
       this.db
@@ -54,7 +54,9 @@ export class DomainsService implements OnModuleInit {
     const countBy = new Map(counts.map((c) => [c.domainId, c.count]));
     const order = new Map(domainDefinitions.map((d, i) => [d.id, i]));
     rows.sort((a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99));
-    return rows.map((domain) => ({
+    return rows
+      .filter((domain) => includeHidden || !domain.config.hidden)
+      .map((domain) => ({
       id: domain.id,
       name: domain.name,
       itemNoun: domain.itemNoun,
@@ -65,6 +67,7 @@ export class DomainsService implements OnModuleInit {
       creatorLabel: domain.config.creatorLabel,
       playable: domain.config.playable,
       personal: domain.config.personal ?? false,
+      hidden: domain.config.hidden ?? false,
       source: domain.config.source,
       tagGroups: domain.config.tagGroups.map(({ key, label, tags }) => ({ key, label, tags })),
       attributes: domain.config.attributes,

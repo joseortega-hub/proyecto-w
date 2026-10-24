@@ -10,6 +10,9 @@ import { InterviewPage } from '@/pages/InterviewPage'
 import { ItemPage } from '@/pages/ItemPage'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { ListsPage } from '@/pages/ListsPage'
+import { PerreoArtistPage } from '@/pages/PerreoArtistPage'
+import { PerreoArtistsPage } from '@/pages/PerreoArtistsPage'
+import { PerreoTributePage } from '@/pages/PerreoTributePage'
 import { PlayerPage } from '@/pages/PlayerPage'
 import { ResultPage } from '@/pages/ResultPage'
 import { StoryPage } from '@/pages/StoryPage'
@@ -38,6 +41,9 @@ export function App() {
                 <Route path="listas" element={<ListsPage />} />
                 <Route path="gustos" element={<TastePage />} />
                 <Route path="revisar" element={<FolderReviewPage />} />
+                <Route path="artistas" element={<PerreoArtistsPage />} />
+                <Route path="artistas/:slug" element={<PerreoArtistPage />} />
+                <Route path="homenaje/:slug" element={<PerreoTributePage />} />
                 <Route path="biblioteca" element={<LibraryPage />} />
                 <Route path="biblioteca/:itemId" element={<ItemPage key="ficha" />} />
               </Route>

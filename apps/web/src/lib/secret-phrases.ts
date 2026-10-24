@@ -1,8 +1,8 @@
 // Gancho para frases secretas de la barra universal de «Hoy para ti».
 //
 // Antes de llamar a `POST /api/route-intent`, la barra pregunta aquí si lo escrito es una frase
-// secreta. Hoy no hay ninguna: `matchSecretPhrase` siempre devuelve `null` y la barra sigue su
-// camino normal. Una sesión posterior (el «Modo Perreo») rellenará esta función.
+// secreta. Hoy son las del Modo Perreo (solo hashes): si no coincide, devuelve `null` y la barra sigue su
+// camino normal.
 //
 // Cómo añadir una frase (contrato para quien lo implemente):
 //  - Normaliza el texto con `normalizePhrase` (minúsculas, sin tildes ni signos, espacios simples).
@@ -12,6 +12,7 @@
 //    guarda el texto. Si no coincide, devuelve `null`.
 //  - Debe ser rápida y no hacer red: se ejecuta en cada envío.
 import type { NavigateFunction } from 'react-router'
+import { prettyNickname, saveUnlock } from './perreo'
 
 export interface SecretMatch {
   /** Identificador interno del modo desbloqueado (p. ej. `perreo`). */
@@ -20,7 +21,7 @@ export interface SecretMatch {
   activate: (ctx: { navigate: NavigateFunction }) => void
 }
 
-/** Minúsculas, sin tildes ni signos y con espacios simples: «¡El Matatán!» → «el matatan». */
+/** Minúsculas, sin tildes ni signos y con espacios simples: «¡Dale Mami!» → «dale mami». */
 export function normalizePhrase(text: string): string {
   return text
     .normalize('NFD')
@@ -40,9 +41,30 @@ export async function hashPhrase(text: string): Promise<string | null> {
 }
 
 /**
- * ¿Es `text` una frase secreta? Gancho vacío a propósito: de momento nada es secreto.
- * El texto no sale del navegador ni se guarda.
+ * Hash SHA-256 de cada frase normalizada → artista del Modo Perreo. Las frases no están en el
+ * código ni en la API: solo estos hashes (y el nombre del artista, que es público).
  */
-export async function matchSecretPhrase(_text: string): Promise<SecretMatch | null> {
-  return null
+export const PERREO_HASHES: Record<string, string> = {
+  '4840ed95ff3f67dbf06b5292d4dc5cb70cc3151868c1dfb12922b8867af3e805': 'wisin',
+  '53d3618b19e6c1f63367c9e4764023b012aaf7ad6d3bd21480867a3c751270f0': 'yandel',
+  '5122aae96cede421fd8e967a7f1c7b1376012c93cd0cc0107c7207fa5d25b9b1': 'arcangel',
+  '1dc2eaa8e86ccdf97c6af03cdf059c5693b8fb2bcbd160ece27329633c5fe351': 'farruko',
+  '88d9a797d4f5b7017da8e92c58f9c1c1bae9ac8769bf6f302d3e31ef03382163': 'jay-wheeler',
+}
+
+/**
+ * ¿Es `text` una frase secreta? Si coincide, guarda el desbloqueo (artista y apodo tal como se
+ * escribió) y lleva al homenaje. El texto no sale del navegador, no va a la API y no se registra.
+ */
+export async function matchSecretPhrase(text: string): Promise<SecretMatch | null> {
+  const hash = await hashPhrase(text)
+  const slug = hash ? PERREO_HASHES[hash] : undefined
+  if (!slug) return null
+  return {
+    id: 'perreo',
+    activate: ({ navigate }) => {
+      saveUnlock({ slug, nickname: prettyNickname(text) })
+      navigate(`/perreo/homenaje/${slug}`, { state: { fresh: true } })
+    },
+  }
 }

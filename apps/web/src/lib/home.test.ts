@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { contrast } from '@sintonia/tokens/engine'
 import { greetingGradient, greetingLine, localContext } from './greeting'
-import { hashPhrase, matchSecretPhrase, normalizePhrase } from './secret-phrases'
+import { hashPhrase, matchSecretPhrase, normalizePhrase, PERREO_HASHES } from './secret-phrases'
 import { buildCalendar, currentStreak, dayKey } from './story'
 import type { StoryDay } from './home-types'
 
@@ -32,13 +32,24 @@ describe('saludo de Hoy para ti', () => {
 })
 
 describe('gancho de frases secretas', () => {
-  it('de momento ninguna frase es secreta', async () => {
-    expect(await matchSecretPhrase('el matatán')).toBeNull()
+  it('lo normal no es una frase secreta', async () => {
+    for (const text of ['algo de Marvel', 'reguetón para entrenar', 'una de superhéroes', '', '   '])
+      expect(await matchSecretPhrase(text)).toBeNull()
+  })
+
+  it('las frases del Modo Perreo solo existen como hashes SHA-256 de 64 caracteres, uno por artista', () => {
+    const entries = Object.entries(PERREO_HASHES)
+    expect(entries).toHaveLength(5)
+    for (const [hash, slug] of entries) {
+      expect(hash).toMatch(/^[0-9a-f]{64}$/)
+      expect(slug).toMatch(/^[a-z-]+$/)
+    }
+    expect(new Set(entries.map(([, s]) => s)).size).toBe(5)
   })
 
   it('normaliza sin tildes, signos ni mayúsculas, y el hash es estable', async () => {
-    expect(normalizePhrase('¡El  Matatán!')).toBe('el matatan')
-    expect(await hashPhrase('El Matatán')).toBe(await hashPhrase('  el matatan '))
+    expect(normalizePhrase('¡Dale  Mami!')).toBe('dale mami')
+    expect(await hashPhrase('Dale Mami')).toBe(await hashPhrase('  dale mami '))
     expect(await hashPhrase('a')).not.toBe(await hashPhrase('b'))
   })
 })

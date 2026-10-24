@@ -4,6 +4,7 @@ import type { Preference, SessionPreferences } from './preferences'
 import type { CompareResult, Judgement, OpsPanel, TraceRow } from './ops-types'
 import type { ResolvedTheme } from '@sintonia/tokens/engine'
 import type { HomeSummary, RouteIntentResult, StoryView } from './home-types'
+import type { PerreoArtistDetail, PerreoArtistList } from './perreo-types'
 import { userHeaders } from './user'
 
 export type Answer = 'yes' | 'no' | 'unknown'
@@ -137,6 +138,8 @@ export interface DomainInfo {
   playable: boolean
   /** Catálogo personal: cada persona importa el suyo (la música de su YouTube) y solo ve lo suyo. */
   personal: boolean
+  /** Temática secreta: solo se enseña a quien la ha desbloqueado. */
+  hidden: boolean
   /** Fuente de los datos con su atribución obligatoria. */
   source: { name: string; url: string; attribution: string }
   tagGroups: { key: string; label: string; tags: string[] }[]
@@ -331,7 +334,10 @@ export const api = {
   /** Genera un tema a partir de una descripción (no se guarda). `variant` > 0 pide otra versión. */
   generateTheme: (description: string, variant = 0) =>
     request<GeneratedTheme>('/themes/generate', { method: 'POST', body: JSON.stringify({ description, variant }) }),
-  getDomains: () => request<DomainInfo[]>('/domains'),
+  getDomains: () => request<DomainInfo[]>('/domains?hidden=1'),
+  /** Modo Perreo: explorador de artistas (filtros y orden) y ficha. */
+  perreoArtists: (query: string) => request<PerreoArtistList>(`/perreo/artists${query ? `?${query}` : ''}`),
+  perreoArtist: (slug: string) => request<PerreoArtistDetail>(`/perreo/artists/${encodeURIComponent(slug)}`),
   /** `initialText` es el punto de partida opcional (texto o voz) antes de las preguntas. */
   startSession: (
     domainId: string,

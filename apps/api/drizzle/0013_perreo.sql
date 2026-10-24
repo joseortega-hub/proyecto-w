@@ -1,0 +1,20 @@
+CREATE TABLE "perreo_artists" (
+	"slug" text PRIMARY KEY NOT NULL,
+	"name" text NOT NULL,
+	"real_name" text,
+	"birth_date" text,
+	"country" text,
+	"city" text,
+	"countries" text[] DEFAULT '{}'::text[] NOT NULL,
+	"debut_year" integer,
+	"fame" real DEFAULT 0 NOT NULL,
+	"listeners" integer,
+	"styles" text[] DEFAULT '{}'::text[] NOT NULL,
+	"labels" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"links" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"bio" text,
+	"bio_source" text,
+	"youtube_channel_id" text,
+	"similar" text[] DEFAULT '{}'::text[] NOT NULL,
+	"photo" text
+);

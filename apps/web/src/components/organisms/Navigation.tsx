@@ -16,9 +16,10 @@ const LINKS: { to: string; label: string; icon: IconName }[] = [
 
 /** Los enlaces se quedan dentro del dominio actual. */
 function useLinks() {
-  const { path } = useDomain()
+  const { path, id } = useDomain()
   // Las rutas que empiezan por «/» son globales («Tu historia») y no cuelgan de la temática.
-  return LINKS.map((l) => ({ ...l, to: l.to.startsWith('/') ? l.to : path(l.to), end: l.to === '' }))
+  const links: typeof LINKS = id === 'perreo' ? LINKS.map((l) => (l.to === 'gustos' ? { to: 'artistas', label: 'Artistas', icon: 'users' as const } : l)) : LINKS
+  return links.map((l) => ({ ...l, to: l.to.startsWith('/') ? l.to : path(l.to), end: l.to === '' }))
 }
 
 /** Navegación inferior del móvil (< 768 px). */

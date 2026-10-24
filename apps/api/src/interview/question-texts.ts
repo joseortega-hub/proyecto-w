@@ -49,6 +49,7 @@ export const QUESTIONS: Record<string, Record<string, string[]>> = {
   music,
   youtube: music,
   folder: music,
+  perreo: music,
   movies: {
     unwind: ['¿Quieres algo para desconectar sin pensar?', '¿Te apetece algo ligerito?'],
     laugh: ['¿Te apetece reírte un rato?', '¿Buscas una comedia?'],

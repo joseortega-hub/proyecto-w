@@ -211,3 +211,33 @@ export type TasteRow = typeof tasteProfiles.$inferSelect;
 export type ItemRow = typeof items.$inferSelect;
 export type NewItemRow = typeof items.$inferInsert;
 export type SessionRow = typeof interviewSessions.$inferSelect;
+
+/** Artistas del Modo Perreo (temática secreta): ficha, datos de UrbanoPedia y foto en WebP (base64). */
+export const perreoArtists = pgTable(
+  'perreo_artists',
+  {
+    slug: text('slug').primaryKey(),
+    name: text('name').notNull(),
+    realName: text('real_name'),
+    birthDate: text('birth_date'),
+    country: text('country'),
+    city: text('city'),
+    /** Países y ciudades por separado cuando el artista tiene más de uno ("Puerto Rico / Estados Unidos"). */
+    countries: text('countries').array().notNull().default(sql`'{}'::text[]`),
+    debutYear: integer('debut_year'),
+    /** Fama 0–100: percentil de oyentes de Last.fm (o de popularidad de Spotify si existiera) entre los 66. */
+    fame: real('fame').notNull().default(0),
+    listeners: integer('listeners'),
+    styles: text('styles').array().notNull().default(sql`'{}'::text[]`),
+    labels: jsonb('labels').$type<{ name: string; start: number | null; end: number | null }[]>().notNull().default([]),
+    links: jsonb('links').$type<Record<string, string>>().notNull().default({}),
+    bio: text('bio'),
+    bioSource: text('bio_source'),
+    youtubeChannelId: text('youtube_channel_id'),
+    /** Slugs de artistas parecidos dentro de los 66 (Last.fm). */
+    similar: text('similar').array().notNull().default(sql`'{}'::text[]`),
+    photo: text('photo'),
+  },
+  (t) => [index('perreo_artists_fame_idx').on(t.fame)],
+);
+export type PerreoArtistRow = typeof perreoArtists.$inferSelect;

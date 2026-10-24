@@ -23,6 +23,8 @@ import { ItemsService } from './items/items.service.js';
 import { TasteController } from './taste/taste.controller.js';
 import { TasteService } from './taste/taste.service.js';
 import { CreditsService } from './items/credits.service.js';
+import { PerreoController } from './perreo/perreo.controller.js';
+import { PerreoService } from './perreo/perreo.service.js';
 import { FolderController } from './folder/folder.controller.js';
 import { FolderService } from './folder/folder.service.js';
 import { OpsController } from './ops/ops.controller.js';
@@ -35,7 +37,7 @@ import { YouTubeService } from './youtube/youtube.service.js';
 
 @Module({
   imports: [DbModule, AiModule],
-  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController],
+  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController],
   providers: [
     DomainsService,
     AnchorsService,
@@ -52,6 +54,7 @@ import { YouTubeService } from './youtube/youtube.service.js';
     TasteService,
     YouTubeService,
     FolderService,
+    PerreoService,
     TraceService,
     OpsService,
     ThemesService,

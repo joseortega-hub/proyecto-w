@@ -22,6 +22,9 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "eval": "pnpm --filter @sintonia/api eval",
-    "facets": "pnpm --filter @sintonia/api facets"
+    "facets": "pnpm --filter @sintonia/api facets",
+    "perreo:import": "pnpm --filter @sintonia/api perreo:import",
+    "perreo:load": "pnpm --filter @sintonia/api perreo:load",
+    "perreo:instagram": "pnpm --filter @sintonia/api perreo:instagram"
   }
 }

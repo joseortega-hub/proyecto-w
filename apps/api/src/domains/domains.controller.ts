@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { PreferencesService } from '../interview/preferences.service.js';
 import { DomainsService } from './domains.service.js';
@@ -15,8 +15,9 @@ export class DomainsController {
   ) {}
 
   @Get()
-  list(@Headers(USER_HEADER) user?: string) {
-    return this.domains.list(optionalUserId(user));
+  /** Con `?hidden=1` incluye las temáticas secretas: las pide la web y solo las enseña a quien las desbloqueó. */
+  list(@Headers(USER_HEADER) user?: string, @Query('hidden') hidden?: string) {
+    return this.domains.list(optionalUserId(user), hidden === '1');
   }
 
   /** Preselecciona las preferencias previas (p. ej. idioma) a partir del texto inicial. No guarda el texto. */

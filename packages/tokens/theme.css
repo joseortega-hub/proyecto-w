@@ -80,6 +80,8 @@
 .dark [data-domain='movies'] { --domain: #ff80b5; }
 [data-domain='books'] { --domain: #027c77; }
 .dark [data-domain='books'] { --domain: #4fd1c5; }
+[data-domain='perreo'] { --domain: #c4137f; }
+.dark [data-domain='perreo'] { --domain: #ff5cc8; }
 
 /* Grafito: Sobrio y monocromo, para concentrarse. Inspirado en tweakcn (Modern Minimal / Mono). */
 :root[data-theme='grafito'] {
@@ -160,6 +162,8 @@
 :root.dark[data-theme='grafito'] [data-domain='movies'] { --domain: #f18cb4; }
 :root[data-theme='grafito'] [data-domain='books'] { --domain: #337c78; }
 :root.dark[data-theme='grafito'] [data-domain='books'] { --domain: #6ecdc3; }
+:root[data-theme='grafito'] [data-domain='perreo'] { --domain: #b6387c; }
+:root.dark[data-theme='grafito'] [data-domain='perreo'] { --domain: #f070c1; }
 
 /* Neón: Noche urbana: magenta y cian con brillo. Inspirado en tweakcn (Cyberpunk / Synthwave). */
 :root[data-theme='neon'] {
@@ -240,6 +244,8 @@
 :root.dark[data-theme='neon'] [data-domain='movies'] { --domain: #fe80b5; }
 :root[data-theme='neon'] [data-domain='books'] { --domain: #0a7f7a; }
 :root.dark[data-theme='neon'] [data-domain='books'] { --domain: #05d5c7; }
+:root[data-theme='neon'] [data-domain='perreo'] { --domain: #c6027f; }
+:root.dark[data-theme='neon'] [data-domain='perreo'] { --domain: #ff5cc8; }
 
 /* Atardecer: Cálido: terracota, crema y serifa con carácter. Inspirado en tweakcn (Claude / Mocha Mousse). */
 :root[data-theme='atardecer'] {
@@ -320,6 +326,8 @@
 :root.dark[data-theme='atardecer'] [data-domain='movies'] { --domain: #ff80b5; }
 :root[data-theme='atardecer'] [data-domain='books'] { --domain: #027c77; }
 :root.dark[data-theme='atardecer'] [data-domain='books'] { --domain: #4fd1c5; }
+:root[data-theme='atardecer'] [data-domain='perreo'] { --domain: #c4137f; }
+:root.dark[data-theme='atardecer'] [data-domain='perreo'] { --domain: #ff5cc8; }
 
 /* Océano: Fresco: azul profundo y coral. Inspirado en tweakcn (Ocean Breeze). */
 :root[data-theme='oceano'] {
@@ -400,6 +408,8 @@
 :root.dark[data-theme='oceano'] [data-domain='movies'] { --domain: #ff80b5; }
 :root[data-theme='oceano'] [data-domain='books'] { --domain: #0b7f7a; }
 :root.dark[data-theme='oceano'] [data-domain='books'] { --domain: #4fd1c5; }
+:root[data-theme='oceano'] [data-domain='perreo'] { --domain: #c4137f; }
+:root.dark[data-theme='oceano'] [data-domain='perreo'] { --domain: #ff5cc8; }
 
 /* Chicle: Pastel y redondo: violeta suave y rosa. Inspirado en tweakcn (Soft Pop / Pastel Dreams). */
 :root[data-theme='chicle'] {
@@ -480,6 +490,8 @@
 :root.dark[data-theme='chicle'] [data-domain='movies'] { --domain: #ff80b5; }
 :root[data-theme='chicle'] [data-domain='books'] { --domain: #0b7f7a; }
 :root.dark[data-theme='chicle'] [data-domain='books'] { --domain: #4fd1c5; }
+:root[data-theme='chicle'] [data-domain='perreo'] { --domain: #c4137f; }
+:root.dark[data-theme='chicle'] [data-domain='perreo'] { --domain: #ff5cc8; }
 
 /* Brutal: Neobrutalismo: esquinas rectas y sombras duras. Inspirado en tweakcn (Neo Brutalism). */
 :root[data-theme='brutal'] {
@@ -560,6 +572,8 @@
 :root.dark[data-theme='brutal'] [data-domain='movies'] { --domain: #ff80b5; }
 :root[data-theme='brutal'] [data-domain='books'] { --domain: #067c77; }
 :root.dark[data-theme='brutal'] [data-domain='books'] { --domain: #38d3c6; }
+:root[data-theme='brutal'] [data-domain='perreo'] { --domain: #c60280; }
+:root.dark[data-theme='brutal'] [data-domain='perreo'] { --domain: #ff5cc8; }
 
 @theme inline {
   --color-background: var(--background);
