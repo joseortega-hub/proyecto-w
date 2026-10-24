@@ -35,6 +35,7 @@ import { AnchorsService } from './anchors.service.js';
 import { currentWeights } from './candidates.js';
 import { InterviewService } from './interview.service.js';
 import type { Anchor, MoodProfile, SessionResult } from './interview.types.js';
+import { applyVibe, reorderByVibe, vibeSources } from './vibe.engine.js';
 
 export type TuningEvent =
   | { step: 'profile'; profile: MoodProfile }
@@ -198,10 +199,68 @@ export class TuningService {
     yield { step: 'done', sessionId: session.id };
   }
 
+  /**
+   * "Tu vibra": la persona arrastra barras y la lista se reordena dentro de la bolsa de la
+   * entrevista (o del catálogo si no hubo bolsa), sin preguntar de nuevo y sin IA.
+   * `scales` vacío o ausente vuelve a la lista original.
+   */
+  async revibe(sessionId: string, scales: Record<string, number> | undefined) {
+    const session = await this.interviews.load(sessionId);
+    if (!session.result || !session.profile) throw new BadRequestException('Esta entrevista todavía no tiene lista');
+    const domain = await this.domains.get(session.domainId);
+    const { config } = domain;
+    const previous = session.result;
+    const original = previous.vibe?.original ?? previous.entries;
+    const moved = Object.fromEntries(Object.entries(scales ?? {}).filter(([k, v]) => Number.isFinite(v) && config.attributes.some((a) => a.key === k && a.kind === 'scale')));
+
+    let result: SessionResult;
+    if (!Object.keys(moved).length) {
+      result = { ...previous, entries: original, vibe: null };
+    } else {
+      const base = applyRefinements(session.profile, previous.refinements, config);
+      const profile = applyVibe(base, moved, config);
+      const taste = hasTaste(session.taste) ? session.taste : null;
+      const filters = preferenceFilters(session.preferences, config);
+      const anchors = session.anchors ?? [];
+      const excludedTags = new Set(config.tagGroups.filter((g) => session.exclusions?.includes(g.key)).flatMap((g) => g.tags));
+      const catalog = (await this.items.catalog(domain.id, filters, session.userId)).filter((it) => !it.tags.some((t) => excludedTags.has(t)));
+      const matched = anchorMatches(catalog, anchors);
+      const mode = anchorMode(anchors, matched.length, config.result.size);
+      const matchedIds = new Set(matched.map((m) => m.id));
+      const byId = new Map(catalog.map((it) => [it.id, it]));
+      let pool: { item: ItemWithoutEmbedding; boost: number }[];
+      if (session.bag?.length) {
+        const present = session.bag.filter((e) => byId.has(e.id));
+        const weights = currentWeights(present, byId, session.turns, config, new Set(Object.keys(session.textSignals ?? {})));
+        const pct = percentiles(weights);
+        pool = present.map((e, i) => ({ item: byId.get(e.id)!, boost: pct[i] }));
+      } else {
+        pool = rankCandidates(catalog, profile, config, SEMANTIC_POOL, 2, taste).map(({ item }) => ({ item, boost: 0 }));
+      }
+      if (mode === 'filter') pool = pool.filter((p) => matchedIds.has(p.item.id));
+      const ranked = reorderByVibe(pool, profile, config, {
+        taste,
+        moved: Object.keys(moved),
+        perArtist: mode === 'filter' || anchors.some((a) => a.kind === 'creator') ? config.result.size : 2,
+        extraBoost: mode === 'boost' ? (item) => (matchedIds.has(item.id) ? 1 : 0) : undefined,
+      });
+      const reasons = ranked.map(({ item }) => shortReason(item, { config, profile, anchors, likes: tasteHints(item, taste, config) }));
+      result = {
+        ...previous,
+        entries: ranked.map(({ item, match }, i) => ({ itemId: item.id, match, fit: null, reason: reasons[i] })),
+        vibe: { scales: moved, original },
+      };
+    }
+    await this.db.update(interviewSessions).set({ result, updatedAt: new Date() }).where(eq(interviewSessions.id, session.id));
+    this.logger.log(`Vibe ajustada (${Object.keys(moved).join(', ') || 'original'}): ${result.entries.length} elementos`);
+    return this.result(sessionId);
+  }
+
   async result(sessionId: string) {
     const session = await this.interviews.load(sessionId);
     if (!session.result || !session.profile) throw new BadRequestException('Esta entrevista todavía no tiene lista');
     const domain = await this.domains.get(session.domainId);
+    const profile = applyVibe(applyRefinements(session.profile, session.result.refinements, domain.config), session.result.vibe?.scales, domain.config);
     const ids = session.result.entries.map((e) => e.itemId);
     const rows = ids.length ? await this.db.select().from(items).where(inArray(items.id, ids)) : [];
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -218,7 +277,23 @@ export class TuningService {
       ],
       /** Lo concreto que pidió en el texto inicial ("Marvel"). */
       anchors: (session.anchors ?? []).map((a) => a.label),
-      profile: applyRefinements(session.profile, session.result.refinements, domain.config),
+      profile,
+      /** "Tu vibra": de dónde sale cada dimensión, el contexto y si la persona ha movido barras. */
+      vibe: {
+        sources: vibeSources(domain.config, {
+          textKeys: Object.keys(session.textSignals ?? {}),
+          informed: profile.informed,
+          hasTaste: hasTaste(session.taste),
+          hasContext: !!(session.context.franja || session.context.tiempo),
+        }),
+        context: {
+          franja: session.context.franja ?? null,
+          diaSemana: session.context.diaSemana ?? null,
+          finDeSemana: session.context.finDeSemana ?? false,
+          tiempo: session.context.tiempo?.descripcion ?? null,
+        },
+        adjusted: Object.keys(session.result.vibe?.scales ?? {}),
+      },
       attributes: domain.config.attributes.filter((a) => a.kind === 'scale'),
       refinements: domain.config.refinements.map(({ key, label }) => ({
         key,

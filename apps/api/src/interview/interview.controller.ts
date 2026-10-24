@@ -120,6 +120,14 @@ export class InterviewController {
     });
   }
 
+  /** "Tu vibra": reordena la lista con las barras que la persona ha movido (sin IA). Sin `scales`, vuelve a la original. */
+  @Post(':id/vibe')
+  vibe(@Param('id') id: string, @Body() body: unknown) {
+    const parsed = z.object({ scales: z.record(z.string(), z.number().min(0).max(1)).optional() }).safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException('Las barras tienen que ir de 0 a 1');
+    return this.tuning.revibe(id, parsed.data.scales);
+  }
+
   @Get(':id/result')
   result(@Param('id') id: string) {
     return this.tuning.result(id);

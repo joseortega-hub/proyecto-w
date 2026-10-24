@@ -44,3 +44,4 @@ export function failingPairs(colors: ModeColors, domains: Record<string, string>
 export function buildTheme(raw: ThemeProposal): { theme: ResolvedTheme; notices: string[] }
 export function themeCss(id: string, theme: ResolvedTheme): string
 export function menuModes(theme: ResolvedTheme): Record<Mode, { swatches: string[]; themeColor: string }>
+export function oklch(L: number, C: number, h: number): string

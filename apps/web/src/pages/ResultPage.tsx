@@ -1,10 +1,10 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, Chip, Heading, Icon, IconButton, Skeleton, Text } from '@/components/atoms'
-import { EmptyState, RefineChips, SourceAttribution } from '@/components/molecules'
-import { MoodProfile, ResultList } from '@/components/organisms'
+import { EmptyState, SourceAttribution } from '@/components/molecules'
+import { ResultList, VibeCard } from '@/components/organisms'
 import { ApiError, api } from '@/lib/api'
 import { totalMinutes } from '@/lib/format'
 import { agree, useDomain } from '@/lib/domain'
@@ -12,6 +12,11 @@ import { rememberSession } from '@/lib/ops'
 import { useSavedLists } from '@/lib/saved-lists'
 import { useFeedback, useTaste } from '@/lib/taste'
 import { useSaveToYouTube } from '@/lib/youtube'
+import { vibeGradient } from '@/lib/vibe/vibe-color'
+import { renderVibeCard, shareVibeImage } from '@/lib/vibe/vibe-share'
+import { vibeSpec } from '@/lib/vibe/vibe-spec'
+import { vibeTitle } from '@/lib/vibe/vibe-title'
+import { levelWord } from '@/lib/vibe/vibe-words'
 import { usePlayer } from '@/player/player-context'
 import { TuningPage } from './TuningPage'
 
@@ -35,6 +40,8 @@ export function ResultPage() {
     if (domain.id === 'youtube') prepareVideo()
   }, [domain.id, prepareVideo])
 
+  const [sharing, setSharing] = useState(false)
+
   const refineParam = params.get('afinar')
   const tuning = refineParam !== null
   const refine = refineParam ? refineParam.split(',').filter(Boolean) : []
@@ -44,6 +51,18 @@ export function ResultPage() {
     queryFn: () => api.getResult(id),
     enabled: !tuning,
     retry: (count, e) => !(e instanceof ApiError && e.status === 400) && count < 2,
+  })
+
+  // Tu vibra: soltar una barra reordena la lista dentro de la bolsa, sin entrevista ni IA.
+  const revibe = useMutation({
+    mutationFn: (scales?: Record<string, number>) => api.revibe(id, scales),
+    onSuccess: (next, scales) => {
+      const before = new Set(result.data?.entries.map((e) => e.item.id))
+      const fresh = next.entries.filter((e) => !before.has(e.item.id)).length
+      queryClient.setQueryData(['result', id], next)
+      toast.success(scales ? (fresh ? `Lista reordenada: ${fresh} nuevas` : 'Lista reordenada') : 'Vuelves a la lista original', { duration: 2200 })
+    },
+    onError: (e: Error) => toast.error('No he podido reordenar la lista', { description: e.message }),
   })
 
   const notReady = result.error instanceof ApiError && result.error.status === 400
@@ -86,6 +105,45 @@ export function ResultPage() {
     player.playList(queue, { title: data.title, id: data.id, domainId: data.domainId, start })
   }
   const saved = isSaved(data.id)
+
+  const shareVibe = async () => {
+    setSharing(true)
+    try {
+      const spec = vibeSpec(domain.id)
+      const scales = data.profile.scales
+      const title = vibeTitle(domain.id, scales, data.vibe.context)
+      const blob = await renderVibeCard({
+        title,
+        gradient: vibeGradient(scales[spec.axes.drive] ?? 0.5, scales[spec.axes.mood] ?? 0.5),
+        bars: data.attributes.map((a) => ({ label: a.label, value: scales[a.key] ?? 0.5, word: levelWord(scales[a.key] ?? 0.5, a) })),
+        top: data.entries.slice(0, 3).map((e) => e.item.title),
+        brand: 'Sintonía',
+        listTitle: data.title,
+      })
+      if ((await shareVibeImage(blob, title.text)) === 'downloaded') toast.success('Imagen descargada: ya puedes compartirla')
+    } catch (e) {
+      toast.error('No he podido crear la imagen', { description: (e as Error).message })
+    } finally {
+      setSharing(false)
+    }
+  }
+  // En móvil va encima de la lista (para ver cómo se reordena); en escritorio, en el lateral.
+  const vibeCard = (
+    <VibeCard
+      domainId={domain.id}
+      attributes={data.attributes}
+      scales={data.profile.scales}
+      sources={data.vibe.sources}
+      confidence={data.profile.confidence}
+      context={data.vibe.context}
+      adjusted={data.vibe.adjusted}
+      pending={revibe.isPending}
+      sharing={sharing}
+      onCommit={(moved) => revibe.mutate(moved)}
+      onReset={() => revibe.mutate(undefined)}
+      onShare={shareVibe}
+    />
+  )
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 py-5 md:px-10 lg:flex-row md:py-8">
@@ -168,6 +226,7 @@ export function ResultPage() {
               {saveToYouTube.isPending ? 'Creando la lista…' : 'Guardar en mi YouTube'}
             </Button>
           ))}
+        <div className="lg:hidden">{vibeCard}</div>
         <ResultList
           entries={data.entries}
           currentId={playingThisList ? player.current?.item.id : null}
@@ -186,14 +245,9 @@ export function ResultPage() {
             )
           }
         />
-        <RefineChips
-          options={data.refinements}
-          value={data.appliedRefinements}
-          onChange={(value) => setParams({ afinar: value.join(',') })}
-        />
       </div>
       <aside className="flex flex-col gap-3 lg:w-80 lg:flex-none">
-        <MoodProfile attributes={data.attributes} scales={data.profile.scales} />
+        <div className="hidden lg:block">{vibeCard}</div>
         <div className="flex flex-wrap gap-1.5" aria-label="Tus respuestas">
           {data.chips.map((c) => (
             <Chip key={c}>{c}</Chip>

@@ -175,6 +175,12 @@ export interface SessionResult {
   anchors: string[]
   /** Lista ya creada en la cuenta de YouTube (solo en "Mi YouTube"). */
   youtube: { playlistId: string; url: string } | null
+  /** "Tu vibra": origen de cada dimensión, contexto y barras que la persona ha movido. */
+  vibe: {
+    sources: Record<string, string>
+    context: { franja: string | null; diaSemana: string | null; finDeSemana: boolean; tiempo: string | null }
+    adjusted: string[]
+  }
   entries: ResultEntry[]
 }
 
@@ -331,6 +337,9 @@ export const api = {
     request<SessionView>(`/sessions/${id}/answers`, { method: 'POST', body: JSON.stringify({ answer, step }) }),
   undo: (id: string) => request<SessionView>(`/sessions/${id}/undo`, { method: 'POST' }),
   getResult: (id: string) => request<SessionResult>(`/sessions/${id}/result`),
+  /** Reordena la lista dentro de la bolsa con las barras movidas (sin IA). Sin `scales`, vuelve a la original. */
+  revibe: (id: string, scales?: Record<string, number>) =>
+    request<SessionResult>(`/sessions/${id}/vibe`, { method: 'POST', body: JSON.stringify({ scales }) }),
   getSimilar: (itemId: string, limit = 10) => request<SimilarItems>(`/items/${itemId}/similar?limit=${limit}`),
   getItem: (itemId: string) => request<Item>(`/items/${itemId}`),
   /** Detalles del elemento; en música completa los créditos desde MusicBrainz la primera vez. */

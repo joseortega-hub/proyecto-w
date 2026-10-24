@@ -55,6 +55,8 @@ export interface SessionResult {
   createdAt: string;
   /** Lista creada en la cuenta de YouTube de la persona a partir de este resultado. */
   youtube?: { playlistId: string; url: string } | null;
+  /** "Tu vibra": barras que la persona ha movido y la lista original para poder volver a ella. */
+  vibe?: { scales: Record<string, number>; original: ResultEntry[] } | null;
 }
 
 /**
