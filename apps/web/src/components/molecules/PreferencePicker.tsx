@@ -31,7 +31,7 @@ export function PreferencePicker({ preference, value, onChange }: PreferencePick
             key={o.value}
             value={o.value}
             className={cn(
-              'h-10 rounded-full! border-[1.5px] border-border bg-card px-3 text-sm font-bold data-[state=on]:border-primary data-[state=on]:bg-accent data-[state=on]:text-accent-foreground',
+              'h-10 touch:h-11 rounded-full! border-[1.5px] border-border bg-card px-3 text-sm font-bold data-[state=on]:border-primary data-[state=on]:bg-accent data-[state=on]:text-accent-foreground',
               many ? 'flex-none px-4' : 'flex-1',
             )}
           >

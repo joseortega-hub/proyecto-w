@@ -26,7 +26,7 @@ export function BajoElCapoPage() {
 
   const data = panel.data
   return (
-    <div data-domain="music" className="min-h-dvh bg-background">
+    <div data-domain="music" className="pt-safe px-safe min-h-dvh bg-background">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-5 py-6 md:py-10">
         <header className="flex items-start gap-3">
           <IconButton icon="back" label="Volver" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))} />

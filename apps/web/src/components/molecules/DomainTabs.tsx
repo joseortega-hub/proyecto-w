@@ -76,7 +76,7 @@ export function DomainTabs({ tabs, current, onSelect, orientation = 'horizontal'
                 'flex flex-none items-center transition-all duration-200 motion-reduce:transition-none',
                 vertical
                   ? 'min-h-10 gap-2 rounded-md px-3 text-[14px]'
-                  : cn('h-9 justify-center rounded-full border-[1.5px] text-[13px]', active ? 'gap-1.5 px-2.5' : 'w-9'),
+                  : cn('h-9 justify-center rounded-full border-[1.5px] text-[13px] touch:h-11', active ? 'gap-1.5 px-2.5 touch:px-3.5' : 'w-9 touch:w-11'),
                 active
                   ? cn('bg-domain-soft font-bold text-domain', !vertical && 'border-domain')
                   : cn('text-muted-foreground hover:bg-secondary', !vertical && 'border-border'),
@@ -92,7 +92,7 @@ export function DomainTabs({ tabs, current, onSelect, orientation = 'horizontal'
         <Dialog.Root open={open} onOpenChange={setOpen}>
           <Dialog.Trigger
             aria-label="Todas las temáticas"
-            className="flex h-9 flex-none items-center rounded-full border-[1.5px] border-border px-3 text-[13px] text-muted-foreground hover:bg-secondary"
+            className="flex h-9 flex-none items-center rounded-full touch:h-11 border-[1.5px] border-border px-3 text-[13px] text-muted-foreground hover:bg-secondary"
           >
             Todas
           </Dialog.Trigger>

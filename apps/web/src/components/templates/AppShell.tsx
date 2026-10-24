@@ -10,7 +10,7 @@ export function AppShell() {
   const domain = useDomain()
   return (
     // data-domain fija el color de la temática para todo lo que hay dentro.
-    <div className="flex h-dvh" data-domain={domain.id}>
+    <div className="pt-safe px-safe flex h-dvh" data-domain={domain.id}>
       <SideNav />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />

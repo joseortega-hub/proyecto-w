@@ -26,7 +26,7 @@ export function Explanation({ reason, label = 'Por qué', collapsible = true, de
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="inline-flex min-h-8 items-center gap-1 text-[13px] font-bold text-accent-foreground">
+      <CollapsibleTrigger className="inline-flex min-h-8 touch:min-h-11 items-center gap-1 text-[13px] font-bold text-accent-foreground">
         {label}
         <Icon name="chevronDown" className={cn('size-4 transition-transform duration-200', open && 'rotate-180')} />
       </CollapsibleTrigger>

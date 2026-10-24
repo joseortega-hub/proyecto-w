@@ -37,3 +37,16 @@ export const HojaTodas: Story = {
     btn?.click()
   },
 }
+
+/** Móvil de 320 px: pestañas de 44 px (zona táctil) y vista de escritorio para comparar. */
+export const Movil320: Story = {
+  args: { tabs: wide, current: 'movies' },
+  parameters: { viewport: { defaultViewport: 'movil320' } },
+  globals: { viewport: { value: 'movil320', isRotated: false } },
+  decorators: [(Story) => <div className="w-[288px]"><Story /></div>],
+}
+export const Escritorio: Story = {
+  args: { orientation: 'vertical', tabs: wide, current: 'books' },
+  globals: { viewport: { value: 'escritorio', isRotated: false } },
+  decorators: [(Story) => <div className="w-60"><Story /></div>],
+}

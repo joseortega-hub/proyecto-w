@@ -25,7 +25,7 @@ export function TasteChip({ label, state, onToggle, className }: TasteChipProps)
       onClick={onToggle}
       aria-label={`${label}: ${state === 'like' ? 'te gusta' : state === 'dislike' ? 'no te gusta' : 'sin marcar'}. Toca para ${NEXT[state]}`}
       className={cn(
-        'inline-flex min-h-9 items-center gap-1.5 rounded-full border-[1.5px] px-3.5 text-sm font-bold transition-colors duration-200',
+        'inline-flex min-h-9 touch:min-h-11 items-center gap-1.5 rounded-full border-[1.5px] px-3.5 text-sm font-bold transition-colors duration-200',
         state === 'none' && 'border-border bg-card text-foreground hover:bg-secondary',
         state === 'like' && 'border-domain bg-domain-soft text-foreground',
         state === 'dislike' && 'border-dashed border-muted-foreground bg-transparent text-muted-foreground line-through',

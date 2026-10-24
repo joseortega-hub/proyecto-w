@@ -19,6 +19,17 @@ const preview: Preview = {
     layout: 'centered',
     controls: { matchers: { color: /(background|color)$/i } },
     a11y: { test: 'todo' },
+    // Vistas de la auditoría responsive: móvil estrecho, móvil, tableta, escritorio y móvil en horizontal.
+    viewport: {
+      options: {
+        movil320: { name: 'Móvil 320', styles: { width: '320px', height: '640px' }, type: 'mobile' },
+        movil360: { name: 'Móvil 360', styles: { width: '360px', height: '740px' }, type: 'mobile' },
+        movil414: { name: 'Móvil 414', styles: { width: '414px', height: '896px' }, type: 'mobile' },
+        horizontal: { name: 'Móvil horizontal', styles: { width: '667px', height: '375px' }, type: 'mobile' },
+        tableta: { name: 'Tableta 768', styles: { width: '768px', height: '1024px' }, type: 'tablet' },
+        escritorio: { name: 'Escritorio 1280', styles: { width: '1280px', height: '800px' }, type: 'desktop' },
+      },
+    },
   },
   globalTypes: {
     palette: {

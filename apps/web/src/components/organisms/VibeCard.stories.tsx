@@ -55,3 +55,8 @@ export const Libros: Story = {
 }
 export const MiYouTube: Story = { args: { domainId: 'youtube' } }
 export const Cargando: Story = { args: { scales: undefined } }
+
+/** Móvil de 360 px: al tacto, las barras se agarran con pulsación larga (~300 ms) o con «Ajustar»; el scroll pasa por encima. */
+export const Movil360Tactil: Story = {
+  globals: { viewport: { value: 'movil360', isRotated: false } },
+}

@@ -20,7 +20,7 @@ export function Switch({
       aria-label={label}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
-        'relative h-7 w-12 shrink-0 rounded-full border-[1.5px] border-border transition-colors duration-200 ease-standard',
+        'relative h-7 w-12 shrink-0 before:absolute before:-inset-x-1 before:-inset-y-2 before:content-[""] rounded-full border-[1.5px] border-border transition-colors duration-200 ease-standard',
         checked ? 'bg-primary' : 'bg-secondary',
         className,
       )}

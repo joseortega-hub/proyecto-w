@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Icon, Skeleton, Text, VIBE_SOURCES, VibeSourceIcon, isVerticalVibe, type VibeSourceKey } from '@/components/atoms'
 import { VibeDimension, VibeHeader } from '@/components/molecules'
 import { Card } from '@/components/ui/card'
@@ -29,6 +29,15 @@ export interface VibeCardProps {
   onShare?: () => void
 }
 
+const HINT_KEY = 'sintonia.vibe-hint'
+const seenHint = () => {
+  try {
+    return localStorage.getItem(HINT_KEY) === '1'
+  } catch {
+    return true
+  }
+}
+
 const SURE: VibeSourceKey[] = ['text', 'answer', 'you']
 
 /**
@@ -39,6 +48,19 @@ export function VibeCard({ domainId, attributes, scales, sources = {}, confidenc
   const spec = vibeSpec(domainId)
   const [draft, setDraft] = useState<Record<string, number>>(scales ?? {})
   const [touched, setTouched] = useState<string[]>([])
+  // Al tacto, las barras se agarran con pulsación larga o, con "Ajustar", directamente.
+  const [editing, setEditing] = useState(false)
+  const [hint, setHint] = useState(() => !seenHint())
+  const bars = useRef<HTMLDivElement>(null)
+  const coarse = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
+  useEffect(() => {
+    if (!editing) return
+    const outside = (e: PointerEvent) => {
+      if (!bars.current?.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-vibe-edit]')) setEditing(false)
+    }
+    document.addEventListener('pointerdown', outside)
+    return () => document.removeEventListener('pointerdown', outside)
+  }, [editing])
   useEffect(() => {
     if (scales) setDraft(scales)
   }, [scales])
@@ -69,7 +91,7 @@ export function VibeCard({ domainId, attributes, scales, sources = {}, confidenc
   return (
     <Card aria-label="Tu vibra" className="gap-4 rounded-[16px] p-[18px] shadow-none">
       <VibeHeader title={title} gradient={gradient} />
-      <div className={cn(vertical ? 'grid grid-cols-3 gap-x-2 gap-y-5' : 'flex flex-col gap-3.5')} aria-busy={pending}>
+      <div ref={bars} className={cn(vertical ? 'grid grid-cols-3 gap-x-2 gap-y-5' : 'flex flex-col gap-3.5')} aria-busy={pending}>
         {attributes.map((a) => (
           <VibeDimension
             key={a.key}
@@ -79,8 +101,17 @@ export function VibeCard({ domainId, attributes, scales, sources = {}, confidenc
             solid={solidOf(a.key)}
             variant={spec.variant}
             disabled={pending}
+            editing={editing}
             onChange={(v) => setDraft((d) => ({ ...d, [a.key]: v }))}
-            onCommit={(v) => commit(a.key, v)}
+            onCommit={(v) => {
+              commit(a.key, v)
+              try {
+                localStorage.setItem(HINT_KEY, '1')
+              } catch {
+                /* sin almacenamiento: la pista se repite */
+              }
+              setHint(false)
+            }}
           />
         ))}
       </div>
@@ -95,9 +126,22 @@ export function VibeCard({ domainId, attributes, scales, sources = {}, confidenc
         </span>
       </div>
       <Text size="sm" tone="muted" role="status" aria-live="polite">
-        {pending ? 'Reordenando la lista…' : 'Arrastra una barra y la lista se reordena, sin repetir la entrevista.'}
+        {pending
+          ? 'Reordenando la lista…'
+          : coarse
+            ? editing
+              ? 'Modo ajuste: arrastra una barra y la lista se reordena.'
+              : hint
+                ? 'Mantén pulsado para ajustar una barra; si solo haces scroll, no se mueve.'
+                : 'Mantén pulsada una barra para ajustarla, o toca «Ajustar».'
+            : 'Arrastra una barra y la lista se reordena, sin repetir la entrevista.'}
       </Text>
       <div className="flex flex-wrap gap-2">
+        {coarse && (
+          <Button variant={editing ? 'primary' : 'secondary'} size="md" data-vibe-edit aria-pressed={editing} onClick={() => setEditing((v) => !v)} disabled={pending}>
+            <Icon name={editing ? 'check' : 'edit'} /> {editing ? 'Listo' : 'Ajustar'}
+          </Button>
+        )}
         <Button variant="secondary" size="md" className="flex-1" onClick={onShare} disabled={sharing || pending}>
           <Icon name="share" /> {sharing ? 'Preparando…' : 'Compartir mi vibra'}
         </Button>

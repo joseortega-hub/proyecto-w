@@ -16,6 +16,27 @@
   --font-sans: var(--body-font);
 }
 
+/* Táctil: pantallas estrechas o puntero grueso (móvil y tableta). Ahí los controles miden al menos 44 px. */
+@custom-variant touch {
+  @media (pointer: coarse) {
+    @slot;
+  }
+  @media (max-width: 767px) {
+    @slot;
+  }
+}
+/* Móvil en horizontal: poca altura, así que la cabecera y la navegación se compactan. */
+@custom-variant short (@media (max-height: 480px) and (orientation: landscape));
+
+/* Zonas seguras (notch, barra de estado de la PWA, barra de gestos): el borde que se pide se respeta. */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

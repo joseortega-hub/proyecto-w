@@ -24,3 +24,6 @@ export const ClaquetaPeliculas: Story = { args: { variant: 'cine', label: 'Ritmo
 export const ClaquetaSupuesta: Story = { args: { variant: 'cine', label: 'Ritmo', value: 0.5, solid: false } }
 export const MarcapaginasLibros: Story = { args: { variant: 'book', label: 'Ritmo', value: 0.65 } }
 export const Reordenando: Story = { args: { disabled: true } }
+
+/** Modo edición (táctil): se arrastra de inmediato y no deja hacer scroll. Sin él, pulsación larga de ~300 ms. */
+export const ModoEdicion: Story = { args: { editing: true } }

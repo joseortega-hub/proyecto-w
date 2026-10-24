@@ -23,7 +23,7 @@ function useLinks() {
 export function BottomNav() {
   const links = useLinks()
   return (
-    <nav aria-label="Principal" className="grid grid-cols-4 border-t border-border bg-card pt-2 pb-[max(env(safe-area-inset-bottom),14px)] md:hidden">
+    <nav aria-label="Principal" className="grid grid-cols-4 border-t border-border bg-card pt-2 pb-[max(env(safe-area-inset-bottom),14px)] short:pt-0 short:pb-[env(safe-area-inset-bottom)] md:hidden">
       {links.map((l) => (
         <NavLink
           key={l.to}
@@ -31,7 +31,7 @@ export function BottomNav() {
           end={l.end}
           className={({ isActive }) =>
             cn(
-              'flex min-h-11 flex-col items-center gap-[3px] p-1 text-xs',
+              'flex min-h-11 flex-col items-center gap-[3px] p-1 text-xs short:flex-row short:justify-center short:gap-2',
               isActive ? 'font-bold text-accent-foreground' : 'text-muted-foreground',
             )
           }

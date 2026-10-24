@@ -11,12 +11,14 @@ interface VibeDimensionProps {
   solid: boolean
   variant: VibeVariant
   disabled?: boolean
+  /** Modo edición (táctil). */
+  editing?: boolean
   onChange?: (value: number) => void
   onCommit?: (value: number) => void
 }
 
 /** Una dimensión de la vibra: su barra, su nombre, la palabra que la describe y de dónde sale. */
-export function VibeDimension({ attribute, value, source, solid, variant, disabled, onChange, onCommit }: VibeDimensionProps) {
+export function VibeDimension({ attribute, value, source, solid, variant, disabled, editing, onChange, onCommit }: VibeDimensionProps) {
   const word = levelWord(value, attribute)
   const slider = (
     <VibeSlider
@@ -26,6 +28,7 @@ export function VibeDimension({ attribute, value, source, solid, variant, disabl
       variant={variant}
       solid={solid}
       disabled={disabled}
+      editing={editing}
       onChange={onChange}
       onCommit={onCommit}
     />

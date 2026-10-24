@@ -13,7 +13,7 @@ export function DomainPickerPage() {
   const { theme, toggle } = useTheme()
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 py-5 md:px-10">
+    <div className="pt-safe px-safe mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 py-5 md:px-10">
       <header className="flex items-center justify-between">
         <Heading as="span" size="brand">
           Sintonía

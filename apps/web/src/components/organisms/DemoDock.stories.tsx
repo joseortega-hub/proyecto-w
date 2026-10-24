@@ -20,3 +20,9 @@ export const Live: Story = {
     ],
   },
 }
+
+/** Móvil en horizontal (667×375): el panel deja sitio al contenido y respeta la zona segura inferior. */
+export const MovilHorizontal: Story = {
+  ...Live,
+  globals: { viewport: { value: 'horizontal', isRotated: false } },
+}

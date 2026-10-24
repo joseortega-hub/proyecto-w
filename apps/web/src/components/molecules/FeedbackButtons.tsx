@@ -25,7 +25,7 @@ export function FeedbackButtons({ title, value, onChange, disabled, className }:
         disabled={disabled}
         onClick={() => onChange(on ? null : v)}
         className={cn(
-          'grid size-9 place-items-center rounded-full transition-colors duration-200 disabled:opacity-50',
+          'grid size-9 touch:size-11 place-items-center rounded-full transition-colors duration-200 disabled:opacity-50',
           on ? 'bg-domain-soft text-domain' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
         )}
       >

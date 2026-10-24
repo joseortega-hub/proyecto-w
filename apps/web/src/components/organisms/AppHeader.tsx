@@ -9,9 +9,9 @@ export function AppHeader() {
   const { theme, toggle } = useTheme()
   const navigate = useNavigate()
   return (
-    <header className="flex flex-col gap-3 px-5 pt-5 md:hidden">
-      <div className="flex items-center justify-between">
-        <Link to="/" className="rounded-sm">
+    <header className="flex flex-col gap-3 px-5 pt-5 short:flex-row short:items-center short:gap-2 short:pt-2 md:hidden">
+      <div className="flex flex-none items-center justify-between short:gap-2">
+        <Link to="/" className="inline-flex min-h-11 items-center rounded-sm">
           <Heading as="span" size="brand">
             Sintonía
           </Heading>
@@ -22,7 +22,7 @@ export function AppHeader() {
           <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
         </div>
       </div>
-      <DomainSwitcher className="-mx-5 px-5" />
+      <DomainSwitcher className="-mx-5 px-5 short:mx-0 short:min-w-0 short:flex-1 short:px-0" />
     </header>
   )
 }

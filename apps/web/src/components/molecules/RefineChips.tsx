@@ -29,7 +29,7 @@ export function RefineChips({ options, value, onChange, disabled, label = 'Afina
           <ToggleGroupItem
             key={o.key}
             value={o.key}
-            className="h-9 rounded-full! border-[1.5px] border-border bg-card px-3.5 text-sm font-bold data-[state=on]:border-primary data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+            className="h-9 touch:h-11 rounded-full! border-[1.5px] border-border bg-card px-3.5 text-sm font-bold data-[state=on]:border-primary data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
           >
             {o.label}
           </ToggleGroupItem>

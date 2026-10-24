@@ -84,7 +84,7 @@ export function ThemePicker({ themes, palette, mode, theme, onPalette, onMode, o
               aria-checked={selected}
               onClick={() => onMode(m.id)}
               className={cn(
-                'flex min-h-9 items-center justify-center gap-1.5 rounded-sm text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4',
+                'flex min-h-9 touch:min-h-11 items-center justify-center gap-1.5 rounded-sm text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4',
                 selected ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
               )}
             >

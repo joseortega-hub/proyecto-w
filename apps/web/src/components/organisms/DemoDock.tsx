@@ -15,13 +15,13 @@ export function DemoDock({ rows, onClose }: { rows: TraceRow[]; onClose: () => v
   return (
     <aside
       aria-label="Modo demo: la IA en directo"
-      className="fixed inset-x-0 bottom-0 z-40 flex max-h-[34dvh] flex-col gap-2 rounded-t-xl border-t border-border bg-card/95 p-3 shadow-lg backdrop-blur md:inset-x-auto md:top-4 md:right-4 md:bottom-4 md:max-h-none md:w-80 md:rounded-xl md:border"
+      className="fixed inset-x-0 bottom-0 z-40 flex max-h-[34dvh] flex-col gap-2 rounded-t-xl border-t border-border bg-card/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg backdrop-blur md:inset-x-auto md:top-4 md:right-4 md:bottom-4 md:max-h-none md:w-80 md:rounded-xl md:border"
     >
       <div className="flex items-center justify-between">
         <Text font="label" className="inline-flex items-center gap-1.5">
           <Icon name="activity" className="size-4" /> Bajo el capó · en vivo
         </Text>
-        <button type="button" onClick={onClose} className="rounded-full px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">
+        <button type="button" onClick={onClose} className="rounded-full px-2 py-1 text-xs touch:min-h-11 touch:px-3 text-muted-foreground hover:bg-secondary">
           Ocultar
         </button>
       </div>
