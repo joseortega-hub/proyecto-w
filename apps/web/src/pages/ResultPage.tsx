@@ -103,6 +103,11 @@ export function ResultPage() {
             {data.entries.length} {domain.nounPlural}
             {minutes > 0 && (domain.playable ? ` · ${minutes} min` : ` · ${Math.round(minutes / 60)} h en total`)} · a partir de {data.answeredCount} respuestas
           </Text>
+          {!!data.likedCount && (
+            <Text size="sm" role="status">
+              ❤️ {data.likedCount} de {data.entries.length} van con tus gustos
+            </Text>
+          )}
           {data.notice && (
             <Text size="sm" role="status">
               {data.notice}

@@ -30,6 +30,8 @@ const startSchema = z.object({
   initialText: z.string().max(500).optional(),
   /** Preferencias elegidas con los botones (`{ language: 'es' }`): ganan a las deducidas del texto. */
   preferences: z.record(z.string(), z.string().max(40)).optional(),
+  /** Gustos guardados desactivados solo para esta entrevista. */
+  tasteOff: z.array(z.string().max(80)).max(60).optional(),
   /** Lo entendido del texto ya corregido; si falta, se entiende en el servidor. */
   understanding: understandingSchema.optional(),
   /** Contexto del navegador: zona horaria y, si ya dio permiso, posición aproximada. */
@@ -69,8 +71,8 @@ export class InterviewController {
 
   @Post()
   start(@Body() body: unknown, @Headers(USER_HEADER) user?: string) {
-    const { domainId, initialText, client, preferences, understanding } = parse(startSchema, body);
-    return this.interviews.start(domainId, { initialText, client, preferences, understanding, userId: optionalUserId(user) });
+    const { domainId, initialText, client, preferences, tasteOff, understanding } = parse(startSchema, body);
+    return this.interviews.start(domainId, { initialText, client, preferences, tasteOff, understanding, userId: optionalUserId(user) });
   }
 
   @Get(':id')

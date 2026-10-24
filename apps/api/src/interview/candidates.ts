@@ -2,7 +2,7 @@
 // cada uno. Lógica pura, sin IA ni base de datos. Cada pregunta se elige por cuánto reduce la
 // entropía de la bolsa y cada respuesta sube a las candidatas coherentes y baja a las demás.
 import type { DomainConfig, Probe } from '../domains/domain.types.js';
-import { tasteAffinity, type TasteProfile } from '../taste/taste.engine.js';
+import { coveredGroups, tasteAffinity, tasteOnlyProbes, type TasteProfile } from '../taste/taste.engine.js';
 import { ANCHOR_MATCH, anchorMatches, anchorMode, bestAnchor, type AnchorItem } from './anchors.js';
 import { askableProbes, type InterviewFacts } from './interview.flow.js';
 import { answered, facetHas, minQuestions, probeDirection, remainingProbes, type FacetFilter } from './interview.engine.js';
@@ -19,6 +19,8 @@ const ANSWER_FLOOR = 0.06;
 export const MIN_GAIN = 0.01;
 /** Cuántas preguntas se ofrecen a la IA. */
 export const OFFERED = 3;
+/** Cuánto pesan los gustos en la bolsa inicial (en el exponente del peso: un gusto que encaja ≈ ×6, un "no me gusta" ≈ ×0,1). */
+const TASTE_BAG = 3;
 /** Máximo de elementos del mismo creador en la bolsa (salvo si pidió a un creador). */
 const PER_CREATOR = 8;
 
@@ -123,6 +125,20 @@ export function rankProbes(probes: Probe[], bag: BagEntry[], items: Map<string, 
     .sort((a, b) => b.gain - a.gain);
 }
 
+/**
+ * Preguntas de estilo que sobran porque los gustos ya cubren sus grupos ("¿te apetece reguetón?"
+ * si le gusta el reguetón). Las que separan dentro de lo que le gusta se siguen haciendo.
+ */
+export function coveredProbes(taste: TasteProfile | null | undefined, config: DomainConfig): Set<string> {
+  const covered = coveredGroups(taste, config);
+  const tagOnly = tasteOnlyProbes(config);
+  return new Set(
+    config.probes
+      .filter((p) => tagOnly.has(p.id) && probeGroups(p, config).length > 0 && probeGroups(p, config).every((g) => covered.has(g)))
+      .map((p) => p.id),
+  );
+}
+
 export interface BagContext {
   config: DomainConfig;
   signals: TextSignals;
@@ -177,7 +193,7 @@ export function buildBag<T extends BagItem>(catalog: T[], ctx: BagContext): BagR
         const { score: a } = bestAnchor(item, ctx.anchors);
         if (a >= ANCHOR_MATCH) score += 2 * a;
       }
-      score += 1.5 * tasteAffinity(item, ctx.taste, config);
+      score += TASTE_BAG * tasteAffinity(item, ctx.taste, config);
       if (semantic.size) score += 2 * ((semantic.get(item.id) ?? 0) - 0.5);
       return { item, w: Math.exp(score) };
     })

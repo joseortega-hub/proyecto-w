@@ -84,6 +84,25 @@ export function tasteLabel(entry: string, config: DomainConfig): string {
   return entry.replace(/[-_]+/g, ' ').trim();
 }
 
+/** Los gustos sin lo que la persona desactivó para esta entrevista (ids: la etiqueta o `@grupo`). */
+export function withoutOff(taste: TasteProfile | null | undefined, off: readonly string[] = []): TasteProfile | null {
+  if (!taste) return null;
+  if (!off.length) return taste;
+  const out = { ...taste, likes: taste.likes.filter((l) => !off.includes(l)), dislikes: taste.dislikes.filter((d) => !off.includes(d)) };
+  return hasTaste(out) ? out : null;
+}
+
+/** Grupos de estilo que los gustos (a favor o en contra) ya cubren, por grupo (`@urban`) o por una de sus etiquetas. */
+export function coveredGroups(taste: TasteProfile | null | undefined, config: DomainConfig): Set<string> {
+  if (!taste) return new Set();
+  const entries = [...taste.likes, ...taste.dislikes];
+  return new Set(
+    config.tagGroups
+      .filter((g) => entries.some((e) => e === GROUP_PREFIX + g.key || g.tags.includes(e)))
+      .map((g) => g.key),
+  );
+}
+
 /** Los gustos en palabras, para el `state` de las decisiones (siempre como dato). */
 export function tasteState(taste: TasteProfile | null | undefined, config: DomainConfig) {
   if (!hasTaste(taste)) return null;

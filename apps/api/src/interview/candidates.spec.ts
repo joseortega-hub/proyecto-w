@@ -3,8 +3,11 @@ import type { TextProvider } from '../ai/text-provider.js';
 import { gamesDomain } from '../domains/games.domain.js';
 import { moviesDomain } from '../domains/movies.domain.js';
 import { musicDomain } from '../domains/music.domain.js';
+import { youtubeDomain } from '../domains/youtube.domain.js';
+import { withoutOff, type TasteProfile } from '../taste/taste.engine.js';
 import {
   buildBag,
+  coveredProbes,
   currentWeights,
   effectiveCount,
   planNext,
@@ -239,5 +242,44 @@ describe('escenarios con proveedores falsos', () => {
     const u = await new UnderstandingService(fake).understand(moviesDomain, 'tranqui');
     expect(u.moods.map((m) => m.key)).toEqual(['pace']);
     expect(u.preferences).toEqual({});
+  });
+
+  it('"Mi YouTube" con gustos reguetón y trap y sin texto: la lista es de esos estilos y no se pregunta por ellos; sin gustos cambia', () => {
+    const yt = youtubeDomain.config;
+    const catalog = [
+      ...Array.from({ length: 30 }, (_, i) => item(`Otra ${i}`, { attributes: { energy: (i % 6) / 5, dance: (i % 4) / 3 }, tags: [i % 2 ? 'pop' : 'rock'] })),
+      ...Array.from({ length: 30 }, (_, i) => item(`Urbana ${i}`, { attributes: { energy: (i % 6) / 5, dance: (i % 4) / 3 }, tags: [i % 2 ? 'reguetón' : 'trap'] })),
+    ];
+    const taste = { likes: ['reguetón', 'trap'], dislikes: [], learned: {} };
+    const top = (t: TasteProfile | null) => {
+      const bag = buildBag(catalog, { config: yt, signals: {}, anchors: [], exclusions: [], filters: [], taste: t });
+      return { bag, top10: [...bag.entries].sort((a, b) => b.w - a.w).slice(0, 10).map((e) => e.id) };
+    };
+    const liked = top(taste);
+    const isUrban = (id: string) => catalog.find((c) => c.id === id)!.title.startsWith('Urbana');
+    expect(liked.top10.filter(isUrban).length).toBeGreaterThanOrEqual(9);
+    // Los que no le gustan se quedan en la bolsa con menos peso (margen para descubrir).
+    expect(liked.bag.entries.some((e) => !isUrban(e.id))).toBe(true);
+
+    expect(coveredProbes(taste, yt).has('perreo')).toBe(true);
+    const plan = planNext({ turns: [], config: yt, bag: liked.bag.entries, items: byId(catalog), known: [], exclusions: [], facts: { skip: coveredProbes(taste, yt) } });
+    expect(plan.offered.length).toBeGreaterThan(0);
+    expect(plan.offered.map((o) => o.probe.id)).not.toContain('perreo');
+
+    // Con los gustos desactivados en la tarjeta, la lista cambia.
+    const off = top(withoutOff(taste, ['reguetón', 'trap']));
+    expect(off.top10).not.toEqual(liked.top10);
+    expect(off.top10.filter(isUrban).length).toBeLessThan(9);
+    expect(coveredProbes(withoutOff(taste, ['reguetón', 'trap']), yt).size).toBe(0);
+  });
+
+  it('el ánimo gana a un gusto que lo contradice', () => {
+    const calm = item('Calma urbana', { attributes: { energy: 0.1 }, tags: ['reguetón'] });
+    const loud = item('Pop fuerte', { attributes: { energy: 0.95 }, tags: ['pop'] });
+    const catalog = [calm, loud, item('Pop calmo', { attributes: { energy: 0.1 }, tags: ['pop'] })];
+    const taste = { likes: [], dislikes: ['@urban'], learned: {} };
+    const bag = buildBag(catalog, { config: youtubeDomain.config, signals: { energy: { value: 0.15, confidence: 1 } }, anchors: [], exclusions: [], filters: [], taste });
+    const w = new Map(bag.entries.map((e) => [e.id, e.w]));
+    expect(w.get(calm.id)!).toBeGreaterThan(w.get(loud.id)!);
   });
 });

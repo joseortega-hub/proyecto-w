@@ -11,6 +11,7 @@ import { clientContext } from '@/lib/context'
 import { useDomain } from '@/lib/domain'
 import { rememberSession, useDemoMode, useLiveTraces } from '@/lib/ops'
 import { storedPreferences } from '@/lib/preferences'
+import { useTaste } from '@/lib/taste'
 
 /** /:domain/entrevista crea la sesión y redirige a /:domain/entrevista/:sesion. */
 export function InterviewPage() {
@@ -28,6 +29,15 @@ export function InterviewPage() {
   // Lo entendido del texto, que la persona corrige en la tarjeta antes de empezar.
   const [understood, setUnderstood] = useState<Understanding | null>(null)
   const [removed, setRemoved] = useState<Set<string>>(new Set())
+  // Gustos guardados: salen en la tarjeta y se pueden desactivar solo para esta entrevista.
+  const taste = useTaste(domain.id)
+  const tasteEntries = useMemo(
+    () => [
+      ...(taste.data?.likes ?? []).map((e) => ({ ...e, icon: '❤️' })),
+      ...(taste.data?.dislikes ?? []).map((e) => ({ ...e, icon: '🚫' })),
+    ],
+    [taste.data],
+  )
 
   const understand = useMutation({
     mutationFn: () => api.understand(domain.id, initialText!),
@@ -55,8 +65,9 @@ export function InterviewPage() {
       }
     }
     for (const g of understood.exclusions) out.push({ id: `out:${g}`, icon: '🚫', label: domain.info?.tagGroups.find((t) => t.key === g)?.label ?? g })
+    for (const e of tasteEntries) out.push({ id: `taste:${e.id}`, icon: e.icon, label: e.label })
     return out.filter((c) => !removed.has(c.id))
-  }, [understood, prefs, removed, domain.info])
+  }, [understood, prefs, removed, domain.info, tasteEntries])
 
   const start = useMutation({
     mutationFn: async () => {
@@ -65,6 +76,7 @@ export function InterviewPage() {
         initialText,
         client: await clientContext(),
         preferences: prefs,
+        tasteOff: [...removed].filter((id) => id.startsWith('taste:')).map((id) => id.slice(6)),
         understanding: understood
           ? {
               moods: understood.moods.filter((m) => kept(`mood:${m.key}`)).map(({ key, level }) => ({ key, level })),
@@ -84,15 +96,25 @@ export function InterviewPage() {
   // Con texto, primero se enseña lo entendido; sin texto, directo a las preguntas.
   useEffect(() => {
     if (!sesion && !started.current) {
-      started.current = true
-      if (initialText) understand.mutate()
-      else start.mutate()
+      if (initialText) {
+        started.current = true
+        understand.mutate()
+      } else if (!taste.isPending) {
+        // Con gustos guardados, la tarjeta también aparece (sin texto no hay nada que entender).
+        started.current = true
+        if (tasteEntries.length) setUnderstood({ moods: [], anchors: [], preferences: {}, exclusions: [] })
+        else start.mutate()
+      }
     }
-  }, [sesion, start, understand, initialText])
+  }, [sesion, start, understand, initialText, taste.isPending, tasteEntries.length])
 
-  // Si no hay nada que corregir, no se hace perder tiempo con la tarjeta.
+  // Si no hay nada que corregir, no se hace perder tiempo con la tarjeta (solo al llegar lo entendido).
+  const checked = useRef(false)
   useEffect(() => {
-    if (!sesion && understood && chips?.length === 0 && !start.isPending && !start.isSuccess) start.mutate()
+    if (!sesion && understood && !checked.current) {
+      checked.current = true
+      if (chips?.length === 0) start.mutate()
+    }
   }, [sesion, understood, chips, start])
 
   const session = useQuery({
@@ -124,7 +146,7 @@ export function InterviewPage() {
   const undo = useMutation({ mutationFn: () => api.undo(sesion!), onSuccess: update, onError })
 
   const data = session.data
-  const reviewing = !sesion && !!initialText && !start.isPending && !start.isSuccess && !start.isError
+  const reviewing = !sesion && (!!initialText || !!understood) && !start.isPending && !start.isSuccess && !start.isError
   const thinking = start.isPending || answer.isPending || undo.isPending || (!data && !session.isError)
   // Respuesta optimista: su etiqueta aparece al instante mientras llega la siguiente pregunta.
   const pendingAnswer = answer.isPending ? answer.variables?.a : undefined

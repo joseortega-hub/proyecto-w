@@ -9,7 +9,7 @@ import { DB } from '../db/db.module.js';
 import { interviewSessions, items, type SessionRow } from '../db/schema.js';
 import { DomainsService, type DomainRow } from '../domains/domains.service.js';
 import { ItemsService, publicItem, type ItemWithoutEmbedding } from '../items/items.service.js';
-import { hasTaste, tasteHints, type TasteProfile } from '../taste/taste.engine.js';
+import { hasTaste, tasteHints, withoutOff, type TasteProfile } from '../taste/taste.engine.js';
 import { TasteService } from '../taste/taste.service.js';
 import {
   answerChips,
@@ -88,7 +88,7 @@ export class TuningService {
     const domain = await this.domains.get(session.domainId);
     const { config } = domain;
     // Gustos al día (incluye los últimos 👍/👎); sin persona, la copia del inicio de la entrevista.
-    const fresh = await this.tastes.profile(session.userId, domain.id).catch(() => null);
+    const fresh = withoutOff(await this.tastes.profile(session.userId, domain.id).catch(() => null), session.tasteOff);
     const taste = hasTaste(fresh) ? fresh : session.taste;
     session.taste = taste;
 
@@ -229,6 +229,8 @@ export class TuningService {
       notice: session.result.notice ?? null,
       candidates: session.result.candidates,
       catalogSize: session.result.catalogSize,
+      /** Cuántos de la lista van con los gustos de la persona. */
+      likedCount: session.result.entries.filter((e) => tasteHints(byId.get(e.itemId) ?? { tags: [] }, session.taste, domain.config).length > 0).length,
       /** Lista ya creada en la cuenta de YouTube de la persona (solo en "Mi YouTube"). */
       youtube: session.result.youtube ?? null,
       entries: session.result.entries.flatMap((e) => {

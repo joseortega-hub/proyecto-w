@@ -112,6 +112,8 @@ export const interviewSessions = pgTable('interview_sessions', {
   textSignals: jsonb('text_signals').$type<TextSignals>().notNull().default({}),
   /** Lo concreto que pidió en el texto inicial ("Marvel"): filtra o sube la búsqueda y enfoca las preguntas. */
   anchors: jsonb('anchors').$type<Anchor[]>().notNull().default([]),
+  /** Gustos guardados que la persona desactivó para esta entrevista (no se borran de "Mis gustos"). */
+  tasteOff: jsonb('taste_off').$type<string[]>().notNull().default([]),
   /** Lo que no quiere (claves de `tagGroups`, p. ej. `horror`): nunca se pregunta ni se recomienda. */
   exclusions: jsonb('exclusions').$type<string[]>().notNull().default([]),
   /** Bolsa de candidatas con su peso inicial (hasta ~150). Null en entrevistas sin texto ni filtros. */

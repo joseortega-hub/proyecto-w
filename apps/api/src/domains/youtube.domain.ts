@@ -77,7 +77,7 @@ export const youtubeDomain: DomainDefinition = {
     ],
     probes: [
       ...music.probes.filter((p) => !p.informs.includes('genres')),
-      { id: 'perreo', intent: 'Si le apetece perreo, reguetón o trap', informs: ['genres'], yesChip: 'perreo', noChip: 'sin perreo' },
+      { id: 'perreo', intent: 'Si le apetece perreo, reguetón o trap', informs: ['genres'], groups: ['urban'], yesChip: 'perreo', noChip: 'sin perreo' },
       { id: 'tropical', intent: 'Si le apetece algo tropical para bailar en pareja, como bachata o salsa', informs: ['genres'], yesChip: 'tropical', noChip: 'sin tropical' },
       { id: 'pop', intent: 'Si le apetece pop o baladas para cantar', informs: ['genres'], yesChip: 'pop', noChip: 'sin pop' },
       { id: 'hiphop', intent: 'Si le apetece hip hop, rap o R&B', informs: ['genres'], yesChip: 'hip hop', noChip: 'sin rap' },

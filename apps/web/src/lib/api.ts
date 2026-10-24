@@ -166,6 +166,8 @@ export interface SessionResult {
   appliedRefinements: string[]
   candidates: number
   catalogSize: number
+  /** Cuántos de la lista van con los gustos guardados. */
+  likedCount?: number
   preferences: SessionPreferences
   /** Aviso cuando un filtro deja pocos elementos (p. ej. pocas en español o pocas de Marvel). */
   notice: string | null
@@ -318,7 +320,7 @@ export const api = {
   /** `initialText` es el punto de partida opcional (texto o voz) antes de las preguntas. */
   startSession: (
     domainId: string,
-    options: { initialText?: string; client?: ClientContext; preferences?: Record<string, string>; understanding?: EditedUnderstanding } = {},
+    options: { initialText?: string; client?: ClientContext; preferences?: Record<string, string>; tasteOff?: string[]; understanding?: EditedUnderstanding } = {},
   ) => request<SessionView>('/sessions', { method: 'POST', body: JSON.stringify({ domainId, ...options }) }),
   /** Lo que se entiende del texto, sin crear la sesión (el texto no se guarda). */
   understand: (domainId: string, text: string) =>

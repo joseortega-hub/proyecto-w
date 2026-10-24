@@ -78,6 +78,13 @@
       "when": 1793000000000,
       "tag": "0010_candidate_bag",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793100000000,
+      "tag": "0011_taste_off",
+      "breakpoints": true
     }
   ]
 }

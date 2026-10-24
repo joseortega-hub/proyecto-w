@@ -21,7 +21,7 @@ import { config as env } from '../config.js';
 import { domainDefinitions } from '../domains/index.js';
 import { ItemsService, type ItemWithoutEmbedding } from '../items/items.service.js';
 import type { Probe } from '../domains/domain.types.js';
-import { hasTaste, tasteLabel, tasteOnlyProbes } from '../taste/taste.engine.js';
+import { hasTaste, tasteLabel, tasteOnlyProbes, withoutOff } from '../taste/taste.engine.js';
 import { TasteService } from '../taste/taste.service.js';
 import type { FacetFilter } from './interview.engine.js';
 import { collectContext, contextKey, stateExtras, type ContextRequest, type InterviewContext } from './interview.context.js';
@@ -38,7 +38,7 @@ import {
   remainingProbes,
   signalChips,
 } from './interview.engine.js';
-import { buildBag, effectiveCount, currentWeights, planNext } from './candidates.js';
+import { buildBag, coveredProbes, effectiveCount, currentWeights, planNext } from './candidates.js';
 import { anchorsDone, askableProbes, assertNotAsked, autoAnswerExhausted, type InterviewFacts } from './interview.flow.js';
 import { NextQuestionPrefetch } from './interview.prefetch.js';
 import { anchorExample, anchorQueryText, cleanAnchors, probeDirection } from './anchors.js';
@@ -70,7 +70,7 @@ const questionSchema = z.object({
   reason: z.string().describe('Una frase corta que explica por qué preguntas esto ahora'),
 });
 
-type SessionSeed = Pick<SessionRow, 'context' | 'initialText' | 'taste' | 'textSignals' | 'anchors' | 'userId' | 'exclusions' | 'bag' | 'preferences'>;
+type SessionSeed = Pick<SessionRow, 'context' | 'initialText' | 'taste' | 'textSignals' | 'anchors' | 'userId' | 'exclusions' | 'bag' | 'preferences' | 'tasteOff'>;
 
 export interface StartOptions {
   /** Punto de partida opcional (texto o voz transcrita). Se trata como dato, nunca como instrucción. */
@@ -81,6 +81,8 @@ export interface StartOptions {
   client?: ContextRequest;
   /** Preferencias elegidas con los botones (idioma, plataforma…): ganan a las deducidas del texto. */
   preferences?: Record<string, string>;
+  /** Gustos guardados (etiqueta o `@grupo`) que la persona desactivó solo para esta entrevista. */
+  tasteOff?: string[];
   /** Lo entendido del texto ya corregido por la persona; si falta, se entiende aquí. */
   understanding?: EditedUnderstanding;
 }
@@ -166,7 +168,7 @@ export class InterviewService implements OnModuleInit {
     return understood;
   }
 
-  async start(domainId: string, { initialText, userId = null, client = {}, preferences: chosen = {}, understanding: edited }: StartOptions = {}): Promise<SessionView> {
+  async start(domainId: string, { initialText, userId = null, client = {}, preferences: chosen = {}, tasteOff = [], understanding: edited }: StartOptions = {}): Promise<SessionView> {
     const domain = await this.domains.get(domainId);
     const { config } = domain;
     const text = initialText?.trim() || null;
@@ -185,7 +187,8 @@ export class InterviewService implements OnModuleInit {
     const seed: SessionSeed = {
       context,
       initialText: text,
-      taste: hasTaste(taste) ? taste : null,
+      taste: withoutOff(hasTaste(taste) ? taste : null, tasteOff),
+      tasteOff,
       textSignals,
       anchors,
       userId,
@@ -193,9 +196,9 @@ export class InterviewService implements OnModuleInit {
       preferences,
       bag: null,
     };
-    // Con texto, filtros o exclusiones, la entrevista se guía por una bolsa de candidatas.
+    // Con texto, filtros, exclusiones o gustos, la entrevista se guía por una bolsa de candidatas.
     let loaded: Map<string, ItemWithoutEmbedding> | undefined;
-    if (text || filters.length || exclusions.length || anchors.length) {
+    if (text || filters.length || exclusions.length || anchors.length || seed.taste) {
       const catalog = await this.items.catalog(domainId, filters, userId);
       const semantic = text ? await this.semanticMap(domain, text, anchors, filters, userId) : undefined;
       const bag = buildBag(catalog, { config, signals: textSignals, anchors, exclusions, filters, taste: seed.taste, semantic });
@@ -367,7 +370,7 @@ export class InterviewService implements OnModuleInit {
     const key = `${domain.id}|${contextKey(context)}`;
     const cached = this.firstQuestion.get(key);
     if (cached && Date.now() - cached.at < FIRST_QUESTION_TTL_MS) return cached.turns;
-    const turns = this.advance([], domain, { context, initialText: null, taste: null, textSignals: {}, anchors: [], userId: null, exclusions: [], bag: null, preferences: {} });
+    const turns = this.advance([], domain, { context, initialText: null, taste: null, textSignals: {}, anchors: [], userId: null, exclusions: [], bag: null, preferences: {}, tasteOff: [] });
     turns.catch(() => this.firstQuestion.delete(key));
     this.firstQuestion.set(key, { turns, at: Date.now() });
     return turns;
@@ -377,7 +380,8 @@ export class InterviewService implements OnModuleInit {
   private facts(session: SessionSeed, domain: DomainRow): InterviewFacts {
     return {
       known: Object.keys(session.textSignals ?? {}),
-      skip: session.taste ? tasteOnlyProbes(domain.config) : undefined,
+      // Con bolsa, solo sobran las preguntas de estilos que los gustos ya cubren; sin ella, todas las de estilo.
+      skip: session.taste ? (session.bag?.length ? coveredProbes(session.taste, domain.config) : tasteOnlyProbes(domain.config)) : undefined,
     };
   }
 
