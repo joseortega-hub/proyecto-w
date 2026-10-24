@@ -14,13 +14,11 @@ import { TasteService } from '../taste/taste.service.js';
 import {
   answerChips,
   answered,
+  answersProfile,
   applyRefinements,
   characterWords,
-  fallbackReason,
-  hasRawFigures,
   hybridRank,
   informedDimensions,
-  matchHints,
   matchPercent,
   percentiles,
   preferenceFilters,
@@ -32,8 +30,10 @@ import {
   type HybridCandidate,
 } from './interview.engine.js';
 import { stateExtras } from './interview.context.js';
+import { ANCHOR_BOOST, ANCHOR_MATCH, anchorMatches, anchorMode, anchorNotice, anchorQueryText, bestAnchor, shortReason } from './anchors.js';
+import { AnchorsService } from './anchors.service.js';
 import { InterviewService } from './interview.service.js';
-import type { MoodProfile, SessionResult } from './interview.types.js';
+import type { Anchor, MoodProfile, SessionResult } from './interview.types.js';
 
 export type TuningEvent =
   | { step: 'profile'; profile: MoodProfile }
@@ -48,15 +48,16 @@ const FIT_BATCH = 8;
 /** Vecinos semánticos que se traen de pgvector antes del ranking híbrido. */
 const SEMANTIC_POOL = 120;
 
-const explanationSchema = z.object({
+const titleSchema = z.object({
   title: z.string().describe('Título corto y evocador para la lista, de 2 a 4 palabras'),
-  reasons: z.array(
-    z.object({
-      n: z.number().int().describe('Número del elemento en la lista'),
-      reason: z.string().describe('Una o dos frases, máximo 25 palabras'),
-    }),
-  ),
 });
+
+/** Cómo usa la búsqueda lo que pidió la persona (ver `anchorMode`). */
+interface AnchorPlan {
+  anchors: Anchor[];
+  mode: 'filter' | 'boost' | 'none';
+  matched: Set<string>;
+}
 
 @Injectable()
 export class TuningService {
@@ -71,6 +72,7 @@ export class TuningService {
     private readonly domains: DomainsService,
     private readonly interviews: InterviewService,
     private readonly tastes: TasteService,
+    private readonly anchors: AnchorsService,
   ) {}
 
   /**
@@ -93,8 +95,14 @@ export class TuningService {
 
     // Las preferencias previas (p. ej. idioma) filtran el catálogo antes de buscar, no después.
     const filters = preferenceFilters(session.preferences, config);
+    const anchors = session.anchors ?? [];
+    // Lo que se buscó en directo al empezar tiene que estar guardado antes de leer el catálogo.
+    if (anchors.length) await this.anchors.awaitCoverage(domain, anchors, session.userId);
     const catalog = await this.items.catalog(domain.id, filters, session.userId);
-    const candidates = await this.findCandidates(session, domain, profile, catalog, filters, taste);
+    const matched = anchorMatches(catalog, anchors);
+    const plan: AnchorPlan = { anchors, mode: anchorMode(anchors, matched.length, config.result.size), matched: new Set(matched.map((m) => m.id)) };
+    if (anchors.length) this.logger.log(`Anclas ${anchors.map((a) => a.label).join(', ')}: ${matched.length} en el catálogo → ${plan.mode}`);
+    const candidates = await this.findCandidates(session, domain, profile, catalog, filters, taste, plan);
     yield {
       step: 'candidates',
       count: candidates.length,
@@ -137,30 +145,32 @@ export class TuningService {
 
     // La relevancia se reparte dentro de los evaluados para que el % no se amontone arriba.
     const relevance = percentiles(judged.map((c) => c.relevance));
+    // Cuando no se filtra, lo que pidió va primero aunque otro encaje algo mejor con el ánimo.
+    const anchored = (id: string) => (plan.mode === 'boost' && plan.matched.has(id) ? 1 : 0);
     const finalists = judged
       .map(({ item }, i) => ({
         item,
         fit: fit.get(item.id) ?? null,
         match: matchPercent(relevance[i], fit.get(item.id) ?? null),
       }))
-      .sort((a, b) => b.match - a.match)
+      .sort((a, b) => anchored(b.item.id) - anchored(a.item.id) || b.match - a.match)
       .slice(0, config.result.size);
 
     yield { step: 'explain' };
-    const { title, reasons } = await this.explain(
-      profile,
-      domain,
-      finalists.map((f) => f.item),
-      taste,
+    const list = finalists.map((f) => f.item);
+    const title = await this.title(profile, domain, list, anchors);
+    const reasons = list.map((item) =>
+      shortReason(item, { config, profile, anchors, likes: tasteHints(item, taste, config) }),
     );
 
-    const notice = preferenceNotice(
-      finalists.map((f) => f.item),
-      session.preferences,
-      config,
-      domain.itemNounPlural,
-      config.result.size,
-    );
+    const inList = list.filter((it) => plan.matched.has(it.id)).length;
+    const notice =
+      [
+        plan.mode === 'boost' ? anchorNotice(anchors, inList, config.result.size, domain.itemNounPlural, config.gender) : null,
+        preferenceNotice(list, session.preferences, config, domain.itemNounPlural, config.result.size),
+      ]
+        .filter(Boolean)
+        .join(' ') || null;
     const result: SessionResult = {
       title,
       notice,
@@ -196,7 +206,13 @@ export class TuningService {
       domainId: session.domainId,
       title: session.result.title,
       answeredCount: answered(session.turns).length,
-      chips: [...signalChips(session.textSignals ?? {}, domain.config), ...answerChips(session.turns, domain.config)],
+      chips: [
+        ...(session.anchors ?? []).map((a) => `de ${a.label}`),
+        ...signalChips(session.textSignals ?? {}, domain.config),
+        ...answerChips(session.turns, domain.config),
+      ],
+      /** Lo concreto que pidió en el texto inicial ("Marvel"). */
+      anchors: (session.anchors ?? []).map((a) => a.label),
       profile: applyRefinements(session.profile, session.result.refinements, domain.config),
       attributes: domain.config.attributes.filter((a) => a.kind === 'scale'),
       refinements: domain.config.refinements.map(({ key, label }) => ({
@@ -239,10 +255,28 @@ export class TuningService {
     catalog: ItemWithoutEmbedding[],
     filters: FacetFilter[],
     taste: TasteProfile | null,
+    plan: AnchorPlan,
   ): Promise<HybridCandidate<ItemWithoutEmbedding>[]> {
     const { config } = domain;
-    const byAttributes = rankCandidates(catalog, profile, config, SEMANTIC_POOL / 2, 2, taste);
-    const query = profileQueryText(profile, config, domain.itemNounPlural, session.initialText);
+    // Con `filter`, la bolsa es solo lo que pidió; si no, lo que pidió entra siempre y sube.
+    const scope = plan.mode === 'filter' ? catalog.filter((it) => plan.matched.has(it.id)) : catalog;
+    const byAttributes = rankCandidates(scope, profile, config, SEMANTIC_POOL / 2, 2, taste);
+    const query = [profileQueryText(profile, config, domain.itemNounPlural, session.initialText), anchorQueryText(plan.anchors)]
+      .filter(Boolean)
+      .join('. ');
+    const options = {
+      taste,
+      // Con un artista o autor pedido, todo puede ser suyo: no se limita por creador.
+      perArtist: plan.mode === 'filter' || plan.anchors.some((a) => a.kind === 'creator') ? config.result.size : 2,
+      boost:
+        plan.mode === 'boost'
+          ? (item: ItemWithoutEmbedding) => {
+              const { score } = bestAnchor(item, plan.anchors);
+              return score >= ANCHOR_MATCH ? ANCHOR_BOOST * score : 0;
+            }
+          : undefined,
+    };
+    const extra = catalog.filter((it) => plan.matched.has(it.id));
     const vector = await this.embeddings
       .embed([query], 'query')
       .then(([v]) => v)
@@ -251,20 +285,18 @@ export class TuningService {
         return null;
       });
     if (!vector) {
-      return hybridRank(
-        byAttributes.map(({ item }) => ({ item, semantic: null })),
-        profile,
-        config,
-        config.result.candidates,
-        { taste },
-      );
+      const pool = new Map(byAttributes.map(({ item }) => [item.id, { item, semantic: null as number | null }]));
+      for (const item of extra) if (!pool.has(item.id)) pool.set(item.id, { item, semantic: null });
+      return hybridRank([...pool.values()], profile, config, config.result.candidates, options);
     }
 
     const nearest = await this.items.nearest(domain.id, vector, SEMANTIC_POOL, { filters, userId: session.userId });
     const pool = new Map<string, { item: ItemWithoutEmbedding; semantic: number | null }>(
-      nearest.map(({ semantic, ...item }) => [item.id, { item, semantic: Number(semantic) }]),
+      nearest
+        .filter((n) => plan.mode !== 'filter' || plan.matched.has(n.id))
+        .map(({ semantic, ...item }) => [item.id, { item, semantic: Number(semantic) }]),
     );
-    const missing = byAttributes.filter(({ item }) => !pool.has(item.id)).map(({ item }) => item);
+    const missing = [...byAttributes.map(({ item }) => item), ...extra].filter((item, i, all) => !pool.has(item.id) && all.findIndex((x) => x.id === item.id) === i);
     const sims = await this.items.similarities(
       domain.id,
       missing.map((i) => i.id),
@@ -272,58 +304,35 @@ export class TuningService {
       session.userId,
     );
     for (const item of missing) pool.set(item.id, { item, semantic: sims.get(item.id) ?? null });
-    this.logger.log(`Consulta semántica: "${query}" → ${nearest.length} vecinos + ${missing.length} por atributos`);
-    return hybridRank([...pool.values()], profile, config, config.result.candidates, { taste });
+    this.logger.log(`Consulta semántica: "${query}" → ${pool.size - missing.length} vecinos + ${missing.length} por atributos o por ancla`);
+    return hybridRank([...pool.values()], profile, config, config.result.candidates, options);
   }
 
   /**
-   * Título y una explicación por elemento. Si el modelo se salta alguna, se pide otra
-   * vez solo por las que faltan; si aún faltan, se usa una explicación de respaldo.
+   * Título de la lista (lo único que redacta la IA aquí: el "por qué" de cada elemento se
+   * construye con plantillas a partir de datos concretos, ver `shortReason`).
    */
-  private async explain(profile: MoodProfile, domain: DomainRow, list: ItemWithoutEmbedding[], taste: TasteProfile | null) {
+  private async title(profile: MoodProfile, domain: DomainRow, list: ItemWithoutEmbedding[], anchors: Anchor[]) {
     const { config } = domain;
-    const reasons: (string | null)[] = list.map(() => null);
-    let title = 'Tu lista';
-
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const missing = reasons.flatMap((r, i) => (r ? [] : [i]));
-      if (!missing.length) break;
-      const written = await this.text
-        .write({
-          system: `${config.voice} Explicas por qué cada ${domain.itemNoun} encaja con el ánimo de la persona, sin repetir fórmulas.`,
-          prompt: [
-            `Lo que busca: ${profile.summary.join(', ') || 'sin preferencias claras'}.`,
-            `Carácter que le apetece: ${characterWords(profile.scales, config).join(', ') || 'sin preferencias marcadas'}.`,
-            `${capitalize(domain.itemNounPlural)} ${config.gender === 'f' ? 'elegidas' : 'elegidos'}:`,
-            ...missing.map((i) => {
-              const hints = matchHints(list[i], profile, config);
-              const likes = tasteHints(list[i], taste, config);
-              return `${i + 1}. ${this.describeItem(list[i], domain, { words: true })}${hints.length ? ` Coincide en: ${hints.join(', ')}.` : ''}${likes.length ? ` Encaja con sus gustos de siempre: ${likes.join(', ')}.` : ''}`;
-            }),
-            `Devuelve ${attempt === 0 ? 'un título para la lista y ' : ''}exactamente ${missing.length} explicaciones, una por cada número de arriba (usa ese mismo número), en tono cercano y en español (en inglés, solo nombres propios y géneros). Apóyate en las coincidencias y en datos concretos (${config.attributes.slice(0, 3).map((a) => a.label.toLowerCase()).join(', ')}), siempre con palabras, sin cifras ni porcentajes.`,
-          ].join('\n'),
-          schema: explanationSchema,
-        })
-        .catch((error: Error) => {
-          // Si Gemini está saturado, la lista se guarda igual en vez de perderla.
-          this.logger.warn(`Explicaciones (intento ${attempt + 1}): ${error.message}`);
-          return null;
-        });
-      if (!written) continue;
-      if (attempt === 0 && written.title.trim()) title = written.title.trim();
-      for (const r of written.reasons) {
-        const i = r.n - 1;
-        // Una explicación con cifras internas ("tono casi 1.0") se vuelve a pedir.
-        if (missing.includes(i) && r.reason.trim() && !hasRawFigures(r.reason)) reasons[i] = r.reason.trim();
-      }
-    }
-
-    const fallbacks = reasons.filter((r) => !r).length;
-    if (fallbacks) this.logger.warn(`${fallbacks} explicaciones de respaldo`);
-    return {
-      title,
-      reasons: reasons.map((r, i) => r ?? fallbackReason(list[i], profile, config)),
-    };
+    const written = await this.text
+      .write({
+        system: `${config.voice} Pones títulos cortos y con gancho a listas de ${domain.itemNounPlural}.`,
+        prompt: [
+          anchors.length ? `Ha pedido: ${anchors.map((a) => a.label).join(', ')}.` : null,
+          `Lo que busca: ${profile.summary.join(', ') || 'sin preferencias claras'}.`,
+          `${capitalize(domain.itemNounPlural)}: ${list.slice(0, 6).map((it) => `«${it.title}»`).join(', ')}.`,
+          'Devuelve un título de 2 a 4 palabras, en español, sin comillas ni cifras.',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        schema: titleSchema,
+      })
+      .catch((error: Error) => {
+        // Sin texto, la lista se guarda igual con un título genérico.
+        this.logger.warn(`Título: ${error.message.slice(0, 120)}`);
+        return null;
+      });
+    return written?.title.trim().replace(/^[«"']|[»"']$/g, '') || 'Tu lista';
   }
 
   /** Jev `score` por atributo y `noul` por grupo de etiquetas, en una sola llamada. */
@@ -352,14 +361,21 @@ export class TuningService {
 
     const known = Object.keys(session.textSignals ?? {});
     const informed = informedDimensions(session.turns, config, known);
-    const result = await this.decisions.decide({ respuestas: answers, ...stateExtras(session, config) }, questions);
+    // Si el proveedor está caído o sin cupo, el perfil sale de las respuestas: la lista sale igual.
+    const decided = await this.decisions
+      .decide({ respuestas: answers, ...stateExtras(session, config) }, questions)
+      .then((result) => ({
+        scales: Object.fromEntries(scales.map((a) => [a.key, round((result[`scale_${a.key}`] as { score: number }).score)])),
+        tagGroups: Object.fromEntries(
+          config.tagGroups.map((g) => [g.key, round((result[`tags_${g.key}`] as { probability: number }).probability)]),
+        ),
+      }))
+      .catch((error: Error) => {
+        this.logger.warn(`Perfil sin IA (a partir de las respuestas): ${error.message.slice(0, 120)}`);
+        return answersProfile(session.turns, config, session.textSignals ?? {});
+      });
     const profile: MoodProfile = {
-      scales: Object.fromEntries(
-        scales.map((a) => [a.key, round((result[`scale_${a.key}`] as { score: number }).score)]),
-      ),
-      tagGroups: Object.fromEntries(
-        config.tagGroups.map((g) => [g.key, round((result[`tags_${g.key}`] as { probability: number }).probability)]),
-      ),
+      ...decided,
       informed: [...informed],
       // Con respuesta directa la dimensión es fiable; si salió del texto inicial, vale su
       // confianza; sin nada, el valor es una suposición.

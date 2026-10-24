@@ -1,3 +1,5 @@
+import { anchorMatchesText } from '../interview/anchors.js';
+import type { Anchor } from '../interview/interview.types.js';
 import type { CatalogAdapter, ImportedItem } from './catalog-adapter.js';
 
 interface JamendoTrack {
@@ -146,7 +148,16 @@ export class JamendoAdapter implements CatalogAdapter {
     return [...byId.values()];
   }
 
-  private async fetchTag(param: 'tags' | 'fuzzytags', tag: string, limit: number): Promise<JamendoTrack[]> {
+  /** Búsqueda en directo: por artista si pidió a alguien, por texto (nombres y etiquetas) en el resto. */
+  async search(anchor: Anchor, limit: number): Promise<ImportedItem[]> {
+    const tracks = await this.fetchTag(anchor.kind === 'creator' ? 'artist_name' : 'search', anchor.label, limit * 2).catch(() => [] as JamendoTrack[]);
+    return tracks
+      .filter((t) => t.audio && anchorMatchesText(`${t.name} ${t.artist_name} ${t.album_name} ${(t.musicinfo?.tags?.genres ?? []).join(' ')}`, anchor))
+      .slice(0, limit)
+      .map((t, rank, all) => this.toItem(t, 1 - rank / all.length));
+  }
+
+  private async fetchTag(param: 'tags' | 'fuzzytags' | 'search' | 'artist_name', tag: string, limit: number): Promise<JamendoTrack[]> {
     const url = new URL('https://api.jamendo.com/v3.0/tracks/');
     url.search = new URLSearchParams({
       client_id: this.clientId,

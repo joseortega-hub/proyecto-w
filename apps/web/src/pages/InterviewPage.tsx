@@ -106,13 +106,18 @@ export function InterviewPage() {
         <IconButton icon="undo" label="Deshacer la última respuesta" disabled={!data?.canUndo || thinking} onClick={() => undo.mutate()} />
       </header>
       <InterviewProgress confidence={data?.confidence ?? 0.1} />
-      {data && (data.context.diaSemana || data.taste.length > 0 || data.fromText.length > 0) && (
+      {data && (data.context.diaSemana || data.taste.length > 0 || data.fromText.length > 0 || data.anchors.length > 0) && (
         <div className="flex flex-wrap items-center gap-2" aria-label="Lo que ya tengo en cuenta">
           <ContextBadge context={data.context} />
           {data.taste.length > 0 && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-domain-soft px-3 py-1 text-[13px]" title="Tus gustos guardados">
               ♥ {data.taste.slice(0, 3).join(', ')}
               {data.taste.length > 3 ? '…' : ''}
+            </span>
+          )}
+          {data.anchors.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-domain-soft px-3 py-1 text-[13px]" title="Lo que has pedido">
+              🎯 {data.anchors.join(', ')}
             </span>
           )}
           {data.fromText.length > 0 && (

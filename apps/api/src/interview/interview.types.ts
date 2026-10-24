@@ -50,3 +50,18 @@ export interface SessionResult {
  * Solo se guardan las señales confiadas; la entrevista no pregunta por esas dimensiones.
  */
 export type TextSignals = Record<string, { value: number; confidence: number }>;
+
+/**
+ * Algo concreto que la persona pidió en su texto inicial ("algo de Marvel", "Pokémon",
+ * "Brandon Sanderson", "dembow"). Se guarda en la sesión en vez del texto en bruto, así
+ * que sobrevive a los reajustes y no compromete la privacidad.
+ */
+export interface Anchor {
+  /** Cómo lo dijo la persona, para los textos ("Marvel"). */
+  label: string;
+  kind: 'franchise' | 'creator' | 'studio' | 'title' | 'tag';
+  /** Términos para encontrarlo en el catálogo (título, creador, etiquetas, descripción). */
+  terms: string[];
+  /** Si lo pide de forma explícita ("algo de Marvel") o es solo una referencia ("tipo Marvel"). */
+  required: boolean;
+}

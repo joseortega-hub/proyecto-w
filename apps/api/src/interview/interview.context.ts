@@ -4,6 +4,7 @@
  * instrucciones. El tiempo sale de Open-Meteo (gratis y sin clave).
  */
 import type { DomainConfig } from '../domains/domain.types.js';
+import type { Anchor } from './interview.types.js';
 import { tasteState, type TasteProfile } from '../taste/taste.engine.js';
 
 export type DayPart = 'madrugada' | 'mañana' | 'mediodía' | 'tarde' | 'noche';
@@ -137,13 +138,16 @@ export const contextKey = (context: InterviewContext) =>
 
 /** Lo que se sabe de la persona antes de las preguntas, listo para el `state`. */
 export function stateExtras(
-  session: { context: InterviewContext; initialText: string | null; taste?: TasteProfile | null },
+  session: { context: InterviewContext; initialText: string | null; taste?: TasteProfile | null; anchors?: Anchor[] },
   config: DomainConfig,
 ) {
   const gustos = tasteState(session.taste, config);
+  const pedido = (session.anchors ?? []).map((a) => a.label);
   return {
     contexto: session.context,
     ...(session.initialText ? { textoInicialDeLaPersona: session.initialText } : {}),
+    // Lo concreto que pidió ("Marvel"): sigue aquí aunque el texto inicial ya se haya borrado.
+    ...(pedido.length ? { pideExplicitamente: pedido } : {}),
     // Gustos de largo plazo: orientan, pero lo que cuenta en la entrevista es el ánimo de ahora.
     ...(gustos ? { gustosDeLaPersona: gustos } : {}),
   };

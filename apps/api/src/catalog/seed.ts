@@ -13,6 +13,7 @@ import { JamendoAdapter } from './jamendo.adapter.js';
 import { OpenLibraryAdapter } from './openlibrary.adapter.js';
 import { RawgAdapter } from './rawg.adapter.js';
 import { TmdbAdapter } from './tmdb.adapter.js';
+import { upsertItems } from './upsert.js';
 
 /** Adaptador y tamaño por defecto de cada dominio. */
 const ADAPTERS: Record<string, { create: () => CatalogAdapter; limit: number }> = {
@@ -69,29 +70,7 @@ try {
     console.log(`Importando ${adapter.source} (hasta ${limit} elementos)…`);
     const imported = await adapter.fetchItems({ limit, onProgress: (m) => console.log(`  ${m}`) });
 
-    for (let i = 0; i < imported.length; i += 200) {
-      const chunk = imported.slice(i, i + 200).map(({ classifyHints: _hints, ...it }) => ({ ...it, domainId: adapter.domainId }));
-      await db
-        .insert(items)
-        .values(chunk)
-        .onConflictDoUpdate({
-          target: [items.domainId, items.source, items.externalId, items.ownerId],
-          set: {
-            title: sql`excluded.title`,
-            subtitle: sql`excluded.subtitle`,
-            description: sql`excluded.description`,
-            imageUrl: sql`excluded.image_url`,
-            mediaUrl: sql`excluded.media_url`,
-            externalUrl: sql`excluded.external_url`,
-            durationSec: sql`excluded.duration_sec`,
-            attributes: sql`excluded.attributes`,
-            tags: sql`excluded.tags`,
-            popularity: sql`excluded.popularity`,
-            // Lo que trae la fuente manda, pero no se pierde lo que ya se clasificó antes.
-            facets: sql`${items.facets} || excluded.facets`,
-          },
-        });
-    }
+    await upsertItems(db, adapter.domainId, imported);
     console.log(`${adapter.source}: ${imported.length} elementos guardados.`);
 
     const definition = findDomain(adapter.domainId)!;

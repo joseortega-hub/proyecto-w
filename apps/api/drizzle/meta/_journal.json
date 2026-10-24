@@ -50,6 +50,13 @@
       "when": 1792799278744,
       "tag": "0006_youtube",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792801392309,
+      "tag": "0007_anchors",
+      "breakpoints": true
     }
   ]
 }

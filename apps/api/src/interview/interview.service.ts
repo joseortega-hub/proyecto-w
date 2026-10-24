@@ -17,6 +17,7 @@ import { interviewSessions, type SessionRow } from '../db/schema.js';
 import { DomainsService, type DomainRow } from '../domains/domains.service.js';
 import { config as env } from '../config.js';
 import { domainDefinitions } from '../domains/index.js';
+import type { Probe } from '../domains/domain.types.js';
 import { hasTaste, tasteLabel, tasteOnlyProbes } from '../taste/taste.engine.js';
 import { TasteService } from '../taste/taste.service.js';
 import { collectContext, contextKey, stateExtras, type ContextRequest, type InterviewContext } from './interview.context.js';
@@ -33,8 +34,10 @@ import {
 } from './interview.engine.js';
 import { askableProbes, assertNotAsked, autoAnswerExhausted, type InterviewFacts } from './interview.flow.js';
 import { NextQuestionPrefetch } from './interview.prefetch.js';
+import { anchorExample, probeDirection } from './anchors.js';
+import { AnchorsService, type AnchorFocus } from './anchors.service.js';
 import { QuestionBankService } from './question-bank.service.js';
-import type { Answer, InterviewTurn, TextSignals } from './interview.types.js';
+import type { Anchor, Answer, InterviewTurn, TextSignals } from './interview.types.js';
 
 const ANSWER_TEXT: Record<Answer, string> = { yes: 'sí', no: 'no', unknown: 'no lo sé' };
 const FINISH = 'finish';
@@ -50,7 +53,7 @@ const questionSchema = z.object({
   reason: z.string().describe('Una frase corta que explica por qué preguntas esto ahora'),
 });
 
-type SessionSeed = Pick<SessionRow, 'context' | 'initialText' | 'taste' | 'textSignals'>;
+type SessionSeed = Pick<SessionRow, 'context' | 'initialText' | 'taste' | 'textSignals' | 'anchors' | 'userId'>;
 
 export interface StartOptions {
   /** Punto de partida opcional (texto o voz transcrita). Se trata como dato, nunca como instrucción. */
@@ -79,6 +82,8 @@ export interface SessionView {
   fromText: string[];
   /** Gustos de largo plazo que se están teniendo en cuenta. */
   taste: string[];
+  /** Lo concreto que pidió en el texto inicial ("Marvel"): la búsqueda y las preguntas se centran en ello. */
+  anchors: string[];
 }
 
 export interface AutoAnswer {
@@ -102,6 +107,7 @@ export class InterviewService implements OnModuleInit {
     private readonly domains: DomainsService,
     private readonly bank: QuestionBankService,
     private readonly tastes: TasteService,
+    private readonly anchors: AnchorsService,
   ) {}
 
   /** Carga el banco de preguntas y calienta la primera pregunta al arrancar, sin bloquear el arranque. */
@@ -120,16 +126,19 @@ export class InterviewService implements OnModuleInit {
   async start(domainId: string, { initialText, userId = null, client = {} }: StartOptions = {}): Promise<SessionView> {
     const domain = await this.domains.get(domainId);
     const text = initialText?.trim() || null;
-    const [context, taste, textSignals] = await Promise.all([
+    const [context, taste, textSignals, anchors] = await Promise.all([
       collectContext(client, contextDefaults()),
       this.tastes.profile(userId, domainId),
       text ? this.readSignals(domain, text) : ({} as TextSignals),
+      text ? this.anchors.extract(domain, text) : ([] as Anchor[]),
     ]);
-    const seed: SessionSeed = { context, initialText: text, taste: hasTaste(taste) ? taste : null, textSignals };
+    // Si el catálogo se queda corto para lo que pidió, se busca en directo mientras responde.
+    if (anchors.length) void this.anchors.ensureCoverage(domain, anchors, userId);
+    const seed: SessionSeed = { context, initialText: text, taste: hasTaste(taste) ? taste : null, textSignals, anchors, userId };
     // Sin texto ni gustos, la primera pregunta solo depende del contexto: se reutiliza.
     const generic = !seed.initialText && !seed.taste;
     const turns = generic ? await this.firstTurns(domain, context) : await this.advance([], domain, seed);
-    const [row] = await this.db.insert(interviewSessions).values({ domainId, turns, userId, ...seed }).returning();
+    const [row] = await this.db.insert(interviewSessions).values({ domainId, turns, ...seed }).returning();
     this.schedulePrefetch(row, domain);
     return this.view(row, domain);
   }
@@ -234,7 +243,7 @@ export class InterviewService implements OnModuleInit {
     const key = `${domain.id}|${contextKey(context)}`;
     const cached = this.firstQuestion.get(key);
     if (cached && Date.now() - cached.at < FIRST_QUESTION_TTL_MS) return cached.turns;
-    const turns = this.advance([], domain, { context, initialText: null, taste: null, textSignals: {} });
+    const turns = this.advance([], domain, { context, initialText: null, taste: null, textSignals: {}, anchors: [], userId: null });
     turns.catch(() => this.firstQuestion.delete(key));
     this.firstQuestion.set(key, { turns, at: Date.now() });
     return turns;
@@ -308,9 +317,15 @@ export class InterviewService implements OnModuleInit {
     const known = facts.known ?? [];
     if (answered(turns).length && mustFinish(turns, config, known)) return turns;
 
-    const options = askableProbes(turns, config, facts);
+    let options = askableProbes(turns, config, facts);
     if (!options.length) return turns;
     const informed = informedDimensions(turns, config, known);
+    // Con anclas, se pregunta primero por lo que más separa a sus elementos (p. ej. entre las
+    // de Marvel, el humor), si quedan preguntas que lo informen.
+    const focus = await this.anchorFocus(session, domain);
+    const focusDims = (focus?.dimensions ?? []).filter((d) => !informed.has(d)).slice(0, 2);
+    const focused = options.filter((p) => p.informs.some((d) => focusDims.includes(d)));
+    if (focused.length) options = focused;
     const history = answered(turns).map((t) => ({ pregunta: t.text, respuesta: ANSWER_TEXT[t.answer!] }));
 
     const criteria: Record<string, string> = Object.fromEntries(options.map((p) => [p.id, `Preguntar ${p.intent.toLowerCase()}`]));
@@ -335,7 +350,12 @@ export class InterviewService implements OnModuleInit {
           criteria,
         },
       },
-    );
+    ).catch((error: Error) => {
+      // Sin ningún proveedor disponible, mejor la siguiente pregunta útil que una entrevista parada.
+      this.logger.warn(`Siguiente pregunta sin IA: ${error.message.slice(0, 120)}`);
+      const done = answered(turns).length >= config.interview.minQuestions && canFinishEarly(turns, config, known);
+      return { next: { choice: done ? FINISH : options[0].id } };
+    });
     const decisionMs = Date.now() - decisionStarted;
     if (next.choice === FINISH) {
       this.logger.log(`terminar (decisión ${decisionMs} ms)`);
@@ -344,6 +364,15 @@ export class InterviewService implements OnModuleInit {
 
     const probe = options.find((p) => p.id === next.choice) ?? options[0];
     assertNotAsked(turns, probe.id);
+
+    const focusDim = focused.length ? probe.informs.find((d) => focusDims.includes(d)) : undefined;
+    if (focus && focusDim) {
+      const written = await this.writeAnchored(domain, session.anchors, focus, probe, focusDim, history);
+      if (written) {
+        this.logger.log(`siguiente: ${probe.id} (decisión ${decisionMs} ms, enfocada en ${session.anchors.map((a) => a.label).join(', ')})`);
+        return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null }];
+      }
+    }
 
     const fromBank = this.bank.pick(domain, probe.id, turns);
     if (fromBank) {
@@ -375,6 +404,48 @@ export class InterviewService implements OnModuleInit {
     );
 
     return [...turns, { probeId: probe.id, text: written.question, reason: written.reason, answer: null }];
+  }
+
+  /** Elementos del ancla en el catálogo y lo que más los separa; sin anclas (o si falla), nada. */
+  private async anchorFocus(session: SessionSeed, domain: DomainRow): Promise<AnchorFocus | null> {
+    if (!session.anchors?.length) return null;
+    const focus = await this.anchors.focus(domain, session.anchors, session.userId).catch(() => null);
+    return focus && focus.matched.length >= 3 ? focus : null;
+  }
+
+  /**
+   * Pregunta redactada en vivo con el ancla y un ejemplo real del catálogo ("¿Te apetece una
+   * de Marvel con mucho humor, tipo Guardianes de la Galaxia?"). Si no hay texto, null.
+   */
+  private async writeAnchored(
+    domain: DomainRow,
+    anchors: Anchor[],
+    focus: AnchorFocus,
+    probe: Probe,
+    dimension: string,
+    history: { pregunta: string; respuesta: string }[],
+  ) {
+    const { config } = domain;
+    const labels = anchors.map((a) => a.label).join(' o ');
+    const example = anchorExample(focus.matched, dimension, probeDirection(probe, dimension, config));
+    return this.text
+      .write({
+        system: `${config.voice} Redactas preguntas para una entrevista de sí o no sobre lo que le apetece ${config.verb} ahora.`,
+        prompt: [
+          `La persona ha pedido ${domain.itemNounPlural} de ${labels}. Entre ellas, lo que más cambia de una a otra es esto, y es lo que quieres averiguar: ${probe.intent}.`,
+          history.length
+            ? `Preguntas ya hechas (no repitas su idea):\n${history.map((h) => `- ${h.pregunta} → ${h.respuesta}`).join('\n')}`
+            : 'Es la primera pregunta.',
+          `Escribe la pregunta en positivo, de forma que «sí» signifique exactamente esto: ${probe.intent.toLowerCase()}. Menciona ${labels}` +
+            (example ? ` y pon como ejemplo «${example.title}» (con "tipo" o "como").` : '.') +
+            ` Sin negaciones. Añade una frase corta con el motivo: que entre lo de ${labels} esto es lo que más las distingue.`,
+        ].join('\n\n'),
+        schema: questionSchema,
+      })
+      .catch((error: Error) => {
+        this.logger.warn(`Sin pregunta enfocada para "${probe.id}": ${error.message.slice(0, 120)}`);
+        return null;
+      });
   }
 
   /**
@@ -419,6 +490,7 @@ export class InterviewService implements OnModuleInit {
       context: row.context,
       fromText: signalChips(row.textSignals ?? {}, config),
       taste: (row.taste?.likes ?? []).map((l) => tasteLabel(l, config)),
+      anchors: (row.anchors ?? []).map((a) => a.label),
     };
   }
 }

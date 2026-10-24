@@ -1,4 +1,6 @@
-import type { CatalogAdapter, ImportedItem } from './catalog-adapter.js';
+import type { Anchor } from '../interview/interview.types.js';
+import { anchorMatchesText } from '../interview/anchors.js';
+import { anchorTag, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
 import { clamp, logScale, mapLimit, nudge, politeFetcher, priorAverage } from './derive.js';
 
 interface RawgNamed {
@@ -102,6 +104,9 @@ export function deriveGameAttributes(game: Pick<RawgGame, 'genres' | 'tags' | 'p
 const STORE_TAGS = /^(steam|full-controller|partial-controller|controller|achievements|cloud|stats|in-app|includes-|captions|steamvr|valve-anti-cheat|remote-play|family-sharing|console-)/;
 export const isStoreTag = (slug: string) => STORE_TAGS.test(slug);
 
+/** Referencia de popularidad para lo que llega por búsqueda en directo (≈ los más añadidos). */
+const LIVE_MAX_ADDED = 20_000;
+
 /** Faceta `platforms`:familias de plataforma (pc, playstation, xbox, nintendo, mobile). */
 export function platformFacet(game: Pick<RawgGame, 'parent_platforms'>): string[] {
   const map: Record<string, string> = { pc: 'pc', mac: 'pc', linux: 'pc', playstation: 'playstation', xbox: 'xbox', nintendo: 'nintendo', ios: 'mobile', android: 'mobile' };
@@ -144,6 +149,40 @@ export class RawgAdapter implements CatalogAdapter {
       return detail;
     });
     return games.map((g, i) => this.toItem({ ...g, ...details[i] }, maxAdded));
+  }
+
+  /**
+   * Búsqueda en directo: por nombre (sagas y títulos, "Pokémon") y, para estudios o
+   * creadores ("algo de Nintendo"), por desarrolladora y editora. Lo de búsqueda por nombre
+   * solo se queda si el nombre lo contiene de verdad (RAWG busca de forma aproximada).
+   */
+  async search(anchor: Anchor, limit: number): Promise<ImportedItem[]> {
+    const list = (params: Record<string, string>) =>
+      this.get<{ results: RawgGame[] }>(this.url('games', { page_size: '30', exclude_additions: 'true', ...params }))
+        .then((b) => b.results)
+        .catch(() => [] as RawgGame[]);
+    const firstId = (path: string) =>
+      this.get<{ results: { id: number }[] }>(this.url(path, { search: anchor.label, page_size: '1' }))
+        .then((b) => b.results[0]?.id ?? null)
+        .catch(() => null);
+
+    const tagged: RawgGame[] = [];
+    if (anchor.kind === 'studio' || anchor.kind === 'creator' || anchor.kind === 'franchise') {
+      const [developer, publisher] = await Promise.all([firstId('developers'), firstId('publishers')]);
+      if (developer) tagged.push(...(await list({ developers: String(developer), ordering: '-added' })));
+      if (publisher) tagged.push(...(await list({ publishers: String(publisher), ordering: '-added' })));
+    }
+    const byName = (await list({ search: anchor.label, search_precise: 'true' })).filter((g) => anchorMatchesText(g.name, anchor));
+
+    const byId = new Map<number, { game: RawgGame; tagged: boolean }>();
+    for (const g of byName) byId.set(g.id, { game: g, tagged: false });
+    for (const g of tagged) if (!byId.has(g.id)) byId.set(g.id, { game: g, tagged: true });
+    const found = [...byId.values()].sort((a, b) => b.game.added - a.game.added).slice(0, limit);
+    const details = await mapLimit(found, 4, ({ game }) => this.get<RawgDetail>(this.url(`games/${game.id}`)).catch(() => game));
+    return found.map(({ game, tagged: isTagged }, i) => {
+      const item = this.toItem({ ...game, ...details[i] }, LIVE_MAX_ADDED);
+      return isTagged ? { ...item, tags: [...new Set([...(item.tags ?? []), anchorTag(anchor)])] } : item;
+    });
   }
 
   private url(path: string, params: Record<string, string> = {}) {

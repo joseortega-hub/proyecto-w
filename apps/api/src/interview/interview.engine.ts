@@ -52,6 +52,51 @@ export function signalChips(signals: TextSignals, config: DomainConfig): string[
   });
 }
 
+/** Minúsculas y sin tildes, para comparar "Pokémon" con "pokemon". */
+export const normalize = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+
+/**
+ * Si un "sí" a la sonda pide el extremo alto o el bajo de la dimensión. Se deduce del
+ * chip del sí ("para desconectar" es la etiqueta baja de profundidad); si no, el alto.
+ */
+export function probeDirection(probe: Probe, dimension: string, config: DomainConfig): 'high' | 'low' {
+  const attr = config.attributes.find((a) => a.key === dimension);
+  return attr?.lowLabel && normalize(attr.lowLabel) === normalize(probe.yesChip) ? 'low' : 'high';
+}
+
+/**
+ * Perfil de respaldo sin IA, por si el proveedor del `score` está caído o sin cupo: cada
+ * "sí" o "no" empuja su dimensión hacia un extremo, y lo que dejó claro el texto inicial
+ * también cuenta. Sin pistas, la dimensión queda en el medio y los estilos, neutros.
+ */
+export function answersProfile(turns: InterviewTurn[], config: DomainConfig, signals: TextSignals = {}): Pick<MoodProfile, 'scales' | 'tagGroups'> {
+  const probes = probeById(config);
+  const votes = new Map<string, number[]>();
+  for (const [key, s] of Object.entries(signals)) votes.set(key, [s.value]);
+  for (const t of answered(turns)) {
+    const probe = probes.get(t.probeId);
+    if (!probe || t.answer === 'unknown') continue;
+    for (const dim of probe.informs) {
+      const high = probeDirection(probe, dim, config) === 'high' === (t.answer === 'yes');
+      votes.set(dim, [...(votes.get(dim) ?? []), high ? 0.85 : 0.15]);
+    }
+  }
+  const scales = Object.fromEntries(
+    config.attributes
+      .filter((a) => a.kind === 'scale')
+      .map((a) => {
+        const v = votes.get(a.key);
+        return [a.key, v?.length ? Math.round((v.reduce((x, y) => x + y, 0) / v.length) * 100) / 100 : 0.5];
+      }),
+  );
+  return { scales, tagGroups: Object.fromEntries(config.tagGroups.map((g) => [g.key, 0.5])) };
+}
+
 export function remainingProbes(turns: InterviewTurn[], config: DomainConfig): Probe[] {
   const asked = new Set(turns.map((t) => t.probeId));
   return config.probes.filter((p) => !asked.has(p.id));
@@ -260,11 +305,13 @@ export interface HybridCandidate<T> {
   relevance: number;
 }
 
-export interface HybridOptions {
+export interface HybridOptions<T = Rankable> {
   semanticWeight?: number;
   perArtist?: number;
   /** Gustos de largo plazo: suben la relevancia de lo que encaja, sin excluir el resto. */
   taste?: TasteProfile | null;
+  /** Empujón extra por elemento (p. ej. lo que coincide con lo que pidió), sumado a la relevancia. */
+  boost?: (item: T) => number;
 }
 
 /**
@@ -278,7 +325,7 @@ export function hybridRank<T extends Rankable>(
   profile: MoodProfile,
   config: DomainConfig,
   limit: number,
-  { semanticWeight = 0.5, perArtist = 2, taste = null }: HybridOptions = {},
+  { semanticWeight = 0.5, perArtist = 2, taste = null, boost }: HybridOptions<T> = {},
 ): HybridCandidate<T>[] {
   const attr = pool.map(({ item }) => similarity(item, profile, config, taste));
   const attrPct = percentiles(attr);
@@ -289,7 +336,7 @@ export function hybridRank<T extends Rankable>(
       const s = semPct.get(i);
       const base = s === undefined ? attrPct[i] : (1 - semanticWeight) * attrPct[i] + semanticWeight * s;
       const affinity = tasteAffinity(item, taste, config);
-      return { item, attr: attr[i], semantic, taste: affinity, relevance: base + TASTE_WEIGHT.relevance * affinity };
+      return { item, attr: attr[i], semantic, taste: affinity, relevance: base + TASTE_WEIGHT.relevance * affinity + (boost?.(item) ?? 0) };
     })
     .sort((a, b) => b.relevance - a.relevance || b.attr - a.attr);
 

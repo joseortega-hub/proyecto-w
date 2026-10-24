@@ -1,3 +1,5 @@
+import type { Anchor } from '../interview/interview.types.js';
+import { anchorMatchesText } from '../interview/anchors.js';
 import type { CatalogAdapter, ImportedItem } from './catalog-adapter.js';
 import { clamp, logScale, mapLimit, politeFetcher, priorAverage, yearScale } from './derive.js';
 
@@ -100,6 +102,9 @@ export function languagesFacet(codes: string[] = []): string[] {
   return [...new Set(codes.map((c) => map[c] ?? 'other'))];
 }
 
+/** Referencia de popularidad para lo que llega por búsqueda en directo. */
+const LIVE_MAX_READING_LOG = 50_000;
+
 /**
  * Libros de Open Library (https://openlibrary.org/developers/api). Sin clave; pide
  * identificarse con un User-Agent y, así, admite hasta 3 peticiones por segundo (1 sin
@@ -149,6 +154,26 @@ export class OpenLibraryAdapter implements CatalogAdapter {
     });
     const maxLog = Math.max(...docs.map((d) => d.readinglog_count ?? 0));
     return docs.map((d, i) => this.toItem(d, descriptions[i], maxLog));
+  }
+
+  /**
+   * Búsqueda en directo: por autor si pidió a alguien ("Brandon Sanderson") y por texto en
+   * el resto ("Harry Potter"). Sin sinopsis, para no esperar una petición por obra.
+   */
+  async search(anchor: Anchor, limit: number): Promise<ImportedItem[]> {
+    const url = new URL('https://openlibrary.org/search.json');
+    url.search = new URLSearchParams({
+      ...(anchor.kind === 'creator' ? { author: anchor.label } : { q: anchor.label }),
+      sort: 'readinglog',
+      limit: String(limit * 2),
+      lang: 'es',
+      fields: 'key,title,author_name,first_publish_year,number_of_pages_median,cover_i,subject,language,readinglog_count,editions,editions.title,editions.language',
+    }).toString();
+    const body = await this.get<{ docs: OpenLibraryDoc[] }>(url).catch(() => ({ docs: [] as OpenLibraryDoc[] }));
+    const docs = body.docs
+      .filter((d) => d.author_name?.length && anchorMatchesText(`${d.title} ${d.author_name.join(' ')} ${(d.subject ?? []).join(' ')}`, anchor))
+      .slice(0, limit);
+    return docs.map((d) => this.toItem(d, null, LIVE_MAX_READING_LOG));
   }
 
   private toItem(d: OpenLibraryDoc, description: string | null, maxLog: number): ImportedItem {

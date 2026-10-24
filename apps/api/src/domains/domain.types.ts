@@ -80,6 +80,8 @@ export interface DomainConfig {
   verb: string;
   /** Quién firma cada elemento ("artista", "dirección", "autoría", "estudio"). */
   creatorLabel: string;
+  /** Cómo se presenta al creador en el "por qué" ("dir. James Gunn"); por defecto, "de". */
+  creatorPrefix?: string;
   /** Si los elementos se reproducen dentro de la app (audio). Si no, la ficha enlaza a la fuente. */
   playable: boolean;
   /**

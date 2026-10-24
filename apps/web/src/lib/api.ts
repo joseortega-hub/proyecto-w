@@ -23,6 +23,8 @@ export interface SessionView {
   fromText: string[]
   /** Gustos guardados que se tienen en cuenta. */
   taste: string[]
+  /** Lo concreto que pidió en el punto de partida ("Marvel"): la entrevista y la lista se centran en ello. */
+  anchors: string[]
 }
 
 export interface Item {
@@ -111,8 +113,10 @@ export interface SessionResult {
   candidates: number
   catalogSize: number
   preferences: SessionPreferences
-  /** Aviso cuando un filtro deja pocos elementos (p. ej. pocas en español). */
+  /** Aviso cuando un filtro deja pocos elementos (p. ej. pocas en español o pocas de Marvel). */
   notice: string | null
+  /** Lo concreto que pidió en el punto de partida ("Marvel"). */
+  anchors: string[]
   /** Lista ya creada en la cuenta de YouTube (solo en "Mi YouTube"). */
   youtube: { playlistId: string; url: string } | null
   entries: ResultEntry[]

@@ -1,4 +1,5 @@
-import type { CatalogAdapter, ImportedItem } from './catalog-adapter.js';
+import type { Anchor } from '../interview/interview.types.js';
+import { anchorTag, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
 import { clamp, logScale, mapLimit, nudge, politeFetcher, priorAverage, yearScale } from './derive.js';
 
 export interface TmdbMovie {
@@ -73,6 +74,9 @@ export function deriveMovieAttributes(movie: TmdbMovie): Record<string, number> 
 export const movieGenres = (movie: Pick<TmdbMovie, 'genres' | 'genre_ids'>) =>
   (movie.genres?.map((g) => g.id) ?? movie.genre_ids ?? []).map((id) => TMDB_GENRES[id]).filter(Boolean);
 
+/** Votos de referencia para la popularidad de lo que llega por búsqueda en directo (≈ las más votadas). */
+const LIVE_MAX_VOTES = 35_000;
+
 /** Faceta `language`: idioma original es, en u other. */
 export const originalLanguageFacet = (lang: string) => (lang === 'es' || lang === 'en' ? lang : 'other');
 
@@ -129,6 +133,48 @@ export class TmdbAdapter implements CatalogAdapter {
     });
     const maxVotes = Math.max(...movies.map((m) => m.vote_count));
     return movies.map((m, i) => this.toItem({ ...m, ...details[i] }, maxVotes));
+  }
+
+  /**
+   * Búsqueda en directo: compañía ("Marvel Studios") y palabra clave para franquicias y
+   * estudios, persona para quien dirige o actúa, y título en todos los casos. Lo que sale de
+   * una compañía, persona o palabra clave se marca con la etiqueta del ancla.
+   */
+  async search(anchor: Anchor, limit: number): Promise<ImportedItem[]> {
+    const query = anchor.label;
+    const discover = (params: Record<string, string>) =>
+      this.get<{ results: TmdbMovie[] }>(this.url('discover/movie', { language: 'es-ES', include_adult: 'false', sort_by: 'popularity.desc', 'vote_count.gte': '50', ...params }))
+        .then((b) => b.results)
+        .catch(() => [] as TmdbMovie[]);
+    const firstIds = (path: string, n: number) =>
+      this.get<{ results: { id: number }[] }>(this.url(path, { query }))
+        .then((b) => b.results.slice(0, n).map((r) => r.id))
+        .catch(() => [] as number[]);
+
+    const tagged: TmdbMovie[] = [];
+    if (anchor.kind === 'creator') {
+      const people = await firstIds('search/person', 1);
+      if (people.length) tagged.push(...(await discover({ with_people: people.join('|') })));
+    } else if (anchor.kind !== 'title') {
+      const [companies, keywords] = await Promise.all([firstIds('search/company', 3), firstIds('search/keyword', 3)]);
+      if (companies.length) tagged.push(...(await discover({ with_companies: companies.join('|') })));
+      if (keywords.length) tagged.push(...(await discover({ with_keywords: keywords.join('|') })));
+    }
+    const byTitle = await this.get<{ results: TmdbMovie[] }>(this.url('search/movie', { query, language: 'es-ES', include_adult: 'false' }))
+      .then((b) => b.results.filter((m) => m.overview && m.vote_count >= 50))
+      .catch(() => [] as TmdbMovie[]);
+
+    const byId = new Map<number, { movie: TmdbMovie; tagged: boolean }>();
+    for (const m of tagged) if (m.overview && !byId.has(m.id)) byId.set(m.id, { movie: m, tagged: true });
+    for (const m of byTitle) if (!byId.has(m.id)) byId.set(m.id, { movie: m, tagged: false });
+    const found = [...byId.values()].sort((a, b) => b.movie.vote_count - a.movie.vote_count).slice(0, limit);
+    const details = await mapLimit(found, 6, ({ movie }) =>
+      this.get<TmdbMovie>(this.url(`movie/${movie.id}`, { language: 'es-ES', append_to_response: 'credits,keywords' })).catch(() => movie),
+    );
+    return found.map(({ movie, tagged: isTagged }, i) => {
+      const item = this.toItem({ ...movie, ...details[i] }, LIVE_MAX_VOTES);
+      return isTagged ? { ...item, tags: [...new Set([...(item.tags ?? []), anchorTag(anchor)])] } : item;
+    });
   }
 
   private url(path: string, params: Record<string, string> = {}) {

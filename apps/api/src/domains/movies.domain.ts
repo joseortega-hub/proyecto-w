@@ -11,6 +11,7 @@ export const moviesDomain: DomainDefinition = {
     gender: 'f',
     verb: 'ver',
     creatorLabel: 'dirección',
+    creatorPrefix: 'dir.',
     playable: false,
     source: {
       name: 'TMDB',
