@@ -22,13 +22,13 @@ export function DomainTile({ id, name, icon, description, lastList, action, disa
     <div
       data-domain={id}
       className={cn(
-        'flex items-center gap-1 rounded-[14px] border-[1.5px] border-border bg-card pr-2 transition-colors',
+        'flex flex-wrap items-center gap-x-1 rounded-[14px] border-[1.5px] border-border bg-card pr-2 transition-colors',
         !disabled && 'hover:border-domain hover:bg-domain-soft',
         disabled && 'opacity-60',
         className,
       )}
     >
-      <button type="button" disabled={disabled} onClick={onOpen} className="group flex min-h-20 min-w-0 flex-1 items-center gap-3.5 rounded-[14px] py-3 pr-1 pl-4 text-left">
+      <button type="button" disabled={disabled} onClick={onOpen} className="group flex min-h-20 min-w-[15rem] flex-1 items-center gap-3.5 rounded-[14px] py-3 pr-1 pl-4 text-left">
         <DomainIcon icon={icon} size="lg" />
         <span className="flex min-w-0 flex-1 flex-col">
           <strong className="font-display text-xl font-extrabold">{name}</strong>
@@ -46,7 +46,7 @@ export function DomainTile({ id, name, icon, description, lastList, action, disa
         <button
           type="button"
           onClick={action.onClick}
-          className="inline-flex min-h-11 flex-none items-center gap-1 rounded-full bg-domain-soft px-3.5 text-[14px] font-bold text-domain transition-colors hover:bg-domain hover:text-background"
+          className="mb-3 ml-auto inline-flex min-h-11 flex-none items-center gap-1 rounded-full sm:mb-0 bg-domain-soft px-3.5 text-[14px] font-bold text-domain transition-colors hover:bg-domain hover:text-background"
         >
           {action.label}
           <Icon name="back" className="size-4 rotate-180" />
