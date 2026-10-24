@@ -1,3 +1,4 @@
+import { tidyQuestion } from './interview.service.js';
 import { booksDomain } from '../domains/books.domain.js';
 import { gamesDomain } from '../domains/games.domain.js';
 import { moviesDomain } from '../domains/movies.domain.js';
@@ -123,5 +124,13 @@ describe('perfil de respaldo sin IA', () => {
     const { scales, tagGroups } = answersProfile(turns, moviesDomain.config, { pace: { value: 0.85, confidence: 0.9 } });
     expect(scales).toMatchObject({ humor: 0.85, depth: 0.15, pace: 0.85, romance: 0.5 });
     expect(tagGroups.comedy).toBe(0.5);
+  });
+});
+
+describe('preguntas enfocadas', () => {
+  it('quita el formato y lo que va detrás de la interrogación', () => {
+    expect(tidyQuestion('¿Buscas una tipo *Pokémon Mystery Dungeon*, con historia? Es lo que más las distingue.')).toBe(
+      '¿Buscas una tipo Pokémon Mystery Dungeon, con historia?',
+    );
   });
 });

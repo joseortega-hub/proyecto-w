@@ -48,6 +48,13 @@ const SIGNAL_CONFIDENCE = 0.75;
 const AUTO_CONFIDENCE = 0.6;
 const contextDefaults = () => ({ timeZone: env.contextTimeZone, latitude: env.contextLatitude, longitude: env.contextLongitude });
 
+/** Sin formato markdown y sin frases tras la interrogación ("¿…? Es lo que más las distingue."). */
+export const tidyQuestion = (q: string) => {
+  const clean = q.replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
+  const end = clean.indexOf('?');
+  return end > 0 ? clean.slice(0, end + 1) : clean;
+};
+
 const questionSchema = z.object({
   question: z.string().describe('Pregunta de sí o no, de 3 a 9 palabras, hablando de tú, sin negaciones'),
   reason: z.string().describe('Una frase corta que explica por qué preguntas esto ahora'),
@@ -447,10 +454,12 @@ export class InterviewService implements OnModuleInit {
             : 'Es la primera pregunta.',
           `Escribe la pregunta en positivo, de forma que «sí» signifique exactamente esto: ${probe.intent.toLowerCase()}. Menciona ${labels}` +
             (example ? ` y pon como ejemplo «${example.title}» (con "tipo" o "como").` : '.') +
-            ` No menciones otras sagas, títulos ni marcas. Sin negaciones. Añade una frase corta con el motivo, relacionada con ${labels}.`,
+            ` No menciones otras sagas, títulos ni marcas. Sin negaciones ni formato (nada de asteriscos). La pregunta termina en el signo de interrogación, sin frases detrás. ` +
+            `Añade un motivo corto dirigido a la persona (hablándole de tú), sin hablar de filtros, opciones ni de lo que «las distingue».`,
         ].join('\n\n'),
         schema: questionSchema,
       })
+      .then((w) => ({ question: tidyQuestion(w.question), reason: w.reason.replace(/[*_]/g, '').trim() }))
       .catch((error: Error) => {
         this.logger.warn(`Sin pregunta enfocada para "${probe.id}": ${error.message.slice(0, 120)}`);
         return null;
