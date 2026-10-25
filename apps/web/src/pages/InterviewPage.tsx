@@ -100,7 +100,8 @@ export function InterviewPage() {
     },
     onSuccess: (s) => {
       queryClient.setQueryData(['session', s.id], s)
-      navigate(domain.path(`entrevista/${s.id}`), { replace: true })
+      // Si lo que contó ya da para la lista, no hay preguntas: directa al resultado.
+      navigate(domain.path(s.status === 'ready' && !s.question ? `resultado/${s.id}` : `entrevista/${s.id}`), { replace: true })
     },
   })
 

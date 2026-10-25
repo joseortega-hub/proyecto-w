@@ -1,7 +1,7 @@
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorMatchesText } from '../interview/anchors.js';
 import { bestName, nameQueries } from '../interview/named.js';
-import { anchorTag, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
+import { anchorTag, themeKeywordIds, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
 import { gameDetails, type ItemDetails } from './item-details.js';
 import { clamp, logScale, mapLimit, nudge, politeFetcher, priorAverage } from './derive.js';
 
@@ -193,12 +193,20 @@ export class RawgAdapter implements CatalogAdapter {
         .catch(() => null);
 
     const tagged: RawgGame[] = [];
-    if (anchor.kind === 'studio' || anchor.kind === 'creator' || anchor.kind === 'franchise') {
+    if (anchor.theme) {
+      // Temática: etiquetas de RAWG ("post-apocalyptic", "zombies") por sus palabras clave en inglés.
+      const tagIds = await themeKeywordIds(anchor, (q) =>
+        this.get<{ results: { id: number; name?: string }[] }>(this.url('tags', { search: q, page_size: '10' }))
+          .then((b) => b.results)
+          .catch(() => []),
+      );
+      if (tagIds.length) tagged.push(...(await list({ tags: tagIds.join(','), ordering: '-added' }, 2)));
+    } else if (anchor.kind === 'studio' || anchor.kind === 'creator' || anchor.kind === 'franchise') {
       const [developer, publisher] = await Promise.all([firstId('developers'), firstId('publishers')]);
       if (developer) tagged.push(...(await list({ developers: String(developer), ordering: '-added' }, 2)));
       if (publisher) tagged.push(...(await list({ publishers: String(publisher), ordering: '-added' }, 2)));
     }
-    const byName = (await list({ search: anchor.label, search_precise: 'true' }, 2)).filter((g) => anchorMatchesText(g.name, anchor));
+    const byName = anchor.theme ? [] : (await list({ search: anchor.label, search_precise: 'true' }, 2)).filter((g) => anchorMatchesText(g.name, anchor));
 
     const byId = new Map<number, { game: RawgGame; tagged: boolean }>();
     for (const g of byName) byId.set(g.id, { game: g, tagged: false });

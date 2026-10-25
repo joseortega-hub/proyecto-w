@@ -1,7 +1,7 @@
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorMatchesText } from '../interview/anchors.js';
 import { bestName, nameQueries } from '../interview/named.js';
-import { anchorTag, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
+import { anchorTag, themeKeywordIds, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
 import { movieDetails, type ItemDetails } from './item-details.js';
 import { clamp, logScale, mapLimit, nudge, politeFetcher, priorAverage, yearScale } from './derive.js';
 
@@ -196,7 +196,16 @@ export class TmdbAdapter implements CatalogAdapter {
     const named = (r: { name?: string }) => !!r.name && anchorMatchesText(r.name, anchor);
 
     const tagged: TmdbMovie[] = [];
-    if (anchor.kind === 'creator') {
+    if (anchor.theme) {
+      // Temática: sus palabras clave en inglés contra las de TMDB ("post-apocalyptic future"), sin buscar el título.
+      const keywordIds = await themeKeywordIds(anchor, (q) =>
+        this.get<{ results: { id: number; name?: string }[] }>(this.url('search/keyword', { query: q }))
+          .then((b) => b.results)
+          .catch(() => []),
+      );
+      // Con más votos que el resto: por palabra clave salen muchas películas menores o de explotación.
+      if (keywordIds.length) tagged.push(...(await discover({ with_keywords: keywordIds.join('|'), 'vote_count.gte': '300' })));
+    } else if (anchor.kind === 'creator') {
       const people = (await search('search/person')).slice(0, 1).map((r) => r.id);
       if (people.length) tagged.push(...(await discover({ with_people: people.join('|') })));
     } else if (anchor.kind !== 'title') {
@@ -210,7 +219,9 @@ export class TmdbAdapter implements CatalogAdapter {
       const keywordIds = keywords.filter(named).slice(0, 2).map((r) => r.id);
       if (keywordIds.length && tagged.length < limit) tagged.push(...(await discover({ with_keywords: keywordIds.join('|') })));
     }
-    const byTitle = await this.get<{ results: TmdbMovie[] }>(this.url('search/movie', { query, language: 'es-ES', include_adult: 'false' }))
+    const byTitle = anchor.theme
+      ? []
+      : await this.get<{ results: TmdbMovie[] }>(this.url('search/movie', { query, language: 'es-ES', include_adult: 'false' }))
       .then((b) => b.results.filter((m) => m.overview && m.vote_count >= 50 && (anchor.kind === 'title' || anchorMatchesText(m.title, anchor))))
       .catch(() => [] as TmdbMovie[]);
 

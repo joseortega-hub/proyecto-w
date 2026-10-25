@@ -83,17 +83,37 @@ const dice = (a: string, b: string) => {
   return total ? (2 * shared) / total : 0;
 };
 
+/** Distancia de edición entre dos palabras cortas. */
+const edits = (a: string, b: string) => {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = row;
+  }
+  return prev[b.length];
+};
+
+/**
+ * Con dos o más palabras, cada una tiene que parecerse a la suya: una errata ("saran" ~ "sarah",
+ * "mass" ~ "maas") sí; otro apellido ("Mario Casas" ≠ "Mario Camus") no.
+ */
+const wordsAgree = (a: string[], b: string[]) =>
+  a.length < 2 || a.every((w, i) => w === b[i] || (w.length === 1 ? b[i]?.[0] === w : dice(w, b[i] ?? '') >= 0.5 || edits(w, b[i] ?? '') <= (w.length >= 7 ? 2 : 1)));
+
 /**
  * Parecido entre lo escrito y un nombre (0–1): trigramas del nombre entero o de cualquier tramo
  * del mismo largo ("nolan" ~ "Christopher Nolan"; "saran j maas" ~ "Sarah J. Maas"). Un tramo
- * suelto vale algo menos que el nombre entero.
+ * suelto vale algo menos que el nombre entero. Si alguna palabra no casa con la suya, 0.
  */
 export function similarity(written: string, name: string): number {
   const w = normalize(written).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const words = normalize(name).replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ');
-  const size = w.split(' ').length;
-  let best = dice(w, words.join(' '));
-  if (words.length > size) for (let i = 0; i + size <= words.length; i++) best = Math.max(best, 0.95 * dice(w, words.slice(i, i + size).join(' ')));
+  const ws = w.split(' ');
+  const size = ws.length;
+  let best = words.length !== size || wordsAgree(ws, words) ? dice(w, words.join(' ')) : 0;
+  if (words.length > size)
+    for (let i = 0; i + size <= words.length; i++) if (wordsAgree(ws, words.slice(i, i + size))) best = Math.max(best, 0.95 * dice(w, words.slice(i, i + size).join(' ')));
   return best;
 }
 

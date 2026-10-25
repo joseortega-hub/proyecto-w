@@ -41,7 +41,7 @@ import { buildBag, coveredProbes, effectiveCount, currentWeights, planNext } fro
 import { anchorsDone, askableProbes, assertNotAsked, autoAnswerExhausted, type InterviewFacts } from './interview.flow.js';
 import { NextQuestionPrefetch } from './interview.prefetch.js';
 import { anchorExample, anchorMatches, anchorQueryText, cleanAnchors, isStructured, probeDirection, seedIds } from './anchors.js';
-import { STOP, anchorsFromEntities, entityIndex, findEntities, pickWithoutAI } from './catalog-match.js';
+import { STOP, anchorsFromEntities, entityIndex, findEntities, pickWithoutAI, tagsForTheme } from './catalog-match.js';
 import { NamedService } from './named.service.js';
 import { withCues } from './text-cues.js';
 import { NONSENSE, answerFromText, replySummary } from './reply.js';
@@ -122,6 +122,18 @@ export interface AutoAnswer {
   session: SessionView;
 }
 
+/** Cuánto concretó la persona: cada cosa pedida de forma explícita cuenta 1, y el ánimo claro (2 o más dimensiones) otro. */
+export const specificity = (anchors: Anchor[], known: string[]) =>
+  anchors.filter((a) => a.required || a.kind === 'title').length + (known.length >= 2 ? 1 : 0);
+
+/** Una temática casa con las etiquetas reales del catálogo que corresponden a sus palabras clave. */
+function withThemeTags(anchor: Anchor, catalog: { tags: string[] }[]): Anchor {
+  const vocabulary = new Set(catalog.flatMap((it) => it.tags));
+  const found = tagsForTheme(anchor.terms.slice(1), vocabulary);
+  const values = [...new Set([...(anchor.match?.[0]?.values ?? []), ...found])];
+  return { ...anchor, match: [{ field: 'tags', values }] };
+}
+
 @Injectable()
 export class InterviewService implements OnModuleInit {
   private readonly logger = new Logger('Entrevista');
@@ -190,7 +202,9 @@ export class InterviewService implements OnModuleInit {
     const understood = leftover ? emptyUnderstanding() : await this.understanding.understand(domain, named.rest, entities, question);
     if (question && leftover) understood.answer = answerFromText(text) ?? 'unknown';
     const same = (a: Anchor, b: Anchor) => [a.label, ...a.terms].some((t) => [b.label, ...b.terms].some((u) => normalize(t) === normalize(u)));
-    understood.anchors = cleanAnchors([...named.anchors, ...understood.anchors.filter((a) => !named.anchors.some((n) => same(a, n)))]);
+    understood.anchors = cleanAnchors([...named.anchors, ...understood.anchors.filter((a) => !named.anchors.some((n) => same(a, n)))]).map((a) =>
+      a.theme ? withThemeTags(a, catalog) : a,
+    );
     // Lo más común ("para entrenar", "sin letra") se entiende también sin IA.
     return withCues(understood, domain.id, text, domain.config);
   }
@@ -279,7 +293,8 @@ export class InterviewService implements OnModuleInit {
     // Sin texto ni gustos ni bolsa, la primera pregunta solo depende del contexto: se reutiliza.
     const generic = !seed.initialText && !seed.taste && !seed.bag;
     const turns = generic ? await this.firstTurns(domain, context) : await this.advance([], domain, seed, loaded);
-    const [row] = await this.db.insert(interviewSessions).values({ domainId, turns, ...seed }).returning();
+    // Con lo que contó ya da para la lista: sin preguntas, directa al resultado.
+    const [row] = await this.db.insert(interviewSessions).values({ domainId, turns, status: pending(turns) ? 'asking' : 'ready', ...seed }).returning();
     if (loaded) this.bagCache.set(row.id, Promise.resolve(loaded));
     this.schedulePrefetch(row, domain);
     this.traceGain(row);
@@ -689,7 +704,7 @@ export class InterviewService implements OnModuleInit {
     const { config } = domain;
     const items = await this.bagItems(session, domain, bag, loaded);
     const known = Object.keys(session.textSignals ?? {});
-    const plan = planNext({ turns, config, bag, items, known, exclusions: session.exclusions ?? [], facts: this.facts(session, domain) });
+    const plan = planNext({ turns, config, bag, items, known, exclusions: session.exclusions ?? [], facts: this.facts(session, domain), specific: specificity(session.anchors ?? [], known) });
     if (plan.finish) {
       this.logger.log(`terminar: ${plan.finish} (~${Math.round(plan.left)} candidatas)`);
       return turns;

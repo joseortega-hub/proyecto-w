@@ -25,7 +25,9 @@ const relatedSchema = z.object({
 
 /** Qué se le pide a la IA en cada temática para "parecido a X". */
 const WHAT: Record<string, string> = {
-  movies: 'franquicias, sagas o estudios de cine (p. ej. para Marvel: DC)',
+  movies:
+    'franquicias, universos o sagas con el mismo tipo de historias (p. ej. para Marvel: DC, Hellboy, The Boys, X-Men; para Harry Potter: Las crónicas de Narnia, Animales fantásticos). ' +
+    'Nunca distribuidoras ni estudios generales (Warner Bros., Universal, Paramount, Netflix), que hacen de todo',
   games: 'sagas o videojuegos concretos (p. ej. para Pokémon: Digimon, Palworld, Temtem)',
   books: 'autores o sagas de libros',
   music: 'artistas o grupos',
@@ -64,10 +66,15 @@ export class SimilarService {
     const out = [...anchors];
     for (const like of likes) {
       const related = await this.related(domain, like.label, text);
-      let conditions = await this.resolve(domain, related.names.filter((n) => normalize(n) !== normalize(like.label)), userId);
-      // Películas que TMDB da como similares: solo las que ya están en el catálogo (confirmación).
-      if (related.titles.length) conditions = dedupe([...conditions, ...(await this.resolve(domain, related.titles, userId, { titles: true, live: false }))]);
+      // Del mismo tipo que X: parecido a un estudio o una saga son estudios y sagas (no el director o
+      // un actor de una de sus películas); parecido a una persona, personas.
+      const noCreators = like.kind === 'studio' || like.kind === 'franchise';
+      let conditions = await this.resolve(domain, related.names.filter((n) => normalize(n) !== normalize(like.label)), userId, { noCreators });
+      // Películas que TMDB da como similares: solo las que ya están en el catálogo (confirmación), y
+      // no para un estudio (serían las recomendaciones de una sola de sus películas).
+      if (related.titles.length && like.kind !== 'studio') conditions = dedupe([...conditions, ...(await this.resolve(domain, related.titles, userId, { titles: true, live: false }))]);
       if (!conditions.length) continue;
+      this.logger.log(`Parecidos a ${like.label}: ${conditions.map((c) => `${c.field}=${c.values[0]}`).join(', ')}`);
       const keepItself = likeIncludesItself(text, like.label);
       out[out.indexOf(like)] = {
         label: `parecido a ${like.label}`,
@@ -133,13 +140,19 @@ export class SimilarService {
    * Condiciones del catálogo para cada nombre: la entidad que lo nombra entero (creador, saga,
    * compañía, colección). Lo que no está se busca en directo y se vuelve a mirar.
    */
-  private async resolve(domain: DomainRow, names: string[], userId: string | null, { onlyCreators = false, live = true, titles = false } = {}): Promise<AnchorCondition[]> {
+  private async resolve(domain: DomainRow, names: string[], userId: string | null, { onlyCreators = false, noCreators = false, live = true, titles = false } = {}): Promise<AnchorCondition[]> {
     const find = async () => {
       const catalog = await this.items.catalog(domain.id, [], userId);
       const index = entityIndex(catalog, domain.config, { titleFamilies: !domain.config.playable });
       return names.map((name) => {
         const best = findEntities(name, catalog, domain.config, index).find(
-          (e) => (titles ? e.kind === 'title' && normalize(e.name) === normalize(name) : e.kind !== 'tag' && e.kind !== 'title') && (!onlyCreators || e.kind === 'creator') && normalize(e.said).length >= normalize(name).length * 0.6,
+          (e) =>
+            (titles ? e.kind === 'title' && normalize(e.name) === normalize(name) : e.kind !== 'tag' && e.kind !== 'title') &&
+            (!onlyCreators || e.kind === 'creator') &&
+            (!noCreators || e.kind !== 'creator') &&
+            // Un estudio que hace de todo (más del 6 % del catálogo) no se parece a nada en concreto.
+            (e.kind !== 'studio' || e.count <= Math.max(5, catalog.length * GENERALIST_SHARE)) &&
+            normalize(e.said).length >= normalize(name).length * 0.6,
         );
         return best ? best.condition : null;
       });
@@ -158,6 +171,9 @@ export class SimilarService {
     return dedupe(found.filter((c): c is AnchorCondition => !!c));
   }
 }
+
+/** Parte del catálogo a partir de la cual un estudio es generalista (Warner, Universal…). */
+const GENERALIST_SHARE = 0.06;
 
 const dedupe = (conditions: AnchorCondition[]) =>
   conditions.filter((c, i) => conditions.findIndex((x) => x.field === c.field && x.values.join() === c.values.join()) === i);

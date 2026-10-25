@@ -39,6 +39,14 @@ function understandingSchema(config: DomainConfig, entities: Entity[]) {
       )
       .describe('Entidades del catálogo que la persona pide de verdad. Lista vacía si ninguna (una coincidencia casual de palabras no cuenta).');
   }
+  fields.themes = z
+    .array(
+      z.object({
+        label: z.string().describe('La temática en español, tal como la diría la persona ("apocalipsis", "zombis", "viajes en el tiempo")'),
+        keywords: z.array(z.string()).describe('De 3 a 6 palabras clave en inglés, como las etiquetas de TMDB, RAWG u Open Library ("post-apocalyptic future", "apocalypse", "end of the world", "nuclear war")'),
+      }),
+    )
+    .describe('Temáticas, argumentos o ambientaciones concretas que pide (no géneros de la lista ni nombres propios). Lista vacía si no.');
   if (genres.length) {
     fields.genres = z.array(z.enum(genres as [string, ...string[]])).describe('Géneros que pide de forma explícita ("algo romántico" → romance). Lista vacía si no pide ninguno.');
   }
@@ -66,6 +74,7 @@ function understandingSchema(config: DomainConfig, entities: Entity[]) {
 
 interface Extracted {
   anchors?: Anchor[];
+  themes?: { label: string; keywords: string[] }[];
   picks?: { id: string; use: 'only' | 'include' | 'like' }[];
   genres?: string[];
   moods?: { dimension: string; level: 'low' | 'high'; confidence: number }[];
@@ -77,11 +86,12 @@ interface Extracted {
 export function toUnderstanding(raw: Extracted, config: DomainConfig, entities: Entity[] = [], text = ''): Understanding {
   const scales = new Set(config.attributes.filter((a) => a.kind === 'scale').map((a) => a.key));
   const seen = new Set<string>();
-  const moods = (raw.moods ?? []).filter((m) => {
+  // Como mucho las 3 dimensiones más claras: una frase corta no deja claro todo el ánimo.
+  const moods = [...(raw.moods ?? [])].sort((a, b) => b.confidence - a.confidence).filter((m) => {
     if (!scales.has(m.dimension) || seen.has(m.dimension) || m.confidence < SIGNAL_CONFIDENCE) return false;
     seen.add(m.dimension);
     return true;
-  });
+  }).slice(0, 3);
   const preferences: Understanding['preferences'] = {};
   for (const p of raw.preferences ?? []) {
     const pref = (config.preferences ?? []).find((x) => x.key === p.key);
@@ -92,6 +102,15 @@ export function toUnderstanding(raw: Extracted, config: DomainConfig, entities: 
   const exclusions = [...new Set(raw.exclusions ?? [])].filter((g) => groups.has(g));
   // Lo elegido entre las entidades del catálogo (la IA elige, no inventa) + géneros del vocabulario cerrado.
   const uses = new Map((raw.picks ?? []).filter((p) => entities.some((e) => e.id === p.id)).map((p) => [p.id, p.use] as const));
+  // Un género o una etiqueta pedidos no son "un título en la lista": son lo que quiere.
+  for (const [id, use] of uses) {
+    const e = entities.find((x) => x.id === id);
+    if (e && e.kind !== 'title' && use === 'include') uses.set(id, 'only');
+  }
+  // "Parecido a X" / "tipo X" con X en el catálogo es una referencia aunque la IA no la elija.
+  if (text)
+    for (const [id, use] of pickWithoutAI(text, entities))
+      if (use === 'like' && !uses.has(id)) uses.set(id, 'like');
   // "Parecido" solo si el texto lo dice ("tipo Marvel", "como Pokémon"); si no, lo que nombra es lo que quiere.
   for (const [id, use] of uses) {
     const e = entities.find((x) => x.id === id);
@@ -105,18 +124,37 @@ export function toUnderstanding(raw: Extracted, config: DomainConfig, entities: 
       uses.set(e.id, e.kind === 'title' ? 'include' : a.required ? 'only' : 'like');
     }
   }
+  // Lo que es parte de un nombre más largo que la IA reconoce ("Mario" en "Mario Casas") o de una
+  // temática ("apocalipsis" no es la saga «Apocalipsis Z» salvo que la nombre) no es lo pedido.
+  const themes = (raw.themes ?? []).filter((t) => t.label?.trim() && t.keywords?.length).slice(0, 2);
+  const longer = [...(raw.anchors ?? []).map((a) => normalize(a.label)), ...themes.map((t) => normalize(t.label))];
+  for (const id of [...uses.keys()]) {
+    const e = entities.find((x) => x.id === id)!;
+    const said = normalize(e.said);
+    const partOfName = longer.some((l) => l !== said && ` ${l} `.includes(` ${said} `));
+    const themeNotSaga = e.kind !== 'title' && themes.some((t) => normalize(t.label) === said);
+    if (partOfName || themeNotSaga) uses.delete(id);
+  }
+  const themeAnchors: Anchor[] = themes.map((t) => ({
+    label: t.label.trim(),
+    kind: 'tag',
+    theme: true,
+    terms: [t.label.trim(), ...t.keywords.map((k) => k.trim().toLowerCase()).filter(Boolean).slice(0, 6)],
+    required: !saidAsLike(text, normalize(t.label)),
+    match: [{ field: 'tags', values: [t.label.trim().toLowerCase(), ...t.keywords.map((k) => k.trim().toLowerCase())] }],
+  }));
   const excludedTags = new Set(config.tagGroups.filter((g) => exclusions.includes(g.key)).flatMap((g) => g.tags));
   const wanted = genreVocabulary(config).filter((t) => (raw.genres ?? []).includes(t) && !excludedTags.has(t));
-  const genreAnchors: Anchor[] = wanted.length
-    ? [{ label: wanted.slice(0, 2).join(' y '), kind: 'tag', terms: wanted, required: true, match: [{ field: 'tags', values: wanted }] }]
-    : [];
+  // Un ancla por género: "comedia" y "terror" se suman (comedia de terror), no vale cualquiera.
+  const genreAnchors: Anchor[] = wanted.slice(0, 2).map((g) => ({ label: g, kind: 'tag', terms: [g], required: true, match: [{ field: 'tags', values: [g] }] }));
   const resolved = anchorsFromEntities(entities, uses);
   // Lo que nombra y no está en el catálogo queda como ancla de texto, para buscarlo fuera.
-  const missing = cleanAnchors(raw.anchors ?? []).filter((a) => !resolved.some((r) => normalize(r.label) === normalize(a.label) || r.terms.some((t) => normalize(t) === normalize(a.label))));
+  const taken = [...resolved, ...themeAnchors];
+  const missing = cleanAnchors(raw.anchors ?? []).filter((a) => !taken.some((r) => normalize(r.label) === normalize(a.label) || r.terms.some((t) => normalize(t) === normalize(a.label))));
   const tagAlready = resolved.some((a) => a.kind === 'tag');
   return {
     moods: moods.map((m) => ({ key: m.dimension, level: m.level, confidence: Math.round(m.confidence * 100) / 100 })),
-    anchors: [...resolved, ...(tagAlready ? [] : genreAnchors), ...missing].slice(0, 3),
+    anchors: [...resolved, ...(tagAlready ? [] : genreAnchors), ...themeAnchors, ...missing].slice(0, 4),
     preferences,
     exclusions,
   };
@@ -166,11 +204,20 @@ export class UnderstandingService {
             '. "Cansado" o "reventado" suele ser low en energía o ritmo, o low en profundidad si es para desconectar.',
           entities.length
             ? '- picks: de estas entidades REALES del catálogo (encontradas en el texto), cuáles pide de verdad y cómo:\n' +
-              entities.map((e) => `  ${e.id}: ${e.kind} «${e.name}» (dijo «${e.said}», ${e.count} en el catálogo)`).join('\n')
+              entities
+                .map((e) =>
+                  e.condition.field === 'title'
+                    ? `  ${e.id}: palabra «${e.name}» que se repite en ${e.count} títulos (puede ser solo una palabra común o una temática, no una saga)`
+                    : `  ${e.id}: ${e.kind} «${e.name}» (dijo «${e.said}», ${e.count} en el catálogo)`,
+                )
+                .join('\n')
             : null,
           `- genres: géneros que pide explícitamente, de esta lista cerrada: ${genreVocabulary(config).join(', ')}.`,
-          '- anchors: SOLO lo concreto que nombra (franquicias, sagas, personas, estudios, títulos) y no está en las entidades de arriba. No estados de ánimo, adjetivos ni géneros. ' +
+          '- anchors: SOLO lo concreto que nombra (franquicias, sagas, personas, estudios, títulos) y no está en las entidades de arriba. No estados de ánimo, adjetivos, géneros ni temáticas. ' +
+            'Un nombre de persona va entero y como creator, sea actor, actriz, director, autor o artista ("Mario Casas", no "Mario"). ' +
             'En los términos de una franquicia incluye sus títulos y personajes más conocidos.',
+          '- themes: temáticas, argumentos o ambientaciones que pide ("apocalipsis", "zombis", "viajes en el tiempo", "robots", "piratas", "espacio", "venganza"), con palabras clave en inglés. ' +
+            'Una palabra que coincide con una saga del catálogo es una temática salvo que nombre esa saga.',
           (config.preferences ?? []).length
             ? '- preferences: ' + (config.preferences ?? []).map((p) => `${p.key} (${p.guessInstructions}; valores: ${p.options.map((o) => o.value).join(', ')})`).join('; ')
             : null,

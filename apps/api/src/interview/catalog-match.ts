@@ -53,6 +53,13 @@ const LIKE = /(tipo|como|estilo|parecid[oa]s? a|rollo|al estilo de)\s+$/;
 
 const clean = (s: string) => normalize(s).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 const wordsOf = (s: string) => clean(s).split(' ').filter(Boolean);
+/** Las palabras tal cual se escriben (mismos cortes que `wordsOf`), para ver las mayúsculas. */
+const rawWordsOf = (s: string) => s.normalize('NFC').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+/**
+ * Si la palabra `i` de un nombre va en minúscula a mitad del nombre ("La noche de los muertos"):
+ * es una palabra común, no un nombre propio ("Pokémon", "Marvel"). La primera no cuenta.
+ */
+const lowercaseAt = (raw: string[], i: number) => i > 0 && raw[i] !== undefined && /^\p{Ll}/u.test(raw[i]);
 const meaningful = (phrase: string[]) => phrase.length > 0 && !STOP.has(phrase[0]) && !STOP.has(phrase[phrase.length - 1]) && phrase.join(' ').length >= 4;
 
 /** Si un texto contiene la frase como palabras completas. */
@@ -107,10 +114,14 @@ export function entityIndex(catalog: MatchableItem[], config: DomainConfig, { ti
   /** Frases de un nombre sin las palabras genéricas ("marvel studios" → "marvel studios", "marvel"). */
   const subphrases = (name: string) => {
     const w = wordsOf(name);
+    const raw = rawWordsOf(name);
+    const aligned = raw.length === w.length;
     const out = new Set<string>([w.join(' ')]);
     for (let i = 0; i < w.length; i++)
       for (let j = i + 1; j <= Math.min(w.length, i + 4); j++) {
         const part = w.slice(i, j);
+        // "noche" de «La noche de los muertos vivientes - Colección» no nombra la colección.
+        if (aligned && lowercaseAt(raw, i)) continue;
         if (part.every((x) => GENERIC.has(x) || STOP.has(x))) continue;
         if (GENERIC.has(part[0]) || GENERIC.has(part[part.length - 1]) || !meaningful(part)) continue;
         out.add(part.join(' '));
@@ -119,6 +130,8 @@ export function entityIndex(catalog: MatchableItem[], config: DomainConfig, { ti
   };
 
   const familyCount = new Map<string, Set<string>>();
+  /** Veces que la frase de una familia va en minúscula o con mayúscula a mitad de título. */
+  const familyCase = new Map<string, { lower: number; upper: number }>();
   for (const it of catalog) {
     const title = wordsOf(it.title).join(' ');
     if (title.length >= 3) add(title, 'title', it.title, { field: 'id', values: [it.id] }, it.id);
@@ -127,6 +140,7 @@ export function entityIndex(catalog: MatchableItem[], config: DomainConfig, { ti
     if (head !== it.title && clean(head).length >= 4) add(clean(head), 'title', it.title, { field: 'id', values: [it.id] }, it.id);
     if (titleFamilies) {
       const w = wordsOf(it.title);
+      const raw = rawWordsOf(it.title);
       for (let i = 0; i < w.length; i++)
         for (let j = i + 1; j <= Math.min(w.length, i + 3); j++) {
           const part = w.slice(i, j);
@@ -134,6 +148,12 @@ export function entityIndex(catalog: MatchableItem[], config: DomainConfig, { ti
           const phrase = part.join(' ');
           if (!familyCount.has(phrase)) familyCount.set(phrase, new Set());
           familyCount.get(phrase)!.add(it.id);
+          if (raw.length === w.length && i > 0) {
+            const c = familyCase.get(phrase) ?? { lower: 0, upper: 0 };
+            if (lowercaseAt(raw, i)) c.lower++;
+            else c.upper++;
+            familyCase.set(phrase, c);
+          }
         }
     }
     for (const name of (it.subtitle ?? '').split(/,\s*/).filter(Boolean)) {
@@ -158,6 +178,9 @@ export function entityIndex(catalog: MatchableItem[], config: DomainConfig, { ti
   // Familias de títulos: una frase que aparece en 3 o más títulos es una saga ("pokemon", "harry potter").
   for (const [phrase, ids] of familyCount) {
     if (ids.size < 3) continue;
+    // Una palabra común que se repite ("noche", "amor") no es una saga: a mitad de título va en minúscula.
+    const c = familyCase.get(phrase);
+    if (c && c.lower > c.upper) continue;
     for (const id of ids) add(phrase, 'franchise', phrase, { field: 'title', values: [phrase] }, id);
   }
   // Géneros por raíz, para casar el español de la persona con las etiquetas de la fuente.
@@ -232,6 +255,23 @@ export function findEntities(text: string, catalog: MatchableItem[], config: Dom
     .map(({ span: _span, at: _at, ...e }, i) => ({ ...e, id: `e${i + 1}` }));
 }
 
+/**
+ * Etiquetas del catálogo que corresponden a las palabras clave de una temática (en inglés, como
+ * las de las fuentes): cada palabra significativa de la clave tiene que estar en la etiqueta, por
+ * su comienzo ("apocalypse" → "post-apocalyptic future", "zombie apocalypse"; "time travel" → "time travel").
+ */
+export function tagsForTheme(keywords: string[], vocabulary: Iterable<string>): string[] {
+  const roots = keywords
+    .map((k) => wordsOf(k).filter((w) => w.length >= 3 && !STOP.has(w)).map((w) => w.slice(0, Math.max(4, Math.min(6, w.length - 2)))))
+    .filter((r) => r.length);
+  const out = new Set<string>();
+  for (const tag of vocabulary) {
+    const words = wordsOf(tag);
+    if (roots.some((r) => r.every((root) => words.some((w) => w.startsWith(root))))) out.add(clean(tag));
+  }
+  return [...out];
+}
+
 /** "Marvel y parecidos", "Pokémon o algo parecido": X entra en la lista (primero); "parecido a X", no. */
 export function likeIncludesItself(text: string, label: string): boolean {
   const t = ` ${clean(text)} `;
@@ -278,6 +318,14 @@ export function anchorsFromEntities(entities: Entity[], uses: Map<string, 'only'
     const anchor: Anchor = { label, kind: e.kind, terms: [e.said, e.name].filter((t, i, all) => all.indexOf(t) === i), required: use === 'only', match: [e.condition] };
     byLabel.set(key, anchor);
     out.push(anchor);
+  }
+  // Si se eligió solo la etiqueta, las entidades más exactas con el mismo nombre (la saga "pokemon") también valen.
+  for (const a of out) {
+    // Los géneros (kind 'tag') no: "comedia" no es la productora «Comedia Films».
+    if (a.kind === 'title' || a.kind === 'tag' || a.match?.some((c) => c.field !== 'tags')) continue;
+    const said = normalize(a.terms[0] ?? '');
+    const exact = entities.filter((e) => e.kind !== 'title' && e.condition.field !== 'tags' && normalize(e.said) === said);
+    for (const e of exact) if (!a.match!.some((c) => c.field === e.condition.field && c.values[0] === e.condition.values[0])) a.match!.push(e.condition);
   }
   // Una etiqueta suelta ("pokemon" en Smash Bros.) no cuenta si hay algo más exacto (saga, compañía…).
   for (const a of out) {

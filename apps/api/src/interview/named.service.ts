@@ -5,7 +5,7 @@ import { ItemsService } from '../items/items.service.js';
 import { AnchorsService } from './anchors.service.js';
 import { entityIndex } from './catalog-match.js';
 import type { Anchor, AnchorCondition } from './interview.types.js';
-import { detectMentions, resolveName, type NamedRole } from './named.js';
+import { detectMentions, resolveName, type NamedRole, type Resolved } from './named.js';
 import { normalize } from './interview.engine.js';
 
 /** Temáticas con fuente en directo donde se piden nombres propios. */
@@ -19,6 +19,13 @@ const KINDS: Record<NamedRole, Anchor['kind'][]> = {
   saga: ['franchise', 'studio'],
   any: ['creator', 'studio', 'franchise'],
 };
+
+/** Lo que la búsqueda en directo trajo de un nombre (marcado con su etiqueta), como entidad resuelta. */
+export function broughtBy(catalog: { tags: string[] }[], name: string, kind: Anchor['kind']): Resolved | null {
+  const tag = anchorTag({ label: name } as Anchor);
+  const count = catalog.filter((it) => it.tags.includes(tag)).length;
+  return count ? { name, kind, conditions: [{ field: 'tags', values: [tag] }], count, similarity: 1 } : null;
+}
 
 export interface NamedResult {
   /** Filtros duros: toda la lista es de este nombre. */
@@ -69,7 +76,8 @@ export class NamedService {
           const brought = await Promise.race([this.anchors.ensureCoverage(domain, [{ label: target, kind: k, terms: [target], required: true }], userId), wait]);
           searched = brought !== 0;
           catalog = await this.items.catalog(domain.id, [], userId);
-          found = resolveName({ name: target, role: mention.role }, catalog, config, entityIndex(catalog, config, options)) ?? found;
+          // Un actor o actriz no está entre los creadores (solo quien dirige): vale lo que la fuente trajo con su etiqueta.
+          found = resolveName({ name: target, role: mention.role }, catalog, config, entityIndex(catalog, config, options)) ?? (acceptable ? broughtBy(catalog, target, k) : null) ?? found;
           if (found) break;
           // La fuente aún está trayendo lo suyo (tarda): el filtro ya vale por nombre y etiqueta, y el inicio espera al resto.
           if (brought === -1) {

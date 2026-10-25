@@ -2,7 +2,7 @@ import { bookDetails, type ItemDetails } from './item-details.js';
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorMatchesText } from '../interview/anchors.js';
 import { bestName, nameQueries } from '../interview/named.js';
-import type { CatalogAdapter, ImportedItem } from './catalog-adapter.js';
+import { anchorTag, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
 import { clamp, logScale, mapLimit, politeFetcher, priorAverage, yearScale } from './derive.js';
 
 export interface OpenLibraryDoc {
@@ -194,7 +194,8 @@ export class OpenLibraryAdapter implements CatalogAdapter {
   async search(anchor: Anchor, limit: number): Promise<ImportedItem[]> {
     const url = new URL('https://openlibrary.org/search.json');
     url.search = new URLSearchParams({
-      ...(anchor.kind === 'creator' ? { author: anchor.label } : { q: anchor.label }),
+      // Temática: por materia, con su palabra clave en inglés ("apocalypse"), como las de Open Library.
+      ...(anchor.theme ? { subject: anchor.terms[1] ?? anchor.label } : anchor.kind === 'creator' ? { author: anchor.label } : { q: anchor.label }),
       sort: 'readinglog',
       limit: String(limit * 2),
       lang: 'es',
@@ -204,7 +205,9 @@ export class OpenLibraryAdapter implements CatalogAdapter {
     const docs = body.docs
       .filter((d) => d.author_name?.length && anchorMatchesText(`${d.title} ${d.author_name.join(' ')} ${(d.subject ?? []).join(' ')}`, anchor))
       .slice(0, limit);
-    const items = docs.map((d) => this.toItem(d, null, LIVE_MAX_READING_LOG));
+    const items = docs
+      .map((d) => this.toItem(d, null, LIVE_MAX_READING_LOG))
+      .map((it) => (anchor.theme ? { ...it, tags: [...new Set([...(it.tags ?? []), anchorTag(anchor)])] } : it));
     if (!this.spanish) return items;
     // Edición en español de los más leídos y con tope de espera: Google Books a veces tarda (503) y no debe retrasar la lista.
     const top = items.slice(0, SPANISH_LOOKUPS);

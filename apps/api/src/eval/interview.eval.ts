@@ -145,6 +145,39 @@ const SCENARIOS: Scenario[] = [
     ],
   },
   {
+    id: 'free-zombies',
+    domain: 'movies',
+    title: 'Respuesta libre: «que salgan zombis pero que también me ría» tras «algo de miedo para esta noche» → comedias de zombis',
+    text: 'algo de miedo para esta noche',
+    replies: { 1: 'que salgan zombis pero que también me ría' },
+    checks: (r) => [
+      expect(!(r.understanding?.anchors ?? []).some((a) => /noche/.test(norm(JSON.stringify(a)))), '«noche» no se entiende como saga'),
+      most(r, (it) => it.tags.some((t) => /zombi|undead|living dead/.test(norm(t))), 'de zombis', 0.7),
+      most(r, (it) => it.tags.includes('comedia'), 'con comedia', 0.7),
+    ],
+  },
+  {
+    id: 'theme-apocalypse',
+    domain: 'movies',
+    title: 'Películas: «ciencia ficción de apocalipsis» → género Y temática, y como mucho 2 preguntas',
+    text: 'quiero una peli de ciencia ficción de apocalipsis',
+    checks: (r) => [
+      expect(r.questions.length <= 2, `como mucho 2 preguntas (hizo ${r.questions.length})`),
+      all(r, (it) => it.tags.includes('ciencia ficción'), 'de ciencia ficción', 5),
+      most(r, (it) => it.tags.some((t) => /apocal|end of the world|dystopia|zombie|pandemic|survival|disaster/.test(norm(t))), 'apocalípticas', 0.7),
+    ],
+  },
+  {
+    id: 'actor',
+    domain: 'movies',
+    title: 'Películas: «una peli con mario casas» → solo de Mario Casas (actor), nada de Super Mario ni Mario Camus',
+    text: 'una peli con mario casas',
+    checks: (r) => [
+      expect((r.understanding?.anchors ?? []).some((a) => /mario casas/.test(norm(JSON.stringify(a)))), 'chip «Mario Casas» en lo entendido'),
+      all(r, (it) => it.tags.includes('mario casas') || /mario casas/.test(blob(it)), 'con Mario Casas', 4),
+    ],
+  },
+  {
     id: 'free-nonsense',
     domain: 'movies',
     title: 'Respuesta libre: «eso no tiene sentido» → descarta lo último entendido y pregunta otra cosa',
@@ -263,7 +296,7 @@ const SCENARIOS: Scenario[] = [
     domain: 'games',
     title: 'Videojuegos: «Pokémon» → solo Pokémon',
     text: 'me apetece un Pokémon',
-    checks: (r) => [all(r, (it) => /pokemon/.test(norm(it.title)), 'de Pokémon', 5)],
+    checks: (r) => [all(r, (it) => /pokemon|pikachu/.test(norm(it.title)), 'de Pokémon', 5)],
   },
   {
     id: 'nintendo',

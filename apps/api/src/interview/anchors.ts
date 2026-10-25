@@ -74,8 +74,24 @@ export function bestAnchor(item: AnchorItem, anchors: Anchor[]): { anchor: Ancho
   return best;
 }
 
-export const anchorMatches = <T extends AnchorItem>(items: T[], anchors: Anchor[]) =>
-  anchors.length ? items.filter((it) => bestAnchor(it, anchors).score >= ANCHOR_MATCH) : [];
+/**
+ * Lo que cumple lo pedido. Varias cosas pedidas de forma explícita se suman ("ciencia ficción" Y
+ * "apocalipsis", "Sanderson" Y "fantasía"); si juntas no dejan nada, manda el nombre propio y, si no hay, vale cualquiera.
+ * Los títulos pedidos (semillas) cuentan siempre.
+ */
+export function anchorMatches<T extends AnchorItem>(items: T[], anchors: Anchor[]): T[] {
+  if (!anchors.length) return [];
+  const any = items.filter((it) => bestAnchor(it, anchors).score >= ANCHOR_MATCH);
+  const hard = anchors.filter((a) => a.required && a.kind !== 'title' && !a.similar);
+  if (hard.length < 2) return any;
+  const seeds = new Set(seedIds(anchors));
+  const all = any.filter((it) => seeds.has(it.id) || hard.every((a) => anchorScore(it, a) >= ANCHOR_MATCH));
+  if (all.some((it) => !seeds.has(it.id))) return all;
+  // Juntas no dejan nada: manda lo que tiene nombre propio (artista, autor, estudio, saga) sobre un género o una temática.
+  const named = hard.filter((a) => a.kind !== 'tag');
+  const byName = named.length ? any.filter((it) => seeds.has(it.id) || named.some((a) => anchorScore(it, a) >= ANCHOR_MATCH)) : [];
+  return byName.some((it) => !seeds.has(it.id)) ? byName : any;
+}
 
 /**
  * Qué hacer con las anclas en la búsqueda:
@@ -184,10 +200,10 @@ export const anchorItemSchema = z.object({
 });
 
 
-/** Como mucho 3 anclas, con el nombre y los términos limpios. */
+/** Como mucho 4 anclas, con el nombre y los términos limpios. */
 export const cleanAnchors = (anchors: Anchor[]): Anchor[] =>
   anchors
     .filter((a) => a.label.trim())
-    .slice(0, 3)
+    .slice(0, 4)
     .map((a) => ({ ...a, label: a.label.trim(), terms: [...new Set(a.terms.map((t) => t.trim()).filter(Boolean))].slice(0, 10) }));
 

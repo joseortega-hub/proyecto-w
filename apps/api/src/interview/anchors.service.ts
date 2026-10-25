@@ -149,8 +149,11 @@ export class AnchorsService {
   async coverageGap(domain: DomainRow, anchors: Anchor[], userId: string | null): Promise<Anchor[]> {
     if (!anchors.length || domain.config.personal || !LIVE_ADAPTERS[domain.id]) return [];
     const catalog = await this.items.catalog(domain.id, [], userId);
+    // Una temática se busca fuera si, junto con lo demás pedido ("ciencia ficción" Y "apocalipsis"), no da para una lista.
+    const together = anchorMatches(catalog, anchors).length;
     return anchors.filter((a) => {
       if (!isStructured(a)) return true;
+      if (a.theme) return together < domain.config.result.size * 2;
       if (a.kind === 'title' || a.kind === 'tag') return false;
       return anchorMatches(catalog, [a]).length < domain.config.result.size;
     });
@@ -164,7 +167,7 @@ export class AnchorsService {
 
   private async liveSearch(domain: DomainRow, anchors: Anchor[], userId: string | null, limit = LIVE_LIMIT): Promise<number> {
     const { matched } = await this.focus(domain, anchors, userId);
-    if (matched.length >= domain.config.result.size) return 0;
+    if (matched.length >= domain.config.result.size && !anchors.some((a) => a.theme)) return 0;
     let adapter: CatalogAdapter;
     try {
       adapter = LIVE_ADAPTERS[domain.id](this.sources);

@@ -30,3 +30,19 @@ export interface CatalogAdapter {
 
 /** Etiqueta con la que se marcan los resultados de una búsqueda en directo ("marvel"). */
 export const anchorTag = (anchor: Anchor) => anchor.label.toLowerCase().trim();
+
+/**
+ * Ids de las palabras clave (o etiquetas) de una fuente que corresponden a una temática: se busca
+ * cada palabra clave en inglés del ancla y vale la que la contiene entera ("apocalypse" → "post-apocalyptic future").
+ */
+export async function themeKeywordIds(anchor: Anchor, search: (query: string) => Promise<{ id: number; name?: string }[]>, max = 8): Promise<number[]> {
+  const keys = anchor.terms.slice(1, 6);
+  const ids: number[] = [];
+  for (const results of await Promise.all(keys.map((k) => search(k)))) {
+    for (const r of results.slice(0, 10)) {
+      const name = (r.name ?? '').toLowerCase();
+      if (keys.some((k) => name.includes(k.toLowerCase())) && !ids.includes(r.id)) ids.push(r.id);
+    }
+  }
+  return ids.slice(0, max);
+}

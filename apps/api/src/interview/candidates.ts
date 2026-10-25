@@ -215,8 +215,23 @@ export function buildBag<T extends BagItem>(catalog: T[], ctx: BagContext): BagR
   // (superhéroes, cómic…), no cualquier cosa de acción.
   else if (ctx.anchors.some((a) => a.similar)) {
     const themed = anchorMatches(scope, ctx.anchors.filter((a) => a.similar));
-    const theme = themeTags(themed, scope);
-    if (theme.size) scope = scope.filter((it) => it.tags.some((t) => theme.has(t)) || themed.includes(it) || matched.includes(it));
+    // Solo etiquetas temáticas, no géneros ("superhero" sí, "ciencia ficción" no), y si X está en
+    // el catálogo, las que comparte con sus parecidos.
+    const genres = new Set(config.tagGroups.flatMap((g) => g.tags));
+    const own = themeTags(references, catalog);
+    const shared = [...themeTags(themed, scope)];
+    const notGenre = shared.filter((t) => !genres.has(t));
+    const withX = notGenre.filter((t) => own.has(t));
+    // Las 2 más típicas del grupo: con una secundaria ("time travel") se colaría cualquier cosa.
+    const freq = (t: string) => themed.filter((it) => it.tags.includes(t)).length;
+    const theme = new Set((withX.length ? withX : notGenre.length ? notGenre : shared).sort((a, b) => freq(b) - freq(a)).slice(0, 2));
+    // Lo que distingue a X (Marvel → "superhero", "based on comic"): los parecidos también lo comparten
+    // (fuera Star Trek o una película de acción de la misma distribuidora), si así sigue dando para la lista.
+    const ownFreq = (t: string) => references.filter((it) => it.tags.includes(t)).length;
+    const ownTop = new Set([...own].filter((t) => !genres.has(t)).sort((a, b) => ownFreq(b) - ownFreq(a)).slice(0, 2));
+    const likeX = ownTop.size ? scope.filter((it) => it.tags.some((t) => ownTop.has(t))) : [];
+    if (likeX.length >= config.result.size) scope = likeX;
+    else if (theme.size) scope = scope.filter((it) => it.tags.some((t) => theme.has(t)) || themed.includes(it) || matched.includes(it));
   }
 
   // Parecido semántico por percentil entre los elementos que lo tienen.
@@ -275,11 +290,16 @@ export interface PlanInput {
   /** Claves de `tagGroups` que no quiere. */
   exclusions: string[];
   facts?: InterviewFacts;
+  /**
+   * Cuánto dejó claro lo que contó la persona (texto inicial y respuestas libres): cosas pedidas
+   * de forma explícita (género, temática, nombre…) y ánimo claro. Cuanto más, menos preguntas.
+   */
+  specific?: number;
 }
 
 export interface Plan {
   /** Por qué termina la entrevista; null si sigue. */
-  finish: 'max' | 'concentrated' | 'no-gain' | null;
+  finish: 'max' | 'concentrated' | 'no-gain' | 'enough' | null;
   /** Las mejores preguntas por ganancia (como mucho `OFFERED`). */
   offered: RankedProbe[];
   /** Candidatas efectivas que quedan. */
@@ -292,14 +312,27 @@ export interface Plan {
  * o nada que separe ya a las candidatas) o preguntar. Entre las preguntas posibles quedan fuera
  * las ya hechas, las que informan lo que el texto ya dejó claro y las de lo que no quiere.
  */
-export function planNext({ turns, config, bag, items, known, exclusions, facts = {} }: PlanInput): Plan {
+/** Lo que contó la persona ya da para la lista: preguntas mínimas y máximas según lo concreto que fue. */
+export function questionBudget(specific: number, config: DomainConfig, known: string[]) {
+  if (specific >= 3) return { min: 1, max: 3 };
+  if (specific >= 2) return { min: 1, max: Math.min(5, config.interview.maxQuestions) };
+  return { min: minQuestions(config, known), max: config.interview.maxQuestions };
+}
+
+export function planNext({ turns, config, bag, items, known, exclusions, facts = {}, specific = 0 }: PlanInput): Plan {
   const ignore = new Set(known);
   const weights = currentWeights(bag, items, turns, config, ignore);
   const left = effectiveCount(weights);
   const done = answered(turns).length;
   const stop = (finish: Plan['finish']): Plan => ({ finish, offered: [], left, weights });
-  if (done && (done >= config.interview.maxQuestions || remainingProbes(turns, config).length === 0)) return stop('max');
-  if (done >= minQuestions(config, known) && topShare(weights) >= TOP_SHARE) return stop('concentrated');
+  const budget = questionBudget(specific, config, known);
+  const size = config.result.size;
+  // Lo que encaja ya cabe en la lista: preguntar no cambia nada.
+  if (bag.length && bag.length <= size) return stop('enough');
+  // Con una petición concreta y pocas candidatas efectivas, basta con la lista (o con una pregunta).
+  if (specific >= 2 && left <= size * 1.5 && done >= (specific >= 3 ? 0 : 1)) return stop('enough');
+  if (done && (done >= budget.max || remainingProbes(turns, config).length === 0)) return stop('max');
+  if (done >= budget.min && topShare(weights) >= TOP_SHARE) return stop('concentrated');
 
   const excluded = new Set(exclusions);
   let options = askableProbes(turns, config, { ...facts, known }).filter((p) => !probeGroups(p, config).some((g) => excluded.has(g)));
