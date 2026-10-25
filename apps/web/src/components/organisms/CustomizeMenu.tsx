@@ -1,5 +1,7 @@
 import { Popover } from 'radix-ui'
-import { IconButton } from '@/components/atoms'
+import { useState } from 'react'
+import { Icon, IconButton } from '@/components/atoms'
+import { openFeedback } from '@/lib/feedback'
 import { SectionToggles, StructurePicker } from '@/components/molecules'
 import { useLayout } from '@/lib/layout'
 import { SECTION_GROUPS, useHiddenSections } from '@/lib/sections'
@@ -13,8 +15,9 @@ type CustomizeMenuProps = {
 export function CustomizeMenu({ side = 'bottom', align = 'end' }: CustomizeMenuProps) {
   const { hidden, setHidden, showAll } = useHiddenSections()
   const { layout, setLayout } = useLayout()
+  const [open, setOpen] = useState(false)
   return (
-    <Popover.Root>
+    <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <IconButton icon="customize" label={hidden.length ? `Personalizar (${hidden.length} secciones ocultas)` : 'Personalizar'} />
       </Popover.Trigger>
@@ -33,6 +36,21 @@ export function CustomizeMenu({ side = 'bottom', align = 'end' }: CustomizeMenuP
           <p className="label-caps px-2.5">Secciones visibles</p>
           <p className="px-2.5 pt-1 pb-3 text-[13px] text-muted-foreground">Oculta lo que no uses. Lo recuperas aquí cuando quieras.</p>
           <SectionToggles groups={SECTION_GROUPS} hidden={hidden} onChange={setHidden} onShowAll={showAll} />
+          <hr className="my-3 border-border" />
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              openFeedback()
+            }}
+            className="flex min-h-12 w-full items-center gap-3 rounded-md px-2.5 text-left hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <Icon name="feedback" className="flex-none text-domain" />
+            <span className="flex min-w-0 flex-col">
+              <strong className="text-[15px]">Buzón de comentarios</strong>
+              <span className="text-[13px] text-muted-foreground">Cuéntanos un error, una idea o una mejora.</span>
+            </span>
+          </button>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

@@ -30,6 +30,7 @@
     "sync-embeddings": "tsx src/db/sync-embeddings.ts",
     "eval": "tsx src/eval/interview.eval.ts",
     "facets": "tsx src/catalog/facets.ts",
+    "feedback": "tsx src/feedback/feedback.cli.ts",
     "perreo:import": "tsx src/perreo/perreo.import.ts",
     "perreo:load": "tsx src/perreo/perreo.load.ts",
     "perreo:instagram": "tsx src/perreo/perreo.instagram.run.ts",

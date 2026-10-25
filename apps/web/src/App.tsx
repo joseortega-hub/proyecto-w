@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AppShell } from '@/components/templates/AppShell'
 import { DomainGate } from '@/components/templates/DomainGate'
+import { FeedbackSheet } from '@/components/organisms/FeedbackSheet'
 import { Toaster } from '@/components/ui/sonner'
 import { BajoElCapoPage } from '@/pages/BajoElCapoPage'
 import { FolderReviewPage } from '@/pages/FolderReviewPage'
@@ -57,6 +58,8 @@ export function App() {
             <Route path="reproductor" element={<PlayerPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          {/* Buzón de comentarios: uno para toda la app, se abre desde «Personalizar» o el menú. */}
+          <FeedbackSheet />
         </BrowserRouter>
         <Toaster position="top-center" />
       </PlayerProvider>

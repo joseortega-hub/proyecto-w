@@ -39,10 +39,12 @@ import { YouTubeController } from './youtube/youtube.controller.js';
 import { YouTubeService } from './youtube/youtube.service.js';
 import { ListsController } from './lists/lists.controller.js';
 import { ListsService } from './lists/lists.service.js';
+import { FeedbackController } from './feedback/feedback.controller.js';
+import { FeedbackService } from './feedback/feedback.service.js';
 
 @Module({
   imports: [DbModule, AiModule],
-  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController, ListsController, LinksController],
+  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController, ListsController, LinksController, FeedbackController],
   providers: [
     DomainsService,
     AnchorsService,
@@ -69,6 +71,7 @@ import { ListsService } from './lists/lists.service.js';
     RouteIntentService,
     StoryService,
     ListsService,
+    FeedbackService,
   ],
 })
 export class AppModule {}

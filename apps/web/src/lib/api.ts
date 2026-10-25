@@ -1,5 +1,6 @@
 // Cliente REST de la API de Sintonía. Vite redirige /api a la API en local.
 import type { ClientContext, InterviewContext } from './context'
+import type { FeedbackImage, FeedbackKind } from './feedback'
 import type { Preference, SessionPreferences } from './preferences'
 import type { CompareResult, Judgement, OpsPanel, TraceRow } from './ops-types'
 import type { ResolvedTheme } from '@sintonia/tokens/engine'
@@ -367,6 +368,9 @@ export const api = {
   /** Genera un tema a partir de una descripción (no se guarda). `variant` > 0 pide otra versión. */
   generateTheme: (description: string, variant = 0) =>
     request<GeneratedTheme>('/themes/generate', { method: 'POST', body: JSON.stringify({ description, variant }) }),
+  /** Buzón: un comentario, idea o error con la pantalla, la temática y sus imágenes (ya comprimidas). */
+  sendFeedback: (body: { kind: FeedbackKind; message: string; screen?: string; domainId?: string; context?: Record<string, string | number>; images: FeedbackImage[] }) =>
+    request<{ id: string }>('/feedback', { method: 'POST', body: JSON.stringify(body) }),
   /** Avisa al servidor de que esta persona desbloqueó el Modo Perreo (sin la frase). */
   unlockSecret: () => request<{ ok: boolean }>('/domains/unlock', { method: 'POST' }),
   getDomains: () => request<DomainInfo[]>('/domains?hidden=1'),

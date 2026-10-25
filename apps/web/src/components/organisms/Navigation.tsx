@@ -2,6 +2,7 @@ import { Link, NavLink, useNavigate } from 'react-router'
 import { Heading, Icon, IconButton, type IconName } from '@/components/atoms'
 import { useDomain } from '@/lib/domain'
 import { useTheme } from '@/lib/theme'
+import { openFeedback } from '@/lib/feedback'
 import { cn } from '@/lib/utils'
 import { DomainSwitcher } from './DomainSwitcher'
 import { CustomizeMenu } from './CustomizeMenu'
@@ -80,9 +81,10 @@ export function SideNav() {
         <span className="label-caps px-3 pb-1">Temáticas</span>
         <DomainSwitcher orientation="vertical" />
       </div>
-      <div className="mt-auto flex gap-2">
+      <div className="mt-auto flex flex-wrap gap-1">
         <ThemeMenu side="top" align="start" />
         <CustomizeMenu side="top" align="start" />
+        <IconButton icon="feedback" variant="ghost" label="Buzón de comentarios" onClick={openFeedback} />
         <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
         <IconButton icon="activity" variant="ghost" label="Bajo el capó: la IA por dentro" onClick={() => navigate('/bajo-el-capo')} />
       </div>
@@ -98,6 +100,7 @@ function ToolButtons({ side = 'top' }: { side?: 'top' | 'right' }) {
     <>
       <ThemeMenu side={side} align="end" />
       <CustomizeMenu side={side} align="end" />
+      <IconButton icon="feedback" variant="ghost" label="Buzón de comentarios" onClick={openFeedback} />
       <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
       <IconButton icon="activity" variant="ghost" label="Bajo el capó: la IA por dentro" onClick={() => navigate('/bajo-el-capo')} />
     </>

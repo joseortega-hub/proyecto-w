@@ -77,6 +77,8 @@ export const config = {
    */
   googleRedirectUri: optional('GOOGLE_REDIRECT_URI', `${optional('WEB_URL', 'http://localhost:5173')}/api/youtube/callback`),
   /** Clave para cifrar los tokens de Google en la BD. Sin ella, se deriva de GOOGLE_CLIENT_SECRET. */
+  /** Clave para leer y marcar el buzón por HTTP (cabecera x-feedback-key). Sin ella, solo con `pnpm feedback`. */
+  feedbackAdminKey: optional('FEEDBACK_ADMIN_KEY'),
   tokenEncryptionKey: optional('TOKEN_ENCRYPTION_KEY') || optional('GOOGLE_CLIENT_SECRET'),
   /** Canciones como máximo por importación de YouTube (cada una gasta un embedding del cupo diario). */
   youtubeImportLimit: Number(optional('YOUTUBE_IMPORT_LIMIT', '400')),

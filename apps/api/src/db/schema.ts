@@ -293,3 +293,31 @@ export const aiCache = pgTable(
   },
   (t) => [index('ai_cache_expires_idx').on(t.expiresAt)],
 );
+
+/** Imagen adjunta a un comentario del buzón: comprimida en el navegador y en base64. */
+export interface FeedbackImage {
+  type: 'image/jpeg' | 'image/webp' | 'image/png';
+  data: string;
+}
+
+/**
+ * Buzón de comentarios, ideas y errores. La pantalla y la temática se rellenan solas en la
+ * web; las imágenes van dentro (pocas y pequeñas). `pnpm feedback` lee los pendientes.
+ */
+export const feedback = pgTable(
+  'feedback',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: text('kind').notNull(),
+    message: text('message').notNull(),
+    screen: text('screen'),
+    domainId: text('domain_id'),
+    context: jsonb('context').$type<Record<string, string | number>>().notNull().default({}),
+    images: jsonb('images').$type<FeedbackImage[]>().notNull().default([]),
+    userId: text('user_id'),
+    status: text('status').notNull().default('new'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('feedback_status_idx').on(t.status, t.createdAt)],
+);

@@ -23,6 +23,7 @@
     "test": "pnpm -r test",
     "eval": "pnpm --filter @sintonia/api eval",
     "facets": "pnpm --filter @sintonia/api facets",
+    "feedback": "pnpm --filter @sintonia/api feedback",
     "perreo:import": "pnpm --filter @sintonia/api perreo:import",
     "perreo:load": "pnpm --filter @sintonia/api perreo:load",
     "perreo:instagram": "pnpm --filter @sintonia/api perreo:instagram",
