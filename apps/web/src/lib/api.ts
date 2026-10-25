@@ -6,6 +6,7 @@ import type { CompareResult, Judgement, OpsPanel, TraceRow } from './ops-types'
 import type { ResolvedTheme } from '@sintonia/tokens/engine'
 import type { HomeSummary, RouteIntentResult, StoryView } from './home-types'
 import type { PerreoArtistDetail, PerreoArtistList, PerreoArtistPatch, PerreoReview } from './perreo-types'
+import type { PerreoCompare, PerreoHot, PerreoReleases } from './perreo-pulse'
 import { userHeaders } from './user'
 
 export type Answer = 'yes' | 'no' | 'unknown'
@@ -382,6 +383,10 @@ export const api = {
   perreoEdit: (slug: string, patch: PerreoArtistPatch) =>
     request<PerreoArtistDetail>(`/perreo/artists/${encodeURIComponent(slug)}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   perreoArtist: (slug: string) => request<PerreoArtistDetail>(`/perreo/artists/${encodeURIComponent(slug)}`),
+  /** El pulso del Modo Perreo (lo precalcula `pnpm perreo:pulse`). */
+  perreoReleases: (query: string) => request<PerreoReleases>(`/perreo/releases?${query}`),
+  perreoHot: (query: string) => request<PerreoHot>(`/perreo/hot?${query}`),
+  perreoCompare: (slugs: string) => request<PerreoCompare>(`/perreo/compare?${new URLSearchParams({ slugs })}`),
   /** `initialText` es el punto de partida opcional (texto o voz) antes de las preguntas. */
   startSession: (
     domainId: string,
