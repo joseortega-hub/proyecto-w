@@ -19,7 +19,7 @@ export function AppShell() {
         </main>
         {current && (
           <>
-            <MiniPlayer entry={current} playing={player.playing} onToggle={player.toggle} shuffle={player.order !== null} repeat={player.repeat} onShuffle={player.toggleShuffle} onRepeat={player.cycleRepeat} />
+            <MiniPlayer entry={current} playing={player.playing} onToggle={player.toggle} shuffle={player.order !== null} repeat={player.repeat} onShuffle={player.toggleShuffle} onRepeat={player.cycleRepeat} onClose={player.stop} />
             <PlayerBar
               entry={current}
               playing={player.playing}
@@ -35,6 +35,7 @@ export function AppShell() {
               onPrevious={player.previous}
               onNext={player.next}
               onSeek={player.seek}
+              onClose={player.stop}
             />
           </>
         )}

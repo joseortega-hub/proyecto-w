@@ -1,68 +1,73 @@
 import { useLayoutEffect, useState, type CSSProperties, type Ref } from 'react'
+import { Icon } from '@/components/atoms/Icon'
 import { cn } from '@/lib/utils'
+import { pickSlot, sameRect, type SlotRect } from './video-slot'
 
 interface VideoDockProps {
   ref: Ref<HTMLDivElement>
+  /** Si lo que suena es un vídeo de YouTube. */
   visible: boolean
+  /** Si el vídeo está sonando: sin hueco en pantalla, solo flota mientras suena. */
+  playing: boolean
   /** Huecos del reproductor de Sintonía (portada del mini-reproductor, la barra o el reproductor completo). */
   slots: HTMLElement[]
   title?: string
-}
-
-/** El hueco visible más grande: el reproductor completo gana a la miniatura del mini-reproductor. */
-function pickSlot(slots: HTMLElement[]) {
-  let best: { rect: DOMRect; area: number } | null = null
-  for (const slot of slots) {
-    const rect = slot.getBoundingClientRect()
-    const area = rect.width * rect.height
-    if (area > 0 && (!best || area > best.area)) best = { rect, area }
-  }
-  return best?.rect ?? null
+  /** Cierra el reproductor (para el vídeo y vacía la cola). */
+  onClose: () => void
 }
 
 /**
  * Contenedor único del IFrame de YouTube. Vive fuera de las rutas para que el vídeo no se
  * recargue al navegar, y se coloca encima de la portada del reproductor de Sintonía: el
  * vídeo hace de portada viva y los controles son siempre los de Sintonía. Solo si no hay
- * reproductor en pantalla (la entrevista) flota en una esquina, porque YouTube pide que se vea.
+ * reproductor en pantalla (la entrevista, «Hoy para ti») flota en una esquina mientras suena,
+ * porque YouTube pide que se vea, y siempre con un botón para cerrarlo.
  */
-export function VideoDock({ ref, visible, slots, title }: VideoDockProps) {
-  const [rect, setRect] = useState<CSSProperties | null>(null)
+export function VideoDock({ ref, visible, playing, slots, title, onClose }: VideoDockProps) {
+  const [rect, setRect] = useState<SlotRect | null>(null)
 
+  // Se mide en cada fotograma mientras hay vídeo: los huecos se mueven con animaciones,
+  // hojas y transiciones de página sin que cambie su tamaño, y el vídeo no puede quedarse atrás.
   useLayoutEffect(() => {
+    if (!visible) return setRect(null)
     let frame = 0
-    const update = () => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => {
-        const r = pickSlot(slots)
-        setRect(r ? { top: r.top, left: r.left, width: r.width, height: r.height } : null)
-      })
+    const tick = () => {
+      const next = pickSlot(slots, window.innerWidth, window.innerHeight)
+      setRect((prev) => (sameRect(prev, next) ? prev : next))
+      frame = requestAnimationFrame(tick)
     }
-    update()
-    const observer = new ResizeObserver(update)
-    for (const slot of slots) observer.observe(slot)
-    window.addEventListener('resize', update)
-    window.addEventListener('scroll', update, true)
-    return () => {
-      cancelAnimationFrame(frame)
-      observer.disconnect()
-      window.removeEventListener('resize', update)
-      window.removeEventListener('scroll', update, true)
-    }
-  }, [slots])
+    tick()
+    return () => cancelAnimationFrame(frame)
+  }, [slots, visible])
+
+  const docked = visible && rect !== null
+  const floating = visible && !rect && playing
+  const style: CSSProperties | undefined = docked ? { top: rect.top, left: rect.left, width: rect.width, height: rect.height } : undefined
 
   return (
     <div
-      ref={ref}
-      aria-label={title ? `Vídeo de YouTube: ${title}` : 'Reproductor de YouTube'}
-      style={visible && rect ? rect : undefined}
+      style={style}
+      data-state={docked ? 'docked' : floating ? 'floating' : 'hidden'}
       className={cn(
-        'fixed z-40 overflow-hidden bg-black [&_iframe]:size-full',
-        !visible && 'pointer-events-none top-0 left-0 size-px opacity-0',
+        'fixed z-40 overflow-hidden bg-black',
+        !docked && !floating && 'pointer-events-none top-0 left-0 size-px opacity-0',
         // Encima de la portada: los toques pasan al reproductor de Sintonía (abrirlo, pausar…).
-        visible && rect && 'pointer-events-none rounded-[8px]',
-        visible && !rect && 'right-3 bottom-[calc(24px+env(safe-area-inset-bottom))] aspect-video w-40 rounded-[10px] shadow-xl md:right-6 md:bottom-6 md:w-56',
+        docked && 'pointer-events-none rounded-[8px]',
+        floating &&
+          'right-3 bottom-[calc(88px+env(safe-area-inset-bottom))] aspect-video w-40 rounded-[10px] shadow-xl ring-1 ring-white/15 md:right-6 md:bottom-6 md:w-56',
       )}
-    />
+    >
+      <div ref={ref} aria-label={title ? `Vídeo de YouTube: ${title}` : 'Reproductor de YouTube'} className="size-full [&_iframe]:pointer-events-none [&_iframe]:size-full" />
+      {floating && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar el vídeo"
+          className="absolute top-1 right-1 grid size-8 place-items-center rounded-full bg-black/70 text-white outline-none focus-visible:ring-2 focus-visible:ring-white"
+        >
+          <Icon name="close" className="size-4" />
+        </button>
+      )}
+    </div>
   )
 }

@@ -42,6 +42,8 @@ interface PlayerApi extends PlayerState {
   next: () => void
   previous: () => void
   seek: (seconds: number) => void
+  /** Cierra el reproductor: para el audio o el vídeo y vacía la cola (desaparecen mini-reproductor y vídeo). */
+  stop: () => void
   /**
    * Ref de callback para un hueco donde se coloca el vídeo de YouTube (la portada del
    * mini-reproductor, de la barra o del reproductor completo). Se usa el hueco visible más grande.
@@ -171,7 +173,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     (auto: boolean) => {
       const { index, queue, order, repeat } = stateRef.current
       const target = nextIndex({ index, length: queue.length, order, repeat, auto })
-      if (target === null) return
+      // Fin de la lista: se queda parado (el vídeo deja de flotar).
+      if (target === null) {
+        if (auto) setState((s) => ({ ...s, playing: false }))
+        return
+      }
       // Con aleatorio y "repetir todo", al llegar al final se baraja de nuevo.
       if (order && order.indexOf(index) === order.length - 1) setState((s) => ({ ...s, order: shuffledOrder(queue.length, target) }))
       if (target === index && auto) {
@@ -268,6 +274,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     },
     [video],
   )
+  const stop = useCallback(() => {
+    audio.current?.pause()
+    audio.current?.removeAttribute('src')
+    yt.current?.stopVideo()
+    setState((s) => ({ ...s, queue: [], index: 0, listTitle: '', listId: null, domainId: null, playing: false, position: 0, duration: 0, order: null }))
+    if ('mediaSession' in navigator) navigator.mediaSession.metadata = null
+  }, [])
+
+  // Al desmontar el proveedor (recarga en caliente, Storybook) no queda ningún IFrame colgado.
+  useEffect(
+    () => () => {
+      yt.current?.destroy()
+      yt.current = null
+      ytReady.current = null
+      audio.current?.pause()
+    },
+    [],
+  )
+
   const prepareVideo = useCallback(() => void ensureYouTube().catch(() => undefined), [ensureYouTube])
 
   // Controles en la pantalla de bloqueo del móvil (Media Session API).
@@ -286,13 +311,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [current, state.listTitle, toggle, next, previous])
 
   const value = useMemo<PlayerApi>(
-    () => ({ ...state, current, video, hasNext, hasPrevious, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, setVideoSlot, prepareVideo }),
-    [state, current, video, hasNext, hasPrevious, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, setVideoSlot, prepareVideo],
+    () => ({ ...state, current, video, hasNext, hasPrevious, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, stop, setVideoSlot, prepareVideo }),
+    [state, current, video, hasNext, hasPrevious, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, stop, setVideoSlot, prepareVideo],
   )
   return (
     <PlayerContext.Provider value={value}>
       {children}
-      <VideoDock ref={videoHost} visible={video} slots={videoSlots} title={current?.item.title} />
+      <VideoDock ref={videoHost} visible={video} playing={state.playing} slots={videoSlots} title={current?.item.title} onClose={stop} />
     </PlayerContext.Provider>
   )
 }

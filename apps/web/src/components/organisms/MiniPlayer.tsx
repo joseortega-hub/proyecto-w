@@ -15,10 +15,12 @@ interface PlayerViewProps {
   repeat?: RepeatMode
   onShuffle?: () => void
   onRepeat?: () => void
+  /** Cierra el reproductor (para y vacía la cola). */
+  onClose?: () => void
 }
 
 /** Mini-reproductor del móvil, encima de la navegación. Al tocarlo se abre el reproductor. */
-export function MiniPlayer({ entry, playing, onToggle, videoSlot: slotProp, shuffle, repeat = 'off', onShuffle, onRepeat }: PlayerViewProps) {
+export function MiniPlayer({ entry, playing, onToggle, videoSlot: slotProp, shuffle, repeat = 'off', onShuffle, onRepeat, onClose }: PlayerViewProps) {
   // El hook va siempre (reglas de los hooks); la prop, si llega, manda.
   const contextSlot = usePlayerVideoSlot()
   const videoSlot = slotProp ?? contextSlot
@@ -38,6 +40,7 @@ export function MiniPlayer({ entry, playing, onToggle, videoSlot: slotProp, shuf
       {onShuffle && <IconButton icon="shuffle" label={shuffle ? 'Aleatorio: activado' : 'Aleatorio: desactivado'} aria-pressed={!!shuffle} variant="ghost" className={shuffle ? 'text-primary-foreground bg-primary/80' : 'opacity-70'} onClick={onShuffle} />}
       {onRepeat && <IconButton icon={repeat === 'one' ? 'repeatOne' : 'repeat'} label={REPEAT_LABEL[repeat]} aria-pressed={repeat !== 'off'} variant="ghost" className={repeat !== 'off' ? 'text-primary-foreground bg-primary/80' : 'opacity-70'} onClick={onRepeat} />}
       <IconButton icon={playing ? 'pause' : 'play'} label={playing ? 'Pausar' : 'Reproducir'} variant="ghost" onClick={onToggle} />
+      {onClose && <IconButton icon="close" label="Cerrar el reproductor" variant="ghost" className="opacity-70" onClick={onClose} />}
     </div>
   )
 }
@@ -53,7 +56,7 @@ interface PlayerBarProps extends PlayerViewProps {
 }
 
 /** Barra de reproducción de escritorio (≥ 768 px). */
-export function PlayerBar({ entry, playing, onToggle, position, duration, hasPrevious, hasNext, onPrevious, onNext, onSeek, videoSlot: slotProp, shuffle, repeat, onShuffle, onRepeat }: PlayerBarProps) {
+export function PlayerBar({ entry, playing, onToggle, position, duration, hasPrevious, hasNext, onPrevious, onNext, onSeek, videoSlot: slotProp, shuffle, repeat, onShuffle, onRepeat, onClose }: PlayerBarProps) {
   // El hook va siempre (reglas de los hooks); la prop, si llega, manda.
   const contextSlot = usePlayerVideoSlot()
   const videoSlot = slotProp ?? contextSlot
@@ -84,6 +87,7 @@ export function PlayerBar({ entry, playing, onToggle, position, duration, hasPre
             <Icon name="sparkles" className="size-4" /> Por qué suena
           </Link>
         )}
+        {onClose && <IconButton icon="close" label="Cerrar el reproductor" variant="ghost" onClick={onClose} />}
       </div>
     </div>
   )
