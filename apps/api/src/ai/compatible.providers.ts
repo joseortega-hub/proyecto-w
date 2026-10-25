@@ -23,13 +23,15 @@ export const compatibleConfig = {
   },
   /**
    * OpenRouter (https://openrouter.ai): modelos `:free` con cupo diario pequeño; último
-   * respaldo antes de Gemini. Solo modelos con salida estructurada (comprobado el 24/10/2026).
+   * respaldo antes de Gemini. Solo modelos con salida estructurada. Revisado el 25/10/2026 con una llamada real:
+   * nemotron-3-super devolvía 404 (Nvidia lo retiró) y bloqueaba la cadena; los dos de abajo
+   * responden en 1-3 s. El plan gratuito da 50 peticiones al día. Lista viva: openrouter.ai/api/v1/models
    */
   openrouter: {
     apiKey: env('OPENROUTER_API_KEY'),
     baseURL: 'https://openrouter.ai/api/v1',
-    decisionModels: list('OPENROUTER_MODELS', 'nvidia/nemotron-3-super-120b-a12b:free,nvidia/nemotron-3.5-super-vl:free'),
-    textModels: list('OPENROUTER_MODELS', 'nvidia/nemotron-3-super-120b-a12b:free,nvidia/nemotron-3.5-super-vl:free'),
+    decisionModels: list('OPENROUTER_MODELS', 'xingchen-agi/xing4.0-29b-a4b:free,nvidia/nemotron-3.5-super-vl:free'),
+    textModels: list('OPENROUTER_MODELS', 'xingchen-agi/xing4.0-29b-a4b:free,nvidia/nemotron-3.5-super-vl:free'),
   },
 };
 
@@ -45,7 +47,12 @@ export function compatibleProviders(): CompatibleProviders {
   for (const name of Object.keys(compatibleConfig) as CompatibleName[]) {
     const c = compatibleConfig[name];
     if (!c.apiKey) continue;
-    const client = createGroq({ apiKey: c.apiKey, baseURL: c.baseURL });
+    // OpenRouter pide identificar la app (HTTP-Referer y X-Title); Cerebras no se queja.
+    const client = createGroq({
+      apiKey: c.apiKey,
+      baseURL: c.baseURL,
+      headers: { 'HTTP-Referer': config.webUrl, 'X-Title': 'Sintonia' },
+    });
     const options = {
       label: name,
       logger: new Logger(name === 'cerebras' ? 'Cerebras' : 'OpenRouter'),

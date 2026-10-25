@@ -33,6 +33,10 @@ export const config = {
   /** Ollaya en local (compatible con la API de Jev) con el modelo Laya. */
   layaBaseUrl: optional('LAYA_BASE_URL', 'http://127.0.0.1:11435'),
   layaModel: optional('LAYA_MODEL', 'laya:multilingual'),
+  /** Clave del servidor Laya (secreto `OLLAYA_API_KEY` del Space de Hugging Face). En local, vacía. */
+  layaApiKey: optional('LAYA_API_KEY'),
+  /** Margen del primer precalentado: un Space dormido tarda 1-2 min en despertar y cargar el modelo. */
+  layaWarmupTimeoutMs: Number(optional('LAYA_WARMUP_TIMEOUT_MS', '180000')),
   /**
    * En caliente, una decisión de la entrevista tarda ~0,5-1 s en CPU, y Ollaya atiende
    * las peticiones de una en una: la segunda precarga (sí/no) espera a la primera.
@@ -43,7 +47,7 @@ export const config = {
   groqModel: optional('GROQ_MODEL', 'openai/gpt-oss-120b'),
   /** Modelo de Groq para el texto; distinto del de decisiones para no compartir cupo. */
   groqTextModel: optional('GROQ_TEXT_MODEL', 'qwen/qwen3.8-27b'),
-  groqFallbackModels: list('GROQ_FALLBACK_MODELS'),
+  groqFallbackModels: list('GROQ_FALLBACK_MODELS', 'openai/gpt-oss-20b'),
   typesafeApiKey: optional('TYPESAFE_API_KEY'),
   jevModel: optional('JEV_MODEL', 'jev-latest'),
   geminiApiKey: optional('GEMINI_API_KEY'),
@@ -55,7 +59,7 @@ export const config = {
    */
   geminiTextModel: optional('GEMINI_TEXT_MODEL', 'gemini-3.5-flash-lite'),
   /** Modelos de respaldo, en orden, si el principal está saturado. */
-  geminiFallbackModels: list('GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash'),
+  geminiFallbackModels: list('GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash,gemini-2.5-flash-lite,gemini-2.5-flash'),
   geminiEmbeddingModel: optional('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001'),
   /**
    * Contexto automático: si el navegador no manda zona horaria o posición, se usan estas

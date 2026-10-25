@@ -245,6 +245,14 @@ export const perreoArtists = pgTable(
     kind: text('kind').notNull().default('artist'),
     /** Ficha mínima sin completar. */
     incomplete: boolean('incomplete').notNull().default(false),
+    /** Apodo (editable a mano). */
+    nickname: text('nickname'),
+    /** Oculto del explorador (no se borra). Ni los imports ni `perreo:load` lo tocan. */
+    hidden: boolean('hidden').notNull().default(false),
+    /** Vídeo de YouTube de su canción destacada: sale primero en su lista. */
+    featuredVideoId: text('featured_video_id'),
+    /** Campos editados a mano (name, kind, country, styles…): `perreo:load` y los imports no los pisan. */
+    manualFields: text('manual_fields').array().notNull().default(sql`'{}'::text[]`),
   },
   (t) => [index('perreo_artists_fame_idx').on(t.fame)],
 );
@@ -269,3 +277,19 @@ export const perreoUnlocks = pgTable('perreo_unlocks', {
   userId: text('user_id').primaryKey(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Caché de respuestas de IA (decisiones y texto). La clave es un hash: el texto de la persona
+ * nunca se guarda en claro. Caduca por `expires_at` y se limpia cada hora.
+ */
+export const aiCache = pgTable(
+  'ai_cache',
+  {
+    key: text('key').primaryKey(),
+    kind: text('kind').notNull(),
+    payload: jsonb('payload').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('ai_cache_expires_idx').on(t.expiresAt)],
+);

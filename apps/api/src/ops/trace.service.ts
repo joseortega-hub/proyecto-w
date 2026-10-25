@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { and, asc, desc, eq, gt, lt } from 'drizzle-orm';
+import { CACHE_LABEL } from '../ai/provider-chain.js';
 import { estimateCost } from '../ai/pricing.js';
 import { setTraceSink, type TraceEvent } from '../ai/trace-context.js';
 import type { Db } from '../db/client.js';
@@ -52,7 +53,13 @@ export class TraceService implements OnModuleInit, OnModuleDestroy {
 
   async record(event: TraceEvent) {
     try {
-      const cost = estimateCost(event.provider, event.model, event.inputTokens, event.outputTokens);
+      // Un acierto de caché guarda en `model` quién respondió la primera vez ("groq:modelo") y
+      // sus tokens: el coste que sale es lo que se ha ahorrado, no lo que se ha gastado.
+      const [origin, ...originModel] = (event.provider === CACHE_LABEL ? (event.model ?? '') : '').split(':');
+      const cost =
+        event.provider === CACHE_LABEL
+          ? { ...estimateCost(origin || null, originModel.join(':') || null, event.inputTokens, event.outputTokens), free: true }
+          : estimateCost(event.provider, event.model, event.inputTokens, event.outputTokens);
       await this.db.insert(aiTraces).values({
         sessionId: event.sessionId,
         domainId: event.sessionId ? await this.domainOf(event.sessionId) : null,

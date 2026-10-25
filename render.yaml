@@ -25,9 +25,20 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "24"
-      # Sin Ollaya en producción: Groq, OpenRouter (modelos gratis, si hay clave) y, de respaldo, Gemini.
+      # Delante de todo va la caché de respuestas (AI_CACHE). Después Groq (rápido, con cupo), Laya en un
+      # Space de Hugging Face (sin cupo; se salta sola si LAYA_BASE_URL está vacía o el Space duerme),
+      # OpenRouter (modelos gratis, si hay clave) y, de último, Gemini.
       - key: DECISION_CHAIN
-        value: groq,openrouter,gemini
+        value: groq,laya,openrouter,gemini
+      - key: AI_CACHE
+        value: "on"
+      - key: LAYA_BASE_URL
+        sync: false
+      - key: LAYA_API_KEY
+        sync: false
+      # Más margen que en local: Laya en CPU compartida y por internet.
+      - key: LAYA_TIMEOUT_MS
+        value: "6000"
       - key: TEXT_CHAIN
         value: groq,openrouter,gemini
       - key: DECISION_PROVIDER

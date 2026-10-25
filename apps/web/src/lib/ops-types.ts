@@ -40,6 +40,11 @@ export interface TraceSummary {
   paidEur: number
   inputTokens: number
   outputTokens: number
+  /** Respuestas servidas desde la caché (sin gastar cupo) y lo que se ha ahorrado. */
+  cacheHits: number
+  cacheHitPct: number
+  savedEur: number
+  savedTokens: number
 }
 
 export interface OpsPanel {

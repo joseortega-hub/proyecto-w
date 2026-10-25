@@ -1,4 +1,4 @@
-import { coolDown, isBadOutput, isTransient, modelOrder, withModelFallback } from './model-fallback.js';
+import { coolDown, isBadOutput, isModelGone, isTransient, modelOrder, withModelFallback } from './model-fallback.js';
 
 describe('cortacircuitos de modelos', () => {
   it('manda al final el modelo apartado y lo recupera al expirar', () => {
@@ -26,5 +26,20 @@ describe('cortacircuitos de modelos', () => {
     };
     expect(await withModelFallback(['gpt-oss', 'qwen'], call)).toBe('qwen');
     expect(await withModelFallback(['gpt-oss', 'qwen'], call)).toBe('gpt-oss');
+  });
+});
+
+describe('modelo retirado (404)', () => {
+  it('lo salta y prueba el siguiente, en vez de cortar la cadena', async () => {
+    const gone = Object.assign(new Error('Not Found'), { statusCode: 404 });
+    expect(isModelGone(gone)).toBe(true);
+    expect(isModelGone(new Error('Invalid JSON schema'))).toBe(false);
+    const call = async (model: string) => {
+      if (model === 'retirado') throw gone;
+      return model;
+    };
+    expect(await withModelFallback(['retirado', 'vivo'], call)).toBe('vivo');
+    // y queda apartado: la siguiente vez ni se intenta primero
+    expect(modelOrder(['retirado', 'vivo'])[0]).toBe('vivo');
   });
 });

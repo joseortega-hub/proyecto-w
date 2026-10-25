@@ -1,7 +1,8 @@
 import { Logger } from '@nestjs/common';
 import type { z } from 'zod';
 import type { DecisionAnswer, DecisionProvider, DecisionQuestion } from './decision-provider.js';
-import { coolDown, isTransient, modelOrder, recover } from './model-fallback.js';
+import { cacheGet, cacheSet, cacheSettings, decisionKey, textKey, type CachedAnswer } from './ai-cache.js';
+import { coolDown, GONE_COOLDOWN_MS, isModelGone, isTransient, modelOrder, recover } from './model-fallback.js';
 import { rememberChoice } from './last-choice.js';
 import type { TextProvider } from './text-provider.js';
 import { currentSession, emitTrace, skipReason, withAttempt, type SkippedProvider } from './trace-context.js';
@@ -19,6 +20,54 @@ export interface ChainMeta<T> {
   task: string;
   subject: string;
   outcome?: (result: T) => string | undefined;
+  /** Quién respondió de verdad (para guardarlo en la caché junto a la respuesta). */
+  onAnswer?: (info: Omit<CachedAnswer, 'value'>) => void;
+}
+
+/** Nombre con el que las trazas marcan un acierto de caché. */
+export const CACHE_LABEL = 'caché';
+
+/**
+ * Responde desde la caché si hay acierto (y lo anota en la traza como "caché ✓"); si no,
+ * ejecuta la cadena y guarda lo que respondió el proveedor. La caché nunca rompe la llamada.
+ */
+export async function withCache<T>(
+  key: string,
+  kind: 'decision' | 'text',
+  task: { task: string; subject: string; outcome?: (result: T) => string | undefined },
+  run: (onAnswer: NonNullable<ChainMeta<T>['onAnswer']>) => Promise<T>,
+): Promise<T> {
+  if (!cacheSettings.enabled) return run(() => undefined);
+  const started = Date.now();
+  const hit = await cacheGet(key);
+  if (hit) {
+    const ms = Date.now() - started;
+    emitTrace({
+      sessionId: currentSession() ?? null,
+      task: task.task,
+      subject: task.subject,
+      provider: CACHE_LABEL,
+      // Quién respondió la primera vez, para calcular el ahorro: "groq:openai/gpt-oss-120b".
+      model: hit.model ? `${hit.provider}:${hit.model}` : hit.provider,
+      ok: true,
+      skipped: [],
+      latencyMs: ms,
+      totalMs: ms,
+      inputTokens: hit.inputTokens,
+      outputTokens: hit.outputTokens,
+      outcome: task.outcome?.(hit.value as T) ?? null,
+    });
+    return hit.value as T;
+  }
+  let info: Omit<CachedAnswer, 'value'> | null = null;
+  const result = await run((answered) => {
+    info = answered;
+  });
+  if (info) {
+    const ttl = kind === 'decision' ? cacheSettings.decisionTtlMs : cacheSettings.textTtlMs;
+    void cacheSet(key, { value: result, ...(info as Omit<CachedAnswer, 'value'>) }, ttl, kind);
+  }
+  return result;
 }
 
 /**
@@ -64,6 +113,12 @@ export async function runChain<P extends Named, T>(
         outputTokens: usage.outputTokens ?? null,
         outcome: meta.outcome?.(result) ?? null,
       });
+      meta.onAnswer?.({
+        provider: label,
+        model: usage.model ?? (rest.join(':') || null),
+        inputTokens: usage.inputTokens ?? null,
+        outputTokens: usage.outputTokens ?? null,
+      });
       return result;
     } catch (error) {
       lastError = error;
@@ -71,6 +126,7 @@ export async function runChain<P extends Named, T>(
       skipped.push(`${provider.name} (${Date.now() - t} ms: ${message})`);
       skippedTrace.push({ provider: labelOf(provider.name), reason: skipReason(error), ms: Date.now() - t });
       if (isTransient(error)) coolDown(key);
+      else if (isModelGone(error)) coolDown(key, Date.now() + GONE_COOLDOWN_MS);
     }
   }
   logger.warn(`${task}: fallaron todos (${skipped.join('; ')})`);
@@ -104,14 +160,13 @@ export class DecisionChain implements DecisionProvider {
     const types = [...new Set(Object.values(questions).map((q) => q.type))].join('+');
     const subject = Object.keys(questions).join('+');
     const sessionId = currentSession();
-    return runChain(this.providers, `decisión ${types}`, (p) => p.decide(state, questions), this.logger, {
-      task: types,
-      subject,
-      outcome: (answers) => {
-        const first = Object.values(answers)[0] as DecisionAnswer | undefined;
-        return first?.type === 'choice' ? first.choice : undefined;
-      },
-    }).then((answers) => {
+    const outcome = (answers: unknown) => {
+      const first = Object.values(answers as Record<string, DecisionAnswer>)[0];
+      return first?.type === 'choice' ? first.choice : undefined;
+    };
+    return withCache(decisionKey(state, questions), 'decision', { task: types, subject, outcome }, (onAnswer) =>
+      runChain(this.providers, `decisión ${types}`, (p) => p.decide(state, questions), this.logger, { task: types, subject, outcome, onAnswer }),
+    ).then((answers) => {
       if (sessionId && types.includes('choice')) {
         const chosen = Object.fromEntries(
           Object.entries(answers as Record<string, DecisionAnswer>).flatMap(([id, a]) =>
@@ -135,6 +190,8 @@ export class TextChain implements TextProvider {
   }
 
   write<S extends z.ZodType>(request: { system: string; prompt: string; schema: S }): Promise<z.infer<S>> {
-    return runChain(this.providers, 'texto', (p) => p.write(request), this.logger, { task: 'text', subject: 'texto' });
+    return withCache(textKey(request), 'text', { task: 'text', subject: 'texto' }, (onAnswer) =>
+      runChain(this.providers, 'texto', (p) => p.write(request), this.logger, { task: 'text', subject: 'texto', onAnswer }),
+    ) as Promise<z.infer<S>>;
   }
 }

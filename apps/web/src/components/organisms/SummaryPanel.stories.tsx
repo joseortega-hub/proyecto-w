@@ -17,6 +17,10 @@ const summary: TraceSummary = {
   paidEur: 0,
   inputTokens: 9100,
   outputTokens: 1300,
+  cacheHits: 6,
+  cacheHitPct: 25,
+  savedEur: 0.0011,
+  savedTokens: 2400,
 }
 
 const meta = {

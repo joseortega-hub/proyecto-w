@@ -1,3 +1,4 @@
+import { cacheSettings } from './ai-cache.js';
 import { withCompatible, type CompatibleProviders } from './compatible.providers.js';
 import { z } from 'zod';
 import type { DecisionProvider, DecisionQuestion } from './decision-provider.js';
@@ -6,6 +7,9 @@ import { LayaDecisionProvider } from './laya/laya-decision.provider.js';
 import { coolDown } from './model-fallback.js';
 import { DecisionChain, TextChain } from './provider-chain.js';
 import type { TextProvider } from './text-provider.js';
+
+// Estas pruebas repiten el mismo estado con proveedores distintos: sin caché.
+cacheSettings.enabled = false;
 
 const questions = {
   next: { type: 'choice', instructions: 'Elige la siguiente pregunta', criteria: { energy: 'Energía', voice: 'Voz' } },

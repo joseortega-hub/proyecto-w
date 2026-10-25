@@ -1,5 +1,6 @@
 import { Global, Logger, Module } from '@nestjs/common';
 import { config } from '../config.js';
+import { AiCacheService } from './ai-cache.service.js';
 import { DECISION_PROVIDER, INTERVIEW_DECISION_PROVIDER, type DecisionProvider } from './decision-provider.js';
 import { EMBEDDING_PROVIDER } from './embedding-provider.js';
 import {
@@ -44,7 +45,10 @@ const jev = config.typesafeApiKey
 let layaInstance: LayaDecisionProvider | null = null;
 function sharedLaya(): LayaDecisionProvider {
   if (!layaInstance) {
-    layaInstance = new LayaDecisionProvider(config.layaBaseUrl, config.layaModel, config.layaTimeoutMs);
+    layaInstance = new LayaDecisionProvider(config.layaBaseUrl, config.layaModel, config.layaTimeoutMs, undefined, {
+      apiKey: config.layaApiKey,
+      warmupTimeoutMs: config.layaWarmupTimeoutMs,
+    });
     void layaInstance.warmUp();
   }
   return layaInstance;
@@ -123,6 +127,7 @@ function textProvider(): TextProvider {
 @Global()
 @Module({
   providers: [
+    AiCacheService,
     { provide: DECISION_PROVIDER, useFactory: mainDecisions },
     { provide: INTERVIEW_DECISION_PROVIDER, useFactory: interviewDecisions },
     { provide: TEXT_PROVIDER, useFactory: textProvider },

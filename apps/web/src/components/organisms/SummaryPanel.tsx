@@ -18,6 +18,12 @@ export function SummaryPanel({ summary }: { summary: TraceSummary }) {
         <StatTile label="Con respaldo" value={`${summary.fallbackPct} %`} hint="saltaron de proveedor" />
         <StatTile label="Coste" value={cost.value} hint={cost.hint} />
       </div>
+      {summary.cacheHits > 0 && (
+        <Text size="sm" tone="muted">
+          Caché ✓ {summary.cacheHits} {summary.cacheHits === 1 ? 'respuesta' : 'respuestas'} ({summary.cacheHitPct} %) sin gastar cupo · ahorro: {summary.savedTokens.toLocaleString('es-ES')} tokens
+          {summary.savedEur > 0 ? ` (${formatEur(summary.savedEur)} a precio de lista)` : ''}
+        </Text>
+      )}
       {summary.byProvider.length > 0 && (
         <ul className="flex flex-col gap-2" aria-label="Llamadas por proveedor">
           {summary.byProvider.map((p) => (

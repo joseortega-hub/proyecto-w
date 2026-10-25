@@ -3,8 +3,17 @@ import type { DecisionProvider, DecisionQuestion } from '../decision-provider.js
 import { isTransient } from '../model-fallback.js';
 import { JevDecisionProvider } from '../jev/jev-decision.provider.js';
 
-/** La primera carga del modelo en CPU tarda ~30 s; después responde en ~0,3-1 s. */
-const WARMUP_TIMEOUT_MS = 120_000;
+/**
+ * La primera carga del modelo en CPU tarda ~30 s; después responde en ~0,3-1 s. Si el Space de
+ * Hugging Face estaba dormido, hay que sumarle el despertar (1-2 min): por eso el margen es amplio.
+ */
+const WARMUP_TIMEOUT_MS = 180_000;
+
+export interface LayaOptions {
+  /** Clave del servidor (`OLLAYA_API_KEY`). En local no hace falta; en un Space es obligatoria. */
+  apiKey?: string;
+  warmupTimeoutMs?: number;
+}
 
 /**
  * Laya en local a través de Ollaya, que habla el mismo protocolo que Jev
@@ -13,8 +22,8 @@ const WARMUP_TIMEOUT_MS = 120_000;
  * Mientras el modelo no está cargado, `decide` falla al instante para que la cadena
  * pase al siguiente proveedor en vez de esperar. Al arrancar se precalienta con
  * `POST /api/decide` y `keep_alive: -1`, que deja el modelo cargado sin caducidad.
- * Si Ollaya no está (p. ej. en producción), el precalentamiento falla en silencio y
- * Laya se salta; se reintenta cada pocos minutos por si aparece.
+ * Si Ollaya no está (o el Space duerme), el precalentamiento falla en silencio y Laya se
+ * salta; se reintenta cada pocos minutos por si aparece.
  */
 export class LayaDecisionProvider implements DecisionProvider {
   readonly name: string;
@@ -23,18 +32,25 @@ export class LayaDecisionProvider implements DecisionProvider {
   private ready = false;
   private warming: Promise<boolean> | null = null;
   private lastWarmup = 0;
+  private readonly baseURL: string;
+  private readonly apiKey: string;
+  private readonly warmupTimeoutMs: number;
 
   constructor(
-    private readonly baseURL: string,
+    baseURL: string,
     private readonly model: string,
     timeoutMs: number,
     private readonly retryWarmupMs = 3 * 60_000,
+    { apiKey, warmupTimeoutMs }: LayaOptions = {},
   ) {
-    // Ollaya acepta cualquier Bearer no vacío, pero no cuerpos comprimidos (400 "invalid JSON").
+    this.baseURL = baseURL.replace(/[/]+$/, '');
+    this.apiKey = apiKey?.trim() || 'local';
+    this.warmupTimeoutMs = warmupTimeoutMs ?? WARMUP_TIMEOUT_MS;
+    // Sin clave, Ollaya acepta cualquier Bearer no vacío; con OLLAYA_API_KEY exige la suya. No admite cuerpos comprimidos (400 "invalid JSON").
     this.jev = new JevDecisionProvider({
-      apiKey: 'local',
+      apiKey: this.apiKey,
       model,
-      baseURL,
+      baseURL: this.baseURL,
       timeoutMs,
       maxRetries: 0,
       label: 'ollaya',
@@ -65,15 +81,16 @@ export class LayaDecisionProvider implements DecisionProvider {
       try {
         const res = await fetch(`${this.baseURL}/api/decide`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
           body: JSON.stringify({
             model: this.model,
             keep_alive: -1,
             state: 'calentando',
             questions: { ok: { type: 'choice', instructions: 'Elige una', criteria: { a: 'A', b: 'B' } } },
           }),
-          signal: AbortSignal.timeout(WARMUP_TIMEOUT_MS),
+          signal: AbortSignal.timeout(this.warmupTimeoutMs),
         });
+        if (res.status === 401 || res.status === 403) throw new Error(`HTTP ${res.status}: la clave LAYA_API_KEY no coincide con OLLAYA_API_KEY del servidor`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         this.ready = true;
         this.logger.log(`${this.model} cargado en ${Date.now() - started} ms (residente)`);

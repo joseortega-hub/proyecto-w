@@ -8,6 +8,8 @@ import { Logger } from '@nestjs/common';
  * se agote su timeout.
  */
 export const COOLDOWN_MS = 3 * 60_000;
+/** Un modelo retirado (404) no vuelve en horas: se aparta más tiempo. */
+export const GONE_COOLDOWN_MS = 30 * 60_000;
 const cooldownUntil = new Map<string, number>();
 
 export const isTransient = (error: unknown) =>
@@ -15,6 +17,19 @@ export const isTransient = (error: unknown) =>
   /high demand|overloaded|unavailable|resource.?exhausted|quota|rate.?limit|timeout|timed out|aborted|fetch failed|econnrefused|econnreset|connection|\b(429|500|502|503)\b/i.test(
     String((error as Error)?.message ?? error),
   );
+
+/**
+ * El modelo ya no existe o su proveedor no lo sirve (404/410, "no endpoints", retirado). Es lo que
+ * pasó con OpenRouter: un `:free` retirado devolvía 404 y bloqueaba también a los demás modelos.
+ */
+export const isModelGone = (error: unknown) => {
+  const status = (error as { statusCode?: number })?.statusCode;
+  return (
+    status === 404 ||
+    status === 410 ||
+    /not found|no endpoints|model_not_found|decommission|deprecated|does not exist|no longer available/i.test(String((error as Error)?.message ?? error))
+  );
+};
 
 /**
  * Fallos de la respuesta, no del servicio (p. ej. Groq: "Failed to generate JSON"): se
@@ -58,6 +73,9 @@ export async function withModelFallback<T>(
       if (isTransient(error)) {
         coolDown(model);
         logger.warn(`${model} no disponible (${(error as Error).message?.slice(0, 80)}); lo aparto unos minutos`);
+      } else if (isModelGone(error)) {
+        coolDown(model, Date.now() + GONE_COOLDOWN_MS);
+        logger.warn(`${model} ya no está disponible (${(error as Error).message?.slice(0, 80)}); lo aparto y pruebo el siguiente`);
       } else if (isBadOutput(error)) {
         logger.warn(`${model} respondió mal (${(error as Error).message?.slice(0, 80)}); pruebo el siguiente`);
       } else {

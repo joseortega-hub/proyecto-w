@@ -5,6 +5,7 @@ const NAMES: Record<string, string> = {
   cerebras: 'Cerebras',
   openrouter: 'OpenRouter',
   jev: 'Jev',
+  'caché': 'Caché',
 }
 export const providerName = (id: string) => NAMES[id] ?? id
 
@@ -16,6 +17,7 @@ const HUES: Record<string, string> = {
   cerebras: 'oklch(0.66 0.16 330)',
   openrouter: 'oklch(0.7 0.14 95)',
   jev: 'oklch(0.62 0.15 210)',
+  'caché': 'oklch(0.7 0.13 135)',
 }
 export const providerHue = (id: string) => HUES[id] ?? 'oklch(0.6 0.02 260)'
 
