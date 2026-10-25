@@ -3,13 +3,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, Chip, Heading, Icon, IconButton, Skeleton, Text } from '@/components/atoms'
-import { EmptyState, SourceAttribution } from '@/components/molecules'
+import { EmptyState, LearnMore, SourceAttribution } from '@/components/molecules'
 import { AddTracksPanel, ResultList, VibeCard } from '@/components/organisms'
 import { ApiError, api, type Item, type ResultEntry, type SessionResult } from '@/lib/api'
 import { totalMinutes } from '@/lib/format'
 import { agree, useDomain } from '@/lib/domain'
 import { rememberSession } from '@/lib/ops'
 import { useSavedLists } from '@/lib/saved-lists'
+import { useSessionLinks } from '@/lib/links'
 import { useFeedback, useTaste } from '@/lib/taste'
 import { youtubeQuotaWarning } from '@/lib/list-size'
 import { useSaveToYouTube } from '@/lib/youtube'
@@ -53,6 +54,8 @@ export function ResultPage() {
     enabled: !tuning,
     retry: (count, e) => !(e instanceof ApiError && e.status === 400) && count < 2,
   })
+  // "Para saber más": si la lista gira en torno a algo concreto ("Marvel"), sus mejores webs.
+  const learnMore = useSessionLinks(id, result.data?.anchors)
 
   // Tu vibra: soltar una barra reordena la lista dentro de la bolsa, sin entrevista ni IA.
   const revibe = useMutation({
@@ -320,6 +323,7 @@ export function ResultPage() {
         <Text tone="muted" size="xs" font="mono">
           {data.candidates} {agree(domain.info, 'candidatas', 'candidatos')} entre {data.catalogSize} · {agree(domain.info, 'elegidas y explicadas', 'elegidos y explicados')} con IA
         </Text>
+        {learnMore.data && <LearnMore links={learnMore.data} className="mt-2" />}
         {domain.info && <SourceAttribution {...domain.info.source} />}
       </aside>
     </div>

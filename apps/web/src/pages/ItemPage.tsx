@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/molecules'
 import { ItemDetail } from '@/components/organisms'
 import { api } from '@/lib/api'
 import { useDomain } from '@/lib/domain'
+import { itemEntity, useEntityLinks } from '@/lib/links'
 import { usePlayer } from '@/player/player-context'
 
 /** /:domain/biblioteca/:itemId: la ficha, con los parecidos por embedding. */
@@ -22,6 +23,7 @@ export function ItemPage() {
     staleTime: Infinity,
   })
   const similar = useQuery({ queryKey: ['similar', itemId], queryFn: () => api.getSimilar(itemId, 6) })
+  const links = useEntityLinks(domain.id, item.data ? itemEntity(item.data, details.data) : null)
 
   const back = (
     <IconButton icon="back" label="Volver" onClick={() => (history.length > 1 ? navigate(-1) : navigate(domain.path('biblioteca')))} />
@@ -58,6 +60,7 @@ export function ItemPage() {
           attributes={domain.info.attributes}
           details={details.data}
           similar={similar.data?.items}
+          links={links.data}
           playing={isCurrent && player.playing}
           onPlay={() =>
             isCurrent ? player.toggle() : player.playList([{ item: data, reason: '', match: 0 }], { title: data.title, id: `item:${data.id}`, domainId: domain.id })

@@ -7,6 +7,8 @@ import { InterviewController } from './interview/interview.controller.js';
 import { AnchorsService } from './interview/anchors.service.js';
 import { NamedService } from './interview/named.service.js';
 import { SourcesService } from './sources/sources.service.js';
+import { LinksController } from './sources/links.controller.js';
+import { LinksService } from './sources/links.service.js';
 import { SimilarService } from './interview/similar.service.js';
 import { InterviewService } from './interview/interview.service.js';
 import { PreferencesController } from './interview/preferences.controller.js';
@@ -40,13 +42,14 @@ import { ListsService } from './lists/lists.service.js';
 
 @Module({
   imports: [DbModule, AiModule],
-  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController, ListsController],
+  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController, ListsController, LinksController],
   providers: [
     DomainsService,
     AnchorsService,
     NamedService,
     SimilarService,
     SourcesService,
+    LinksService,
     InterviewService,
     QuestionBankService,
     TuningService,

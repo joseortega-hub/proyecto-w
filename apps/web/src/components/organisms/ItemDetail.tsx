@@ -1,6 +1,6 @@
 import { Button, Chip, Cover, Heading, Icon, Text } from '@/components/atoms'
-import { AttributeMeter, ItemRow, SourceAttribution, TechSheet } from '@/components/molecules'
-import type { Attribute, DomainInfo, Item, ItemDetails } from '@/lib/api'
+import { AttributeMeter, ItemRow, LearnMore, SourceAttribution, TechSheet } from '@/components/molecules'
+import type { Attribute, DomainInfo, EntityLinks, Item, ItemDetails } from '@/lib/api'
 import { techSheet } from '@/lib/details'
 import { formatDuration } from '@/lib/format'
 import { itemYear } from './ItemGrid'
@@ -12,6 +12,8 @@ interface ItemDetailProps {
   /** Detalles más recientes (en música llegan después, desde MusicBrainz); por defecto, los del elemento. */
   details?: ItemDetails
   similar?: { similarity: number; item: Item }[]
+  /** "Para saber más" sobre su saga, autoría, estudio o artista; sin enlaces no se muestra. */
+  links?: EntityLinks
   playing?: boolean
   onPlay?: () => void
   onOpenSimilar?: (item: Item) => void
@@ -21,7 +23,7 @@ interface ItemDetailProps {
  * Ficha de un elemento. En música se reproduce aquí; en el resto de temáticas no hay
  * contenido que reproducir, así que se enlaza a la fuente con su atribución.
  */
-export function ItemDetail({ item, domain, attributes, details, similar, playing, onPlay, onOpenSimilar }: ItemDetailProps) {
+export function ItemDetail({ item, domain, attributes, details, similar, links, playing, onPlay, onOpenSimilar }: ItemDetailProps) {
   const scales = attributes.filter((a) => a.kind === 'scale' && item.attributes[a.key] !== undefined)
   const sheet = techSheet(item.domainId, details ?? item.details)
   const meta = [itemYear(item), item.durationSec ? formatDuration(item.durationSec) : null].filter(Boolean).join(' · ')
@@ -98,6 +100,7 @@ export function ItemDetail({ item, domain, attributes, details, similar, playing
             </ul>
           </section>
         )}
+        {links && <LearnMore links={links} />}
       </div>
     </div>
   )

@@ -44,8 +44,8 @@ export class SourcesService {
 
   constructor(@Inject(DB) private readonly db: Db) {}
 
-  /** Valor guardado si es reciente; si no, lo pide y lo guarda. Un fallo no se guarda (devuelve `fallback`). */
-  private async cached<T>(key: string, fallback: T, fetcher: () => Promise<T>): Promise<T> {
+  /** Valor guardado si es reciente; si no, lo pide y lo guarda. Un fallo no se guarda (devuelve `fallback`). También lo usa "Para saber más". */
+  async cached<T>(key: string, fallback: T, fetcher: () => Promise<T>): Promise<T> {
     try {
       const [row] = await this.db.select().from(sourceCache).where(eq(sourceCache.key, key));
       if (row && Date.now() - row.fetchedAt.getTime() < TTL_MS) return row.payload as T;
