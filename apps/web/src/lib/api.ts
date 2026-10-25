@@ -212,6 +212,22 @@ export interface FolderStatus {
   unanalyzed: number
   /** Sin embedding todavía. */
   unembedded: number
+  /** Sin medir el audio en el dispositivo (Essentia.js). */
+  unmeasured?: number
+}
+
+/** Medición del audio hecha en el dispositivo; la API la convierte a atributos. */
+export interface FolderAudioInput {
+  key: string
+  bpm: number
+  tonic: string
+  scale: 'major' | 'minor'
+  keyStrength: number
+  danceability: number
+  loudnessDb: number
+  dynamicComplexity: number
+  seconds: number
+  version: number
 }
 
 export interface FolderTrack {
@@ -421,6 +437,9 @@ export const api = {
   folderCorrect: (id: string, body: { title: string; artist: string | null }) =>
     request<FolderTrack>(`/folder/tracks/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   folderResume: () => request<FolderStatus & { quota: boolean }>('/folder/resume', { method: 'POST' }),
+  folderAudioPending: () => request<string[]>('/folder/audio/pending'),
+  folderAudio: (measurements: FolderAudioInput[]) =>
+    request<{ saved: number }>('/folder/audio', { method: 'POST', body: JSON.stringify({ measurements }) }),
   folderForget: () => request<{ removed: number }>('/folder', { method: 'DELETE' }),
 
   opsPanel: (session: string | null) => request<OpsPanel>(`/ops/panel${session ? `?session=${session}` : ''}`),

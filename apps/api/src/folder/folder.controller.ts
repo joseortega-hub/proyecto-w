@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, Headers, Param, Par
 import { z } from 'zod';
 import { USER_HEADER } from '../taste/taste.controller.js';
 import { requireUserId } from '../taste/taste.service.js';
+import { audioSchema } from './folder.audio.js';
 import { FolderService } from './folder.service.js';
 
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -62,6 +63,18 @@ export class FolderController {
   @Post('resume')
   resume(@Headers(USER_HEADER) user?: string) {
     return this.folder.resume(requireUserId(user));
+  }
+
+  /** Archivos aún sin medir en el dispositivo. */
+  @Get('audio/pending')
+  audioPending(@Headers(USER_HEADER) user?: string) {
+    return this.folder.audioPending(requireUserId(user));
+  }
+
+  /** Medición del audio hecha en el navegador (Essentia.js): solo números, nunca el audio. */
+  @Post('audio')
+  audio(@Body() body: unknown, @Headers(USER_HEADER) user?: string) {
+    return this.folder.saveAudio(requireUserId(user), parse(audioSchema, body).measurements);
   }
 
   @Delete()
