@@ -5,12 +5,13 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { and, eq, notInArray } from 'drizzle-orm';
+import { and, eq, notInArray, sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { config } from '../config.js';
 import { createDb } from '../db/client.js';
 import { domains, perreoArtists, perreoReview } from '../db/schema.js';
 import { perreoDomain } from '../domains/perreo.domain.js';
+import { protectManual } from './perreo.edit.js';
 import { upsertItems } from '../catalog/upsert.js';
 import { mergePerreo } from './perreo.resolve.js';
 import type { IgReview, PerreoArtistFile, PerreoOverlay, PerreoSongFile } from './perreo.types.js';
@@ -46,21 +47,25 @@ try {
   await migrate(db, { migrationsFolder: resolve(dirname(fileURLToPath(import.meta.url)), '../../drizzle') });
   // Comprobación previa: si una migración no se aplicó, se dice claro en vez de fallar en el insert.
   const cols = await client<{ column_name: string }[]>`select column_name from information_schema.columns where table_name = 'perreo_artists'`;
-  const missing = ['source', 'followed', 'kind', 'incomplete'].filter((c) => !cols.some((x) => x.column_name === c));
-  if (missing.length) throw new Error(`Faltan columnas en perreo_artists (${missing.join(', ')}): la migración no se aplicó. Haz git pull y repite el comando; si sigue, revisa que drizzle/meta/_journal.json incluya 0016_perreo_kind.`);
+  const missing = ['source', 'followed', 'kind', 'incomplete', 'nickname', 'hidden', 'featured_video_id', 'manual_fields'].filter((c) => !cols.some((x) => x.column_name === c));
+  if (missing.length) throw new Error(`Faltan columnas en perreo_artists (${missing.join(', ')}): la migración no se aplicó. Haz git pull y repite el comando; si sigue, revisa que drizzle/meta/_journal.json incluya 0018_perreo_manual.`);
   const d = perreoDomain;
   const row = { id: d.id, name: d.name, itemNoun: d.itemNoun, itemNounPlural: d.itemNounPlural, config: d.config };
   await db.insert(domains).values(row).onConflictDoUpdate({ target: domains.id, set: row });
 
+  // Lo editado a mano (manual_fields) no se pisa; `hidden`, `nickname` y la canción destacada no vienen en los ficheros.
+  const manualBy = new Map((await db.select({ slug: perreoArtists.slug, manual: perreoArtists.manualFields }).from(perreoArtists)).map((r) => [r.slug, r.manual]));
   for (const a of artists) {
+    const manual = manualBy.get(a.slug);
     let photo: string | null = null;
-    if (a.hasPhoto) photo = readFileSync(join(dir, 'photos', `${a.slug}.webp`)).toString('base64');
+    if (a.hasPhoto && !manual?.includes('photo')) photo = readFileSync(join(dir, 'photos', `${a.slug}.webp`)).toString('base64');
     const { hasPhoto: _h, ...fields } = a;
     const values = { ...fields, photo };
-    await db.insert(perreoArtists).values(values).onConflictDoUpdate({ target: perreoArtists.slug, set: values });
+    await db.insert(perreoArtists).values(values).onConflictDoUpdate({ target: perreoArtists.slug, set: protectManual(values, manual) });
   }
   // Solo los lotes ya procesados: lo de Instagram que ya no esté en los ficheros se quita.
-  await db.delete(perreoArtists).where(and(eq(perreoArtists.source, 'instagram'), notInArray(perreoArtists.slug, artists.map((a) => a.slug))));
+  // (los editados a mano se quedan aunque salgan de los ficheros)
+  await db.delete(perreoArtists).where(and(eq(perreoArtists.source, 'instagram'), notInArray(perreoArtists.slug, artists.map((a) => a.slug)), sql`cardinality(${perreoArtists.manualFields}) = 0`));
   console.log(`Artistas: ${artists.length} (${artists.filter((a) => a.followed).length} que sigues en Instagram)`);
 
   // Dudosas de la segunda pasada: la decisión que ya tomaste en la pantalla se conserva.

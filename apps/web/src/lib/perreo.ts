@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useSyncExternalStore } from 'react'
 import { buildTheme, themeCss, type ThemeProposal } from '@sintonia/tokens/engine'
 import { api } from './api'
-import { filtersToQuery, type PerreoFilters } from './perreo-types'
+import { filtersToQuery, type PerreoArtistPatch, type PerreoFilters } from './perreo-types'
 import { applyTheme } from './theme'
 
 // --------------------------- Desbloqueo (solo en este dispositivo) ---------------------------
@@ -102,7 +102,22 @@ export function usePerreoReview() {
   return useQuery({ queryKey: ['perreo', 'review'], queryFn: api.perreoReview, staleTime: 60_000 })
 }
 
-export const photoUrl = (slug: string) => `/api/perreo/artists/${encodeURIComponent(slug)}/photo`
+// La foto se cachea un día: al cambiarla se añade una versión para ver la nueva al momento.
+const photoVersion = new Map<string, number>()
+export const photoUrl = (slug: string) => `/api/perreo/artists/${encodeURIComponent(slug)}/photo${photoVersion.has(slug) ? `?v=${photoVersion.get(slug)}` : ''}`
+
+/** Guarda a mano un artista; el explorador, los filtros y la ficha se refrescan al momento. */
+export function useEditArtist(slug: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (patch: PerreoArtistPatch) => api.perreoEdit(slug, patch),
+    onSuccess: (detail, patch) => {
+      if (patch.photoUrl || patch.photoData) photoVersion.set(slug, Date.now())
+      qc.setQueryData(['perreo', 'artist', slug], detail)
+      void qc.invalidateQueries({ queryKey: ['perreo', 'artists'] })
+    },
+  })
+}
 
 // --------------------------- Tema neón ---------------------------
 // Se construye con el motor de temas: el contraste AA queda garantizado como en cualquier otro tema.

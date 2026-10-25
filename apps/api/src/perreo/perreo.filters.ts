@@ -15,6 +15,7 @@ export interface ArtistSummary {
   kind: string;
   /** Ficha mínima, por completar. */
   incomplete: boolean;
+  nickname?: string | null;
 }
 
 export type ArtistSort = 'fame' | 'age' | 'name';

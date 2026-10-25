@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { artistFacets, cityParts, eraOf, filterArtists, type ArtistSummary } from './perreo.filters.js';
+import { artistPatchSchema, isPrivateHost, planEdit, protectManual, youtubeId } from './perreo.edit.js';
 import { interleave } from './perreo.service.js';
 import { stylesFromTags, accountHash, classify, findDuplicate, freeSlug, mergePerreo } from './perreo.resolve.js';
 import type { PerreoArtistFile } from './perreo.types.js';
@@ -180,5 +181,52 @@ describe('estilos sin IA', () => {
     expect(stylesFromTags(['Pop latino', 'balada'])).toEqual(['romántico']);
     expect(stylesFromTags(['dembow', 'reggaeton'])).toEqual(['dembow', 'perreo']);
     expect(stylesFromTags(['rock'])).toEqual([]);
+  });
+});
+
+describe('edición a mano del Modo Perreo', () => {
+  const cur = { name: 'Wisin', nickname: null, kind: 'artist', country: 'Puerto Rico', city: 'Cayey', debutYear: 1998, styles: ['perreo'], labels: [], bio: null, links: { spotify: 'https://s' }, manualFields: [] as string[] };
+
+  it('valida el PATCH con Zod: rechaza campos raros, tipos y enlaces que no son http(s)', () => {
+    expect(artistPatchSchema.safeParse({ name: 'X', styles: ['trap'] }).success).toBe(true);
+    expect(artistPatchSchema.safeParse({ kind: 'dios' }).success).toBe(false);
+    expect(artistPatchSchema.safeParse({ photoUrl: 'javascript:alert(1)' }).success).toBe(false);
+    expect(artistPatchSchema.safeParse({ links: { spotify: 'ftp://x' } }).success).toBe(false);
+    expect(artistPatchSchema.safeParse({ fame: 100 }).success).toBe(false);
+    expect(artistPatchSchema.safeParse({ debutYear: 1200 }).success).toBe(false);
+  });
+
+  it('solo marca como manual lo que de verdad cambia', () => {
+    const { set, manual } = planEdit(cur, { name: 'Wisin', country: 'Colombia', styles: ['trap', 'Trap'], links: { spotify: '', instagram: 'https://i' } });
+    expect(set).toMatchObject({ country: 'Colombia', countries: ['Colombia'], styles: ['trap'], links: { instagram: 'https://i' }, incomplete: false });
+    expect([...manual].sort()).toEqual(['country', 'links', 'styles']);
+    expect(planEdit(cur, { name: 'Wisin' }).set).toEqual({});
+  });
+
+  it('ocultar no es un campo manual y no borra nada', () => {
+    const { set, manual } = planEdit(cur, { hidden: true });
+    expect(set).toEqual({ hidden: true });
+    expect(manual.size).toBe(0);
+  });
+
+  it('los campos manuales sobreviven a una recarga (perreo:load)', () => {
+    const fromFile = { slug: 'wisin', name: 'Wisin', kind: 'artist', incomplete: false, country: 'Puerto Rico', city: 'Cayey', countries: ['Puerto Rico'], debutYear: 1998, styles: ['perreo'], bio: 'Bio del import', bioSource: 'UrbanoPedia', labels: [], links: {}, photo: 'x' };
+    const { set, manual } = planEdit(cur, { name: 'Wisin Y', country: 'Colombia', bio: 'Mi bio' });
+    const kept = protectManual(fromFile, [...manual]);
+    for (const k of ['country', 'city', 'countries', 'name', 'bio', 'bioSource']) expect(kept).not.toHaveProperty(k);
+    for (const k of ['styles', 'debutYear', 'photo', 'links']) expect(kept).toHaveProperty(k);
+    expect(kept).not.toHaveProperty('name');
+    expect(kept).not.toHaveProperty('bio');
+    expect(kept).toHaveProperty('styles');
+    expect(set.name).toBe('Wisin Y');
+    expect(protectManual(fromFile, undefined)).toEqual(fromFile);
+  });
+
+  it('entiende enlaces de YouTube y bloquea redes privadas', () => {
+    for (const u of ['https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=3', 'https://music.youtube.com/watch?v=dQw4w9WgXcQ', 'https://youtu.be/dQw4w9WgXcQ?si=1', 'https://youtube.com/shorts/dQw4w9WgXcQ', 'dQw4w9WgXcQ']) expect(youtubeId(u)).toBe('dQw4w9WgXcQ');
+    expect(youtubeId('https://example.com/watch?v=dQw4w9WgXcQ')).toBeNull();
+    for (const h of ['localhost', '127.0.0.1', '10.0.0.4', '192.168.1.1', '172.20.0.1', '169.254.169.254', '::1']) expect(isPrivateHost(h)).toBe(true);
+    expect(isPrivateHost('upload.wikimedia.org')).toBe(false);
+    expect(isPrivateHost('8.8.8.8')).toBe(false);
   });
 });

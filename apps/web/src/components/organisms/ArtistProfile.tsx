@@ -19,11 +19,13 @@ interface ArtistProfileProps {
   onPlay: (index: number) => void
   onMakeList: () => void
   onOpenArtist: (slug: string) => void
+  /** Abre el formulario para corregir el artista a mano. */
+  onEdit?: () => void
   className?: string
 }
 
 /** Ficha de un artista: foto, datos, biografía, sellos, enlaces, parecidos y su primera lista. */
-export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, photoUrl, activeItemId, playing, onPlay, onMakeList, onOpenArtist, className }: ArtistProfileProps) {
+export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, photoUrl, activeItemId, playing, onPlay, onMakeList, onOpenArtist, onEdit, className }: ArtistProfileProps) {
   const [failed, setFailed] = useState(false)
   const years = careerYears(artist.debutYear)
   const origin = originLabel(artist.city, artist.countries)
@@ -40,7 +42,8 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
           )}
         </div>
         <div className="flex min-w-0 flex-col gap-2">
-          <Heading size="display">{artist.name}</Heading>
+          <Heading size="display" className="break-words">{artist.name}</Heading>
+          {artist.nickname && <Text className="font-bold text-domain break-words">«{artist.nickname}»</Text>}
           {artist.realName && <Text tone="muted">{artist.realName}</Text>}
           <div className="flex flex-wrap gap-1.5">
             {origin && (
@@ -64,11 +67,18 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
         </div>
       </header>
 
-      {(artist.kind === 'artist' || artist.kind === 'group') && !artist.incomplete && (
-      <Button onClick={onMakeList} className="self-start">
-        <Icon name="sparkles" className="size-5" /> Hazme una lista con {artist.name}
-      </Button>
-      )}
+      <div className="flex min-w-0 flex-wrap gap-2">
+        {(artist.kind === 'artist' || artist.kind === 'group') && !artist.incomplete && (
+          <Button onClick={onMakeList} className="h-auto min-h-13 max-w-full whitespace-normal py-2 text-left">
+            <Icon name="sparkles" className="size-5 flex-none" /> <span className="min-w-0 break-words">Hazme una lista con {artist.name}</span>
+          </Button>
+        )}
+        {onEdit && (
+          <Button variant="secondary" size="lg" onClick={onEdit}>
+            <Icon name="edit" className="size-5" /> Editar
+          </Button>
+        )}
+      </div>
 
       {artist.bio && (
         <section aria-labelledby="bio" className="flex flex-col gap-2">
@@ -94,8 +104,8 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
           <ul className="flex flex-col gap-1.5">
             {artist.labels.map((l, i) => (
               <li key={`${l.name}-${i}`} className="flex items-baseline justify-between gap-3 border-b border-border pb-1.5 text-[15px]">
-                <span>{l.name}</span>
-                <span className="font-mono text-sm text-muted-foreground tabular-nums">{labelYears(l.start, l.end)}</span>
+                <span className="min-w-0 break-words">{l.name}</span>
+                <span className="flex-none font-mono text-sm text-muted-foreground tabular-nums">{labelYears(l.start, l.end)}</span>
               </li>
             ))}
           </ul>

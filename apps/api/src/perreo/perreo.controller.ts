@@ -1,4 +1,8 @@
-import { BadRequestException, Body, Controller, Get, Header, Param, Post, Query, StreamableFile } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Header, Headers, Param, Patch, Post, Query, StreamableFile } from '@nestjs/common';
+import { DomainsService } from '../domains/domains.service.js';
+import { USER_HEADER } from '../taste/taste.controller.js';
+import { optionalUserId } from '../taste/taste.service.js';
+import { artistPatchSchema } from './perreo.edit.js';
 import { PerreoService } from './perreo.service.js';
 import type { ArtistSort } from './perreo.filters.js';
 
@@ -7,7 +11,10 @@ const text = (v?: string) => (v ? v.slice(0, 80) : undefined);
 
 @Controller('perreo')
 export class PerreoController {
-  constructor(private readonly perreo: PerreoService) {}
+  constructor(
+    private readonly perreo: PerreoService,
+    private readonly domains: DomainsService,
+  ) {}
 
   /** `?sort=fame|age|name&fameMin=0&fameMax=100&country=&city=&era=&label=&style=&q=` */
   @Get('artists')
@@ -55,6 +62,15 @@ export class PerreoController {
   @Get('artists/:slug')
   get(@Param('slug') slug: string) {
     return this.perreo.get(slug.slice(0, 80));
+  }
+
+  /** Edita un artista a mano; solo quien tiene el Modo Perreo desbloqueado. Lo editado no lo pisa ninguna recarga. */
+  @Patch('artists/:slug')
+  async edit(@Param('slug') slug: string, @Body() body: unknown, @Headers(USER_HEADER) user?: string) {
+    if (!(await this.domains.hasUnlocked(optionalUserId(user)))) throw new ForbiddenException('Primero desbloquea el Modo Perreo');
+    const parsed = artistPatchSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues.map((i) => `${i.path.join('.') || 'cuerpo'}: ${i.message}`).join('; '));
+    return this.perreo.edit(slug.slice(0, 80), parsed.data);
   }
 
   @Get('artists/:slug/photo')

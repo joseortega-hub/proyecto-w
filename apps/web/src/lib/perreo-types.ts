@@ -18,6 +18,7 @@ export interface PerreoArtist {
   kind: string
   /** Ficha mínima: por completar. */
   incomplete: boolean
+  nickname?: string | null
 }
 
 export interface PerreoFacets {
@@ -46,10 +47,16 @@ export interface PerreoArtistFull extends Omit<PerreoArtist, 'labels'> {
   bioSource: string | null
   similar: string[]
   followed: boolean
+  hidden?: boolean
+  featuredVideoId?: string | null
+  /** Campos editados a mano (las recargas no los pisan). */
+  manualFields?: string[]
 }
 
 export interface PerreoArtistDetail {
   artist: PerreoArtistFull
+  /** Sus canciones (la destacada, la primera) para elegir otra. */
+  ownSongs: { videoId: string; title: string }[]
   similar: PerreoArtist[]
   /** De los parecidos, los que la persona sigue en Instagram. */
   alsoFollow: PerreoArtist[]
@@ -131,3 +138,25 @@ export const kindCounter = (kinds: { value: string; count: number }[]) =>
   Object.keys(KIND_LABELS)
     .flatMap((k) => kinds.filter((x) => x.value === k && x.count > 0).map((x) => `${x.count} ${KIND_LABELS[k]}`))
     .join(' · ')
+
+/** Lo que se manda al editar un artista a mano (todo opcional). */
+export interface PerreoArtistPatch {
+  name?: string
+  nickname?: string | null
+  kind?: string
+  country?: string | null
+  city?: string | null
+  debutYear?: number | null
+  styles?: string[]
+  labels?: { name: string; start?: number | null; end?: number | null }[]
+  bio?: string | null
+  links?: { instagram?: string; youtubeMusic?: string; spotify?: string }
+  photoUrl?: string
+  photoData?: string
+  featured?: string | null
+  hidden?: boolean
+}
+
+/** Estilos sugeridos en el formulario. */
+export const STYLE_OPTIONS = ['perreo', 'romántico', 'trap', 'dembow', 'old school']
+export const KIND_OPTIONS = Object.keys(KIND_LABELS)
