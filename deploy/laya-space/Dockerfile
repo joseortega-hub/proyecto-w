@@ -22,6 +22,6 @@ ENV OLLAYA_HOST=0.0.0.0:7860 \
 
 COPY --chown=1000:1000 start.sh /home/ollaya/start.sh
 # Por si el archivo se subió desde Windows con saltos de línea CRLF.
-RUN sed -i "s/$//" /home/ollaya/start.sh
+RUN sed -i 's/\r$//' /home/ollaya/start.sh
 EXPOSE 7860
 ENTRYPOINT ["sh", "/home/ollaya/start.sh"]
