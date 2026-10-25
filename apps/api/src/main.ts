@@ -1,10 +1,13 @@
 import { config } from './config.js';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
 import { traceContextMiddleware } from './ai/trace-middleware.js';
+import { applyBodyLimit } from './body-limit.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  applyBodyLimit(app);
   app.setGlobalPrefix('api');
   app.enableCors({ origin: config.webUrl });
   app.use(traceContextMiddleware);

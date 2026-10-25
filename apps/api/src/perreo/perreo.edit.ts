@@ -118,8 +118,10 @@ export function planEdit(cur: CurrentArtist, patch: ArtistPatch): { set: Record<
     if (styles.join('|') !== cur.styles.join('|')) change('styles', { styles });
   }
   if (patch.labels) {
-    const labels = patch.labels.map((l) => ({ name: l.name, start: l.start ?? null, end: l.end ?? null }));
-    if (JSON.stringify(labels) !== JSON.stringify(cur.labels)) change('labels', { labels });
+    // jsonb reordena las claves: se comparan con el mismo orden a ambos lados.
+    const norm = (ls: { name: string; start?: number | null; end?: number | null }[]) => ls.map((l) => ({ name: l.name, start: l.start ?? null, end: l.end ?? null }));
+    const labels = norm(patch.labels);
+    if (JSON.stringify(labels) !== JSON.stringify(norm(cur.labels))) change('labels', { labels });
   }
   if (patch.bio !== undefined && blank(patch.bio) !== cur.bio) change('bio', { bio: blank(patch.bio), bioSource: blank(patch.bio) ? 'Editado a mano' : null });
   if (patch.links) {

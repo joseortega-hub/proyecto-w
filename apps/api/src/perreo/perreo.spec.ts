@@ -203,6 +203,13 @@ describe('edición a mano del Modo Perreo', () => {
     expect(planEdit(cur, { name: 'Wisin' }).set).toEqual({});
   });
 
+  it('los sellos sin tocar no cuentan como cambio aunque la BD (jsonb) guarde las claves en otro orden', () => {
+    const stored = { ...cur, labels: [{ end: 2018, name: 'Hear This Music', start: 2016 } as unknown as (typeof cur.labels)[number]] };
+    const { set, manual } = planEdit(stored, { labels: [{ name: 'Hear This Music', start: 2016, end: 2018 }] });
+    expect(set).toEqual({});
+    expect(manual.has('labels')).toBe(false);
+  });
+
   it('ocultar no es un campo manual y no borra nada', () => {
     const { set, manual } = planEdit(cur, { hidden: true });
     expect(set).toEqual({ hidden: true });

@@ -1,6 +1,7 @@
 import { useId, useState, type ComponentProps, type ReactNode } from 'react'
 import { Button, Chip, Switch, Text } from '@/components/atoms'
 import { BottomSheet } from '@/components/molecules'
+import { changedLinks, compactPhoto } from '@/lib/perreo-edit'
 import { KIND_OPTIONS, STYLE_OPTIONS, kindName, type PerreoArtistFull, type PerreoArtistPatch } from '@/lib/perreo-types'
 import { cn } from '@/lib/utils'
 
@@ -40,8 +41,7 @@ async function toWebpBase64(file: File): Promise<string> {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 400
   canvas.getContext('2d')!.drawImage(bitmap, (bitmap.width - side) / 2, 0, side, side, 0, 0, 400, 400)
-  const url = canvas.toDataURL('image/webp', 0.7)
-  return url.split(',')[1]
+  return compactPhoto((type, quality) => canvas.toDataURL(type, quality))
 }
 
 /** Formulario para corregir un artista a mano: hoja inferior en el móvil. Lo editado no lo pisa ninguna recarga. */
@@ -101,9 +101,10 @@ export function ArtistEditForm({ open, artist, ownSongs, photoUrl, saving, error
           return { name: n, start: old?.start ?? null, end: old?.end ?? null }
         }),
       bio: bio.trim() || null,
-      links,
       hidden,
     }
+    const editedLinks = changedLinks(artist.links, links)
+    if (editedLinks) patch.links = editedLinks
     if (photoData) patch.photoData = photoData
     else if (photoLink.trim()) patch.photoUrl = photoLink.trim()
     if (featuredLink.trim()) patch.featured = featuredLink.trim()
@@ -117,14 +118,22 @@ export function ArtistEditForm({ open, artist, ownSongs, photoUrl, saving, error
       onClose={onClose}
       title={`Editar a ${artist.name}`}
       footer={
-        <>
-          <Button variant="secondary" size="md" onClick={onClose} className="flex-1">
-            Cancelar
-          </Button>
-          <Button size="md" onClick={submit} disabled={saving} className="flex-1">
-            {saving ? 'Guardando…' : 'Guardar'}
-          </Button>
-        </>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {/* El aviso va junto a «Guardar»: al final del formulario quedaba fuera de la vista en el móvil. */}
+          {error && (
+            <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive break-words">
+              {error}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button variant="secondary" size="md" onClick={onClose} className="flex-1">
+              Cancelar
+            </Button>
+            <Button size="md" onClick={submit} disabled={saving} className="flex-1">
+              {saving ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </div>
+        </div>
       }
     >
       <form
@@ -227,12 +236,6 @@ export function ArtistEditForm({ open, artist, ownSongs, photoUrl, saving, error
           </div>
           <Switch checked={hidden} onCheckedChange={setHidden} label="Ocultar artista" />
         </div>
-
-        {error && (
-          <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive break-words">
-            {error}
-          </p>
-        )}
       </form>
     </BottomSheet>
   )
