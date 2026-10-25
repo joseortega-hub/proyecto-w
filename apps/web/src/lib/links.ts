@@ -30,22 +30,24 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 
 /**
  * De qué va la ficha de un elemento, para buscar sus enlaces: la saga en películas (si no, quien
- * la dirige), el estudio en videojuegos, la autoría en libros y el artista en música.
+ * la dirige), el estudio en videojuegos, la autoría en libros y el artista en música. Si faltan
+ * esos datos (créditos o facetas sin rellenar), quien firma el elemento (`subtitle`).
  */
 export function itemEntity(item: Item, details?: ItemDetails): string | null {
   const d = details ?? item.details ?? {}
+  // El creador principal, sin los demás ("Bad Bunny feat. X" → "Bad Bunny", "Joel Coen, Ethan Coen" → "Joel Coen").
+  const creator = item.subtitle?.split(/\s*,\s*|\s+&\s+|\s+x\s+|\s+(?:feat|ft)\.?\s+/i)[0]?.trim() || null
   switch (item.domainId) {
     case 'movies': {
       const saga = first(item.facets?.collection)?.replace(/\s*[-–:]?\s*\b(colecci[oó]n|collection|saga)\b\s*[-–:]?\s*/gi, ' ').trim()
-      return saga || d.director || null
+      return saga || d.director || creator
     }
     case 'games':
-      return d.developers?.[0] ?? first(item.facets?.companies)
+      return d.developers?.[0] ?? first(item.facets?.companies) ?? creator
     case 'books':
-      return d.authors?.[0] ?? item.subtitle
+      return d.authors?.[0] ?? creator
     default:
-      // Música: el artista principal, sin los invitados ("Bad Bunny feat. X" → "Bad Bunny").
-      return item.subtitle?.split(/\s*,\s*|\s+&\s+|\s+x\s+|\s+(?:feat|ft)\.?\s+/i)[0]?.trim() || null
+      return creator
   }
 }
 

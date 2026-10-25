@@ -33,6 +33,11 @@ describe('De qué va la ficha (para "Para saber más")', () => {
     expect(itemEntity(item('books', { subtitle: 'Sarah J. Maas' }))).toBe('Sarah J. Maas')
   })
 
+  it('sin créditos ni facetas (producción sin `pnpm facets`), usa quien firma el elemento', () => {
+    expect(itemEntity(item('games', { subtitle: 'Rockstar North', details: {} }))).toBe('Rockstar North')
+    expect(itemEntity(item('movies', { subtitle: 'Joel Coen, Ethan Coen' }))).toBe('Joel Coen')
+  })
+
   it('música: el artista principal, sin invitados', () => {
     expect(itemEntity(item('music', { subtitle: 'Bad Bunny feat. Jhay Cortez' }))).toBe('Bad Bunny')
     expect(itemEntity(item('perreo', { subtitle: 'Karol G x Peso Pluma' }))).toBe('Karol G')
