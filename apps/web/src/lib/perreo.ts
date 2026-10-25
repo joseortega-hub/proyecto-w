@@ -142,7 +142,7 @@ export function useNeonTheme(active: boolean) {
     }
     el.textContent = themeCss(THEME_ID, theme)
     void import('@fontsource-variable/space-grotesk')
-    void import('@fontsource/bebas-neue')
+    void import('@fontsource/bebas-neue/latin.css')
     const root = document.documentElement
     root.classList.add('dark')
     root.dataset.theme = THEME_ID
