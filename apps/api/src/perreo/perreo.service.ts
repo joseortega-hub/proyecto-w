@@ -1,13 +1,14 @@
 import { lookup } from 'node:dns/promises';
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import sharp from 'sharp';
-import { and, desc, eq, getTableColumns, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, inArray, isNull, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
 import { items, perreoArtists, perreoReview } from '../db/schema.js';
 import { publicItem } from '../items/items.service.js';
 import { upsertItems } from '../catalog/upsert.js';
 import { isPrivateHost, planEdit, youtubeId, type ArtistPatch } from './perreo.edit.js';
+import { artistColor } from './perreo.color.js';
 import { artistFacets, filterArtists, type ArtistQuery, type ArtistSummary } from './perreo.filters.js';
 
 export const PERREO_DOMAIN = 'perreo';
@@ -41,6 +42,7 @@ const summary = (a: Artist): ArtistSummary => ({
 @Injectable()
 export class PerreoService {
   private cache: { rows: Artist[]; at: number } | null = null;
+  private coloring: Promise<void> | null = null;
 
   constructor(@Inject(DB) private readonly db: Db) {}
 
@@ -48,7 +50,19 @@ export class PerreoService {
     if (this.cache && Date.now() - this.cache.at < 5 * 60_000) return this.cache.rows;
     const rows = await this.db.select(artistColumns).from(perreoArtists);
     this.cache = { rows, at: Date.now() };
+    if (rows.some((r) => !r.color) && !this.coloring) this.coloring = this.fillColors().finally(() => (this.coloring = null));
     return rows;
+  }
+
+  /** Calcula (una vez) el color de los artistas que no lo tienen: el más vivo de su foto o el de su subgénero. */
+  private async fillColors() {
+    const missing = await this.db.select({ slug: perreoArtists.slug, styles: perreoArtists.styles, photo: perreoArtists.photo }).from(perreoArtists).where(isNull(perreoArtists.color));
+    for (const m of missing) {
+      const color = await artistColor(m.slug, m.styles, m.photo);
+      await this.db.update(perreoArtists).set({ color }).where(eq(perreoArtists.slug, m.slug));
+      const row = this.cache?.rows.find((r) => r.slug === m.slug);
+      if (row) row.color = color;
+    }
   }
 
   async list(query: ArtistQuery) {
@@ -90,6 +104,12 @@ export class PerreoService {
     const rows = await this.all();
     const artist = rows.find((r) => r.slug === slug);
     if (!artist) throw new NotFoundException('Artista no encontrado');
+    // El color hace falta ya (desbloqueo): si aún no está calculado, se calcula ahora.
+    if (!artist.color) {
+      const [p] = await this.db.select({ photo: perreoArtists.photo }).from(perreoArtists).where(eq(perreoArtists.slug, slug));
+      artist.color = await artistColor(slug, artist.styles, p?.photo ?? null);
+      await this.db.update(perreoArtists).set({ color: artist.color }).where(eq(perreoArtists.slug, slug));
+    }
     const similar = artist.similar.map((s) => rows.find((r) => r.slug === s)).filter((r): r is Artist => !!r && !r.hidden);
     const [own, other, featured] = await Promise.all([
       this.songs([slug], 40),
@@ -125,6 +145,8 @@ export class PerreoService {
       } catch {
         throw new BadRequestException('No he podido leer esa imagen');
       }
+      // Foto nueva → color nuevo (salvo que lo hayas elegido tú).
+      if (!manual.has('color')) set.color = await artistColor(cur.slug, (set.styles as string[] | undefined) ?? cur.styles, set.photo as string);
       manual.add('photo');
     }
     if (patch.featured !== undefined) {

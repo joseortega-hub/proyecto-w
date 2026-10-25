@@ -6,5 +6,9 @@ const meta = { title: 'Molecules/UnlockBurst', component: UnlockBurst, args: { o
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Pantalla completa; en la app se cierra sola a los 2 s (o al tocarla). */
+/** Pantalla completa; en la app se cierra sola a los 3,4 s (o al tocarla). Sin artista, magenta neón. */
 export const Default: Story = {}
+/** Cada artista que abre el modo trae su color (de su foto o elegido a mano). */
+export const DembowRojo: Story = { args: { color: '#ff4f5e', name: 'El Alfa' } }
+export const TrapVioleta: Story = { args: { color: '#9357c9', name: 'Mami' } }
+export const LimaEscenario: Story = { args: { color: '#9cff4a', name: 'Dale Mami' } }

@@ -29,7 +29,7 @@ export function PerreoTributePage() {
 
   return (
     <>
-      {bursting && <UnlockBurst onDone={() => setBursting(false)} />}
+      {bursting && <UnlockBurst onDone={() => setBursting(false)} color={artist.color} photoUrl={photoUrl(artist)} name={nickname ?? artist.name} />}
       <TributeCover
         artistName={artist.name}
         nickname={nickname}

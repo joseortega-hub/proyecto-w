@@ -1,0 +1,152 @@
+/*
+ * Identidad del Modo Perreo: cartel de festival de noche (tipografía Bebas Neue, de la guía de UrbanoPedia),
+ * un solo acento que cambia con el artista (--artist) y movimiento con golpe. Todo vive bajo [data-perreo-ui]
+ * o en clases perreo-*, así no toca nada de Sintonía. Sin movimiento si la persona lo prefiere así.
+ */
+:root {
+  --font-poster: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+}
+
+.font-poster {
+  font-family: var(--font-poster);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 0.9;
+}
+
+/* Texto de cartel con contorno y brillo del color del artista. */
+.perreo-outline {
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--artist, var(--domain));
+}
+.perreo-neon {
+  text-shadow:
+    0 0 6px color-mix(in oklab, var(--artist, var(--domain)) 70%, transparent),
+    0 0 22px color-mix(in oklab, var(--artist, var(--domain)) 45%, transparent);
+}
+
+/* Pegatina ladeada (chips de sección, sellos de «nuevo»). */
+.perreo-sticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.2em 0.65em;
+  border-radius: 6px;
+  background: var(--artist, var(--domain));
+  color: #0b0613;
+  font-family: var(--font-poster);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  transform: rotate(-2.5deg);
+  box-shadow: 3px 3px 0 #000;
+}
+
+/* Fondo del Modo Perreo: noche con luz de escenario que respira y grano. */
+[data-perreo-ui] {
+  background:
+    radial-gradient(120% 60% at 15% -10%, color-mix(in oklab, var(--artist, var(--domain)) 28%, transparent), transparent 60%),
+    radial-gradient(90% 50% at 110% 110%, color-mix(in oklab, #4f8bff 18%, transparent), transparent 60%),
+    #07030d;
+}
+[data-perreo-ui]::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  z-index: 0;
+}
+
+/* Navegación: barra flotante tipo cápsula con la sección activa en pegatina. */
+.perreo-tab[aria-current='page'] .perreo-tab-icon {
+  background: var(--artist, var(--domain));
+  color: #0b0613;
+  transform: translateY(-6px) rotate(-6deg);
+  box-shadow: 0 6px 18px color-mix(in oklab, var(--artist, var(--domain)) 55%, transparent);
+}
+.perreo-tab-icon {
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1), background-color 160ms;
+}
+
+/* Ecualizador que rebota al ritmo del dembow (≈ 100 bpm). */
+@keyframes perreo-eq {
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1); }
+}
+.perreo-eq > span {
+  display: block;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--artist, var(--domain));
+  transform-origin: bottom;
+  animation: perreo-eq 0.6s ease-in-out infinite;
+}
+
+/* ---------------------------------- Desbloqueo ---------------------------------- */
+@keyframes unlock-strobe {
+  0%, 16%, 34% { opacity: 0.95; }
+  8%, 25%, 45% { opacity: 0.1; }
+  100% { opacity: 0; }
+}
+@keyframes unlock-ring {
+  from { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+  to { transform: translate(-50%, -50%) scale(4.5); opacity: 0; }
+}
+@keyframes unlock-rays {
+  from { transform: translate(-50%, -50%) rotate(0deg) scale(0.6); opacity: 0; }
+  20% { opacity: 0.55; }
+  to { transform: translate(-50%, -50%) rotate(140deg) scale(1.15); opacity: 0.4; }
+}
+@keyframes unlock-slam {
+  0% { transform: scale(3) rotate(-14deg); filter: blur(12px); opacity: 0; }
+  55% { transform: scale(0.9) rotate(3deg); filter: blur(0); opacity: 1; }
+  75% { transform: scale(1.06) rotate(-1deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes unlock-shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-7px, 4px); }
+  40% { transform: translate(6px, -5px); }
+  60% { transform: translate(-4px, -3px); }
+  80% { transform: translate(3px, 4px); }
+}
+@keyframes unlock-letter {
+  0% { transform: translateY(-120%) skewX(-12deg) scale(1.6); opacity: 0; }
+  60% { transform: translateY(6%) skewX(-12deg) scale(0.95); opacity: 1; }
+  100% { transform: translateY(0) skewX(-12deg) scale(1); opacity: 1; }
+}
+@keyframes unlock-spark {
+  0% { transform: rotate(var(--a)) translateX(0) scaleX(0.2); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: rotate(var(--a)) translateX(var(--d)) scaleX(1); opacity: 0; }
+}
+@keyframes unlock-rise {
+  from { transform: translateY(18px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes unlock-out {
+  to { opacity: 0; transform: scale(1.08); filter: blur(6px); }
+}
+
+.unlock-strobe { animation: unlock-strobe 0.9s steps(1, end) both; }
+.unlock-ring { position: absolute; left: 50%; top: 42%; width: 40vmin; height: 40vmin; border-radius: 9999px; border: 3px solid var(--artist); animation: unlock-ring 1.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.unlock-rays {
+  position: absolute; left: 50%; top: 42%; width: 190vmax; height: 190vmax; border-radius: 9999px;
+  background: repeating-conic-gradient(from 0deg, color-mix(in oklab, var(--artist) 55%, transparent) 0deg 7deg, transparent 7deg 22deg);
+  mask-image: radial-gradient(circle, #000 0%, transparent 55%);
+  animation: unlock-rays 3.2s ease-out 0.15s both;
+}
+.unlock-photo { animation: unlock-slam 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s both; }
+.unlock-stage { animation: unlock-shake 0.32s linear 0.62s 1; }
+.unlock-letter { display: inline-block; animation: unlock-letter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.unlock-spark { position: absolute; left: 50%; top: 42%; width: 70px; height: 3px; margin-top: -1.5px; border-radius: 3px; background: linear-gradient(90deg, transparent, var(--artist), #fff); transform-origin: 0 50%; animation: unlock-spark 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.62s both; }
+.unlock-rise { animation: unlock-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.unlock-leaving { animation: unlock-out 0.35s ease-in both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .unlock-strobe, .unlock-ring, .unlock-spark, .unlock-rays { display: none; }
+  .unlock-photo, .unlock-stage, .unlock-letter, .unlock-rise, .unlock-leaving, .perreo-eq > span { animation: none; }
+  .perreo-tab-icon { transition: none; }
+  .perreo-tab[aria-current='page'] .perreo-tab-icon { transform: none; }
+}

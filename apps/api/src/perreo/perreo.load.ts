@@ -60,7 +60,8 @@ try {
     let photo: string | null = null;
     if (a.hasPhoto && !manual?.includes('photo')) photo = readFileSync(join(dir, 'photos', `${a.slug}.webp`)).toString('base64');
     const { hasPhoto: _h, ...fields } = a;
-    const values = { ...fields, photo };
+    // Con foto nueva, el color se vuelve a sacar de ella (la API lo calcula al pedirlo), salvo si es tuyo.
+    const values = { ...fields, photo, ...(photo ? { color: null } : {}) };
     await db.insert(perreoArtists).values(values).onConflictDoUpdate({ target: perreoArtists.slug, set: protectManual(values, manual) });
   }
   // Solo los lotes ya procesados: lo de Instagram que ya no esté en los ficheros se quita.

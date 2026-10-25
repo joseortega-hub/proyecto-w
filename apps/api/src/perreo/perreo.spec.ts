@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { artistFacets, cityParts, eraOf, filterArtists, type ArtistSummary } from './perreo.filters.js';
 import { artistPatchSchema, isPrivateHost, planEdit, protectManual, youtubeId } from './perreo.edit.js';
 import { interleave } from './perreo.service.js';
+import { fallbackColor, vividColor } from './perreo.color.js';
 import { stylesFromTags, accountHash, classify, findDuplicate, freeSlug, mergePerreo } from './perreo.resolve.js';
 import type { PerreoArtistFile } from './perreo.types.js';
 import { hasSongs, kindFromMusicBrainz, kindFromUsername, kindFromWikidata } from './perreo.kinds.js';
@@ -256,5 +257,26 @@ describe('edición a mano del Modo Perreo', () => {
     for (const h of ['localhost', '127.0.0.1', '10.0.0.4', '192.168.1.1', '172.20.0.1', '169.254.169.254', '::1']) expect(isPrivateHost(h)).toBe(true);
     expect(isPrivateHost('upload.wikimedia.org')).toBe(false);
     expect(isPrivateHost('8.8.8.8')).toBe(false);
+  });
+});
+
+describe('color de cada artista', () => {
+  const fill = (n: number, rgb: number[]) => Uint8Array.from(Array.from({ length: n }, () => rgb).flat());
+
+  it('saca el color más vivo de la foto, aunque casi toda sea gris', () => {
+    const photo = Uint8Array.from([...fill(900, [40, 40, 40]), ...fill(124, [220, 20, 60])]);
+    const hex = vividColor(photo)!;
+    expect(hex).toMatch(/^#[0-9a-f]{6}$/);
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    expect(r).toBeGreaterThan(g + 100);
+    expect(r).toBeGreaterThan(b);
+  });
+
+  it('una foto en blanco y negro no tiene color: se usa el de su subgénero o uno fijo por nombre', () => {
+    expect(vividColor(fill(1024, [128, 128, 128]))).toBeNull();
+    expect(fallbackColor('x', ['dembow'])).toBe('#ff4f5e');
+    expect(fallbackColor('x', ['trap latino'])).toBe('#9357c9');
+    expect(fallbackColor('bad-bunny', [])).toBe(fallbackColor('bad-bunny', []));
+    expect(fallbackColor('bad-bunny', [])).toMatch(/^#[0-9a-f]{6}$/);
   });
 });

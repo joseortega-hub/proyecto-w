@@ -150,6 +150,9 @@ importers:
       '@fontsource/atkinson-hyperlegible':
         specifier: ^5.3.0
         version: 5.3.0
+      '@fontsource/bebas-neue':
+        specifier: 5.2.5
+        version: 5.2.5
       '@sintonia/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
@@ -1319,6 +1322,9 @@ packages:
 
   '@fontsource/atkinson-hyperlegible@5.3.0':
     resolution: {integrity: sha512-Sp8Ve8+rQmENY2Lv02VH7sLpntzTTvnncnJMTbRE7DX6TLxGraN4ykZfzaUWIoCFmaomwkvNiqmlPkrKBuDoSA==}
+
+  '@fontsource/bebas-neue@5.2.5':
+    resolution: {integrity: sha512-9hZCl9BpuwrIPRgprS17WRHMRyqprFKxNEDOl98en9XzikR8GGXpeiLaKf5HpNm1NKnVo/EowTjcgcgrvW3h0w==}
 
   '@hono/node-server@2.1.5':
     resolution: {integrity: sha512-MgP/I06GdvsilDspMk/qmRzpk8LOUStP6jFAbSRi40W09DhoyUn+Mj7eyKICPqeYKybOjVFLVIAQzvu1bfIa7Q==}
@@ -7223,6 +7229,8 @@ snapshots:
   '@fontsource-variable/unbounded@5.3.0': {}
 
   '@fontsource/atkinson-hyperlegible@5.3.0': {}
+
+  '@fontsource/bebas-neue@5.2.5': {}
 
   '@hono/node-server@2.1.5(hono@4.13.13)':
     dependencies:
