@@ -18,11 +18,11 @@ export function usernames(data: Following | { title?: string; string_list_data?:
 /** Consulta SPARQL: elementos con ese usuario de Instagram que sean músicos, cantantes, raperos, DJ o productores. */
 export function sparql(users: string[]): string {
   const values = users.map((u) => `"${u}"`).join(' ');
-  return `SELECT ?item ?itemLabel ?ig WHERE {
+  return `SELECT DISTINCT ?item ?itemLabel ?ig WHERE {
   VALUES ?ig { ${values} }
   ?item wdt:P2003 ?ig .
-  ?item wdt:P106 ?occupation .
-  VALUES ?occupation { wd:Q639669 wd:Q177220 wd:Q2252262 wd:Q183945 wd:Q130857 wd:Q36834 wd:Q488205 wd:Q753110 }
+  { ?item wdt:P106 ?c . } UNION { ?item wdt:P31 ?c . }
+  VALUES ?c { wd:Q639669 wd:Q177220 wd:Q2252262 wd:Q183945 wd:Q130857 wd:Q36834 wd:Q488205 wd:Q753110 wd:Q215380 wd:Q2088357 wd:Q10648343 wd:Q5741069 wd:Q18127 wd:Q1762059 wd:Q14350 wd:Q1555508 wd:Q41298 wd:Q1002697 wd:Q4830453 wd:Q3661265 }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "es,en". }
 }`;
 }

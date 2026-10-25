@@ -23,6 +23,10 @@ export interface PerreoArtistFile {
   source?: 'urbanopedia' | 'instagram';
   /** La persona lo sigue en Instagram. */
   followed?: boolean;
+  /** Quién es: artista, productor, sello… (por defecto, artista). */
+  kind?: string;
+  /** Ficha mínima: falta completar datos (sin inventar nada). */
+  incomplete?: boolean;
 }
 
 /** Lo que ig-overlay.json añade a un artista de los 66 que la persona sigue. */
@@ -39,7 +43,11 @@ export interface IgArtist {
   instagram: string;
   wikidata?: string | null;
   mbid?: string | null;
-  via: 'wikidata' | 'musicbrainz' | 'lastfm' | 'revisado';
+  via: 'wikidata' | 'musicbrainz' | 'lastfm' | 'revisado' | 'sin-resolver';
+  /** Tipo según el mejor indicio disponible. */
+  kind?: string;
+  /** Lote de 300 cuentas al que pertenece (por su posición en la exportación). */
+  batch?: number;
 }
 
 /** Una cuenta dudosa de la segunda pasada (ig-review.json). */

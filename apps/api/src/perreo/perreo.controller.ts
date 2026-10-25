@@ -22,6 +22,7 @@ export class PerreoController {
     @Query('label') label?: string,
     @Query('style') style?: string,
     @Query('followed') followed?: string,
+    @Query('kind') kind?: string,
   ) {
     return this.perreo.list({
       sort: (['fame', 'age', 'name'] as const).includes(sort as ArtistSort) ? (sort as ArtistSort) : 'fame',
@@ -34,6 +35,7 @@ export class PerreoController {
       label: text(label),
       style: text(style),
       followed: followed === '1' || followed === 'true',
+      kind: text(kind),
     });
   }
 

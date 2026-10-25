@@ -11,6 +11,10 @@ export interface ArtistSummary {
   labels: string[];
   /** La persona lo sigue en Instagram. */
   followed: boolean;
+  /** artist, group, producer, dj, label… */
+  kind: string;
+  /** Ficha mínima, por completar. */
+  incomplete: boolean;
 }
 
 export type ArtistSort = 'fame' | 'age' | 'name';
@@ -28,6 +32,7 @@ export interface ArtistQuery {
   style?: string;
   /** Solo los que la persona sigue en Instagram. */
   followed?: boolean;
+  kind?: string;
 }
 
 /** Épocas por año de debut. */
@@ -61,6 +66,7 @@ export function filterArtists(list: ArtistSummary[], query: ArtistQuery): Artist
   const out = list.filter((a) => {
     if (q && !fold(a.name).includes(q)) return false;
     if (query.followed && !a.followed) return false;
+    if (query.kind && a.kind !== query.kind) return false;
     if (query.fameMin != null && a.fame < query.fameMin) return false;
     if (query.fameMax != null && a.fame > query.fameMax) return false;
     if (query.country && !a.countries.some((c) => fold(c) === fold(query.country!))) return false;
@@ -86,6 +92,7 @@ export interface ArtistFacets {
   eras: { value: string; label: string; count: number }[];
   labels: { value: string; count: number }[];
   styles: { value: string; count: number }[];
+  kinds: { value: string; count: number }[];
 }
 
 const tally = (values: string[]) => {
@@ -102,5 +109,6 @@ export function artistFacets(list: ArtistSummary[]): ArtistFacets {
     eras: ERAS.map((e) => ({ value: e.id, label: e.label, count: list.filter((a) => eraOf(a.debutYear) === e.id).length })).filter((e) => e.count > 0),
     labels: tally(list.flatMap((a) => a.labels)),
     styles: tally(list.flatMap((a) => a.styles)),
+    kinds: tally(list.map((a) => a.kind)),
   };
 }

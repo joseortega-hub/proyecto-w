@@ -3,10 +3,11 @@ import { artistFacets, cityParts, eraOf, filterArtists, type ArtistSummary } fro
 import { interleave } from './perreo.service.js';
 import { accountHash, classify, findDuplicate, freeSlug, mergePerreo } from './perreo.resolve.js';
 import type { PerreoArtistFile } from './perreo.types.js';
+import { hasSongs, kindFromMusicBrainz, kindFromUsername, kindFromWikidata } from './perreo.kinds.js';
 import { cleanTitle, fameFromListeners, matchSimilar, parseFeed, songKey } from './perreo.sources.js';
 
 const artist = (over: Partial<ArtistSummary>): ArtistSummary => ({
-  slug: 'a', name: 'A', country: 'Puerto Rico', city: 'San Juan', countries: ['Puerto Rico'], debutYear: 2010, fame: 50, styles: ['perreo'], labels: [], followed: false, ...over,
+  slug: 'a', name: 'A', country: 'Puerto Rico', city: 'San Juan', countries: ['Puerto Rico'], debutYear: 2010, fame: 50, styles: ['perreo'], labels: [], followed: false, kind: 'artist', incomplete: false, ...over,
 });
 const list = [
   artist({ slug: 'wisin', name: 'Wisin', debutYear: 1998, fame: 80, styles: ['old school', 'perreo'], labels: ['Sony Music Latin'] }),
@@ -144,5 +145,30 @@ describe('emparejado y duplicados', () => {
     const l = [artist({ slug: 'a', followed: true, country: 'Colombia', countries: ['Colombia'] }), artist({ slug: 'b', followed: true }), artist({ slug: 'c' })];
     expect(filterArtists(l, { followed: true }).map((a) => a.slug)).toEqual(['a', 'b']);
     expect(filterArtists(l, { followed: true, country: 'colombia' }).map((a) => a.slug)).toEqual(['a']);
+  });
+});
+
+describe('tipos de cuenta', () => {
+  it('saca el tipo del usuario cuando hay pistas y, si no, queda sin clasificar', () => {
+    expect(kindFromUsername('rimasmusic_records')).toBe('label');
+    expect(kindFromUsername('dj.pepe')).toBe('dj');
+    expect(kindFromUsername('tainyprod')).toBe('producer');
+    expect(kindFromUsername('radio.urbana')).toBe('media');
+    expect(kindFromUsername('mgmt.latino')).toBe('agency');
+    expect(kindFromUsername('luisfonsi')).toBe('unclassified');
+  });
+  it('Wikidata: el artista que también produce sigue siendo artista; un grupo o un sello, lo suyo', () => {
+    expect(kindFromWikidata(['Q177220', 'Q183945'], [])).toBe('artist');
+    expect(kindFromWikidata(['Q183945'], [])).toBe('producer');
+    expect(kindFromWikidata([], ['Q215380'])).toBe('group');
+    expect(kindFromWikidata([], ['Q18127'])).toBe('label');
+    expect(kindFromWikidata([], ['Q5'])).toBe('other');
+    expect(kindFromMusicBrainz('Group')).toBe('group');
+  });
+  it('solo artistas y grupos llevan canciones; el contador y el filtro cuentan por tipo', () => {
+    expect([hasSongs('artist'), hasSongs('group'), hasSongs('label'), hasSongs('producer')]).toEqual([true, true, false, false]);
+    const l = [artist({ slug: 'a' }), artist({ slug: 'p', kind: 'producer' }), artist({ slug: 's', kind: 'label' })];
+    expect(filterArtists(l, { kind: 'producer' }).map((a) => a.slug)).toEqual(['p']);
+    expect(artistFacets(l).kinds.map((k) => k.value).sort()).toEqual(['artist', 'label', 'producer']);
   });
 });

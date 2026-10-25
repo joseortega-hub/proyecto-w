@@ -5,10 +5,10 @@ import { NO_FILTERS, type PerreoArtistList, type PerreoFilters } from '@/lib/per
 import { ArtistExplorer } from './ArtistExplorer'
 
 const artists = [
-  { slug: 'wisin', name: 'Wisin', country: 'Puerto Rico', city: 'Cayey', countries: ['Puerto Rico'], debutYear: 1998, fame: 90, styles: ['perreo', 'old school'], labels: ['Sony Music Latin'], followed: false },
-  { slug: 'feid', name: 'Feid', country: 'Colombia', city: 'Medellín', countries: ['Colombia'], debutYear: 2011, fame: 95, styles: ['romántico', 'perreo'], labels: ['Universal Music Latino'], followed: true },
-  { slug: 'dei-v', name: 'Dei V', country: 'Puerto Rico', city: 'Carolina', countries: ['Puerto Rico'], debutYear: 2020, fame: 12, styles: ['trap'], labels: [], followed: false },
-  { slug: 'el-alfa', name: 'El Alfa', country: 'República Dominicana', city: 'San Cristóbal', countries: ['República Dominicana'], debutYear: 2008, fame: 70, styles: ['dembow'], labels: [], followed: false },
+  { slug: 'wisin', name: 'Wisin', country: 'Puerto Rico', city: 'Cayey', countries: ['Puerto Rico'], debutYear: 1998, fame: 90, styles: ['perreo', 'old school'], labels: ['Sony Music Latin'], followed: false, kind: 'artist', incomplete: false },
+  { slug: 'feid', name: 'Feid', country: 'Colombia', city: 'Medellín', countries: ['Colombia'], debutYear: 2011, fame: 95, styles: ['romántico', 'perreo'], labels: ['Universal Music Latino'], followed: true, kind: 'artist', incomplete: false },
+  { slug: 'dei-v', name: 'Dei V', country: 'Puerto Rico', city: 'Carolina', countries: ['Puerto Rico'], debutYear: 2020, fame: 12, styles: ['trap'], labels: [], followed: false, kind: 'artist', incomplete: false },
+  { slug: 'el-alfa', name: 'El Alfa', country: 'República Dominicana', city: 'San Cristóbal', countries: ['República Dominicana'], debutYear: 2008, fame: 70, styles: ['dembow'], labels: [], followed: false, kind: 'artist', incomplete: false },
 ]
 const data: PerreoArtistList = {
   artists,
@@ -20,6 +20,7 @@ const data: PerreoArtistList = {
     eras: [{ value: 'old-school', label: 'Old school (antes de 2005)', count: 14 }, { value: '2020', label: 'Desde 2020', count: 6 }],
     labels: [{ value: 'Sony Music Latin', count: 8 }],
     styles: [{ value: 'perreo', count: 40 }, { value: 'trap', count: 22 }],
+    kinds: [{ value: 'artist', count: 50 }, { value: 'producer', count: 9 }, { value: 'label', count: 4 }, { value: 'unclassified', count: 3 }],
   },
 }
 
@@ -41,3 +42,15 @@ export const WithFilters: Story = { args: { filters: { ...NO_FILTERS, country: '
 export const OnlyFollowed: Story = { args: { filters: { ...NO_FILTERS, followed: true }, data: { ...data, artists: artists.filter((a) => a.followed) } } }
 export const NoResults: Story = { args: { data: { ...data, artists: [] } } }
 export const Loading: Story = { args: { data: undefined } }
+export const MixedKinds: Story = {
+  args: {
+    data: {
+      ...data,
+      artists: [
+        ...artists,
+        { slug: 'tainy', name: 'Tainy', country: null, city: null, countries: [], debutYear: null, fame: 0, styles: [], labels: [], followed: true, kind: 'producer', incomplete: false },
+        { slug: 'rimas', name: 'rimasmusic', country: null, city: null, countries: [], debutYear: null, fame: 0, styles: [], labels: [], followed: true, kind: 'label', incomplete: true },
+      ],
+    },
+  },
+}

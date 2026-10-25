@@ -21,6 +21,8 @@ const summary = (a: Artist): ArtistSummary => ({
   styles: a.styles,
   labels: a.labels.map((l) => l.name),
   followed: a.followed,
+  kind: a.kind,
+  incomplete: a.incomplete,
 });
 
 /** Explorador de artistas del Modo Perreo: fichas, fotos y la primera lista de cada artista. */

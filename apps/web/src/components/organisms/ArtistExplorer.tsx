@@ -1,6 +1,6 @@
 import { Button, Chip, SearchField, Switch, Text } from '@/components/atoms'
 import { ArtistCard, FameSlider } from '@/components/molecules'
-import { activeFilterCount, NO_FILTERS, type PerreoArtistList, type PerreoFilters, type PerreoSort } from '@/lib/perreo-types'
+import { activeFilterCount, KIND_LABELS, kindCounter, NO_FILTERS, type PerreoArtistList, type PerreoFilters, type PerreoSort } from '@/lib/perreo-types'
 import { flagOf } from '@/lib/perreo-format'
 import { cn } from '@/lib/utils'
 
@@ -86,6 +86,7 @@ export function ArtistExplorer({ filters, onChange, data, loading, photoUrl, onO
             Filtros {active > 0 && <span className="text-sm font-normal text-muted-foreground">{active} activos</span>}
           </summary>
           <div className="mt-3 flex flex-col gap-4">
+            <ChipGroup label="Tipo" value={filters.kind} onSelect={(v) => set('kind', v)} options={facets.kinds.map((k) => ({ value: k.value, label: KIND_LABELS[k.value] ?? k.value, count: k.count }))} />
             <ChipGroup label="País" value={filters.country} onSelect={(v) => set('country', v)} options={facets.countries.map((c) => ({ ...c, prefix: flagOf(c.value) }))} />
             <ChipGroup label="Ciudad" value={filters.city} onSelect={(v) => set('city', v)} options={facets.cities} />
             <ChipGroup label="Época" value={filters.era} onSelect={(v) => set('era', v)} options={facets.eras.map((e) => ({ value: e.value, label: e.label, count: e.count }))} />
@@ -93,6 +94,12 @@ export function ArtistExplorer({ filters, onChange, data, loading, photoUrl, onO
             <ChipGroup label="Sello" value={filters.label} onSelect={(v) => set('label', v)} options={facets.labels.slice(0, 14)} />
           </div>
         </details>
+      )}
+
+      {facets && facets.kinds.length > 1 && (
+        <Text tone="muted" size="sm">
+          {kindCounter(facets.kinds)}
+        </Text>
       )}
 
       <div className="flex items-center justify-between">
@@ -114,7 +121,7 @@ export function ArtistExplorer({ filters, onChange, data, loading, photoUrl, onO
         <ul className={cn('grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5', loading && 'opacity-60')}>
           {(data?.artists ?? []).map((a) => (
             <li key={a.slug}>
-              <ArtistCard name={a.name} photoUrl={photoUrl(a.slug)} country={a.country} debutYear={a.debutYear} fame={a.fame} styles={a.styles} followed={a.followed} onOpen={() => onOpen(a.slug)} />
+              <ArtistCard name={a.name} photoUrl={photoUrl(a.slug)} country={a.country} debutYear={a.debutYear} fame={a.fame} styles={a.styles} followed={a.followed} kind={a.kind} incomplete={a.incomplete} onOpen={() => onOpen(a.slug)} />
             </li>
           ))}
         </ul>

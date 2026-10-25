@@ -3,7 +3,7 @@ import { Button, Chip, Heading, Icon, Text } from '@/components/atoms'
 import { ItemRow } from '@/components/molecules'
 import type { Item } from '@/lib/api'
 import { careerYears, fameLabel, flagOf, initials, labelYears, LINK_LABELS, originLabel } from '@/lib/perreo-format'
-import type { PerreoArtist, PerreoArtistFull } from '@/lib/perreo-types'
+import { kindName, type PerreoArtist, type PerreoArtistFull } from '@/lib/perreo-types'
 import { cn } from '@/lib/utils'
 
 interface ArtistProfileProps {
@@ -48,6 +48,8 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
                 {flagOf(artist.countries[0] ?? '')} {origin}
               </Chip>
             )}
+            {artist.kind !== 'artist' && <Chip variant="outline">{kindName(artist.kind)}</Chip>}
+            {artist.incomplete && <Chip variant="outline">Por completar</Chip>}
             {artist.followed && <Chip>♥ Lo sigues en Instagram</Chip>}
             <Chip variant="outline">{fameLabel(artist.fame)}</Chip>
             {artist.debutYear && (
@@ -63,9 +65,11 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
         </div>
       </header>
 
+      {(artist.kind === 'artist' || artist.kind === 'group') && !artist.incomplete && (
       <Button onClick={onMakeList} className="self-start">
         <Icon name="sparkles" className="size-5" /> Hazme una lista con {artist.name}
       </Button>
+      )}
 
       {artist.bio && (
         <section aria-labelledby="bio" className="flex flex-col gap-2">

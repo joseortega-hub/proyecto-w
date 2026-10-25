@@ -1,4 +1,5 @@
 import { Chip } from '@/components/atoms'
+import { kindName } from '@/lib/perreo-types'
 import { fameLabel, flagOf, initials } from '@/lib/perreo-format'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -14,12 +15,15 @@ interface ArtistCardProps {
   styles?: string[]
   /** La persona lo sigue en Instagram. */
   followed?: boolean
+  /** Tipo (si no es artista, se enseña) y ficha por completar. */
+  kind?: string
+  incomplete?: boolean
   onOpen?: () => void
   className?: string
 }
 
 /** Un artista en la galería del explorador: foto, nombre, origen, fama y estilos. */
-export function ArtistCard({ name, photoUrl, country, debutYear, fame, styles = [], followed, onOpen, className }: ArtistCardProps) {
+export function ArtistCard({ name, photoUrl, country, debutYear, fame, styles = [], followed, kind, incomplete, onOpen, className }: ArtistCardProps) {
   const [failed, setFailed] = useState(false)
   return (
     <button
@@ -52,9 +56,14 @@ export function ArtistCard({ name, photoUrl, country, debutYear, fame, styles = 
       <div className="flex flex-1 flex-col gap-2 p-3">
         <strong className="truncate font-display text-[16px]">{name}</strong>
         <span className="text-xs text-muted-foreground">
-          {fameLabel(fame)}
+          {incomplete ? 'Por completar' : fameLabel(fame)}
           {debutYear ? ` · desde ${debutYear}` : ''}
         </span>
+        {kind && kind !== 'artist' && (
+          <Chip variant="outline" className="self-start px-2 py-0 text-xs">
+            {kindName(kind)}
+          </Chip>
+        )}
         <div className="h-1.5 overflow-hidden rounded-full bg-secondary" role="img" aria-label={`Fama ${fame} de 100`}>
           <div className="h-full rounded-full bg-domain" style={{ width: `${Math.max(4, fame)}%` }} />
         </div>

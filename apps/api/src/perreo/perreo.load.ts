@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { and, eq, notInArray } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { config } from '../config.js';
 import { createDb } from '../db/client.js';
@@ -54,6 +55,8 @@ try {
     const values = { ...fields, photo };
     await db.insert(perreoArtists).values(values).onConflictDoUpdate({ target: perreoArtists.slug, set: values });
   }
+  // Solo los lotes ya procesados: lo de Instagram que ya no esté en los ficheros se quita.
+  await db.delete(perreoArtists).where(and(eq(perreoArtists.source, 'instagram'), notInArray(perreoArtists.slug, artists.map((a) => a.slug))));
   console.log(`Artistas: ${artists.length} (${artists.filter((a) => a.followed).length} que sigues en Instagram)`);
 
   // Dudosas de la segunda pasada: la decisión que ya tomaste en la pantalla se conserva.

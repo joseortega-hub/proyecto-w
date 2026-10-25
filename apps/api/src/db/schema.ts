@@ -241,6 +241,10 @@ export const perreoArtists = pgTable(
     source: text('source').notNull().default('urbanopedia'),
     /** La persona lo sigue en Instagram (insignia y filtro «Solo los que sigo»). */
     followed: boolean('followed').notNull().default(false),
+    /** artist, group, producer, dj, label, composer, media, agency, other o unclassified. */
+    kind: text('kind').notNull().default('artist'),
+    /** Ficha mínima sin completar. */
+    incomplete: boolean('incomplete').notNull().default(false),
   },
   (t) => [index('perreo_artists_fame_idx').on(t.fame)],
 );

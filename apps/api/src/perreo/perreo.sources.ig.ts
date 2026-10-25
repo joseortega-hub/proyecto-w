@@ -1,6 +1,7 @@
 // Fuentes de la ampliación con Instagram: MusicBrainz, Last.fm (búsqueda), ficha de Wikidata, Wikipedia y Commons.
 // Mismas reglas que perreo.sources.ts: User-Agent propio, ritmo de cada API (MusicBrainz 1 petición/s) y vacío si falla.
 import { fold } from './perreo.filters.js';
+import { kindFromWikidata, type Kind } from './perreo.kinds.js';
 import { getJson, sleep, USER_AGENT } from './perreo.sources.js';
 
 export interface MbArtist {
@@ -8,6 +9,8 @@ export interface MbArtist {
   name: string;
   qid: string | null;
   tags: string[];
+  /** Person o Group en MusicBrainz. */
+  type: string | null;
   /** Usuarios de Instagram que MusicBrainz enlaza a este artista (en minúsculas). */
   instagram: string[];
 }
@@ -15,6 +18,7 @@ export interface MbArtist {
 interface MbArtistBody {
   id: string;
   name: string;
+  type?: string;
   tags?: { name: string; count: number }[];
   relations?: { url?: { resource: string } }[];
 }
@@ -26,6 +30,7 @@ function mbArtist(body: MbArtistBody): MbArtist {
   return {
     mbid: body.id,
     name: body.name,
+    type: body.type ?? null,
     qid: urls.map((u) => /wikidata\.org\/wiki\/(Q\d+)/.exec(u)?.[1]).find(Boolean) ?? null,
     tags: [...(body.tags ?? [])].sort((a, b) => b.count - a.count).map((t) => t.name),
     instagram: urls.flatMap((u) => /instagram\.com\/([\w.]+)/.exec(u)?.[1]?.toLowerCase() ?? []),
@@ -86,6 +91,7 @@ export async function lastfmSearch(query: string, apiKey: string, limit = 3): Pr
 
 export interface WikidataCard {
   qid: string;
+  kind: Kind;
   image: string | null;
   countries: string[];
   city: string | null;
@@ -126,6 +132,7 @@ export async function wikidataCard(qid: string): Promise<WikidataCard | null> {
   const start = time('P2031') ?? time('P571');
   return {
     qid,
+    kind: kindFromWikidata(ids('P106'), ids('P31')),
     image: str('P18'),
     countries: names('P27').map(countryName),
     city: names('P19')[0] ?? names('P740')[0] ?? null,

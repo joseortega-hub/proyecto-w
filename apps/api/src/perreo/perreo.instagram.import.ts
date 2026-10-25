@@ -14,6 +14,7 @@ import { config } from '../config.js';
 import { PERREO_STYLES } from '../domains/perreo.domain.js';
 import { enrichSongs, ENRICH_BATCH } from '../youtube/youtube.enrich.js';
 import { fold } from './perreo.filters.js';
+import { hasSongs, type Kind } from './perreo.kinds.js';
 import { findDuplicate, freeSlug, type Known } from './perreo.resolve.js';
 import { commonsPhoto, wikidataCard, wikiSummaryByTitle, type WikidataCard } from './perreo.sources.ig.js';
 import { channelFeed, channelUploads, cleanTitle, lastfmArtist, matchSimilar, songKey, type ChannelVideo, type LastfmArtist } from './perreo.sources.js';
@@ -37,7 +38,9 @@ interface Cached {
   videos?: ChannelVideo[];
 }
 const cache = read<Record<string, Cached>>('ig-cache.json', {});
-const follows = read<IgArtist[]>('instagram.json', []);
+// --batch N: solo los lotes de 300 cuentas hasta el N (los demás se quedan sin tocar). Sin él, todos.
+const maxBatch = process.argv.includes('--batch') ? Number(process.argv[process.argv.indexOf('--batch') + 1]) : Infinity;
+const follows = read<IgArtist[]>('instagram.json', []).filter((f) => (f.batch ?? 1) <= maxBatch);
 const base = read<PerreoArtistFile[]>('artists.json', []);
 const baseCache = read<Record<string, { wiki?: { qid: string | null } | null; facts?: unknown; lastfm?: LastfmArtist }>>('cache.json', {});
 const previous = new Map(read<PerreoArtistFile[]>('ig-artists.json', []).map((a) => [a.slug, a]));
@@ -69,10 +72,18 @@ let n = 0;
 for (const { entry, slug } of mine) {
   n++;
   const c = (cache[slug] ??= {});
+  const minimal = entry.via === 'sin-resolver';
   try {
+    if (minimal) {
+      c.card = null;
+      c.bio = null;
+      c.photo = false;
+      c.videos = [];
+    }
     if (c.card === undefined) c.card = entry.wikidata ? await wikidataCard(entry.wikidata) : null;
     if (c.bio === undefined) c.bio = c.card ? await wikiSummaryByTitle(c.card.wikiTitle) : null;
-    if (c.lastfm === undefined && config.lastfmApiKey) c.lastfm = await lastfmArtist(entry.name, config.lastfmApiKey);
+    const kindHint = (c.card && c.card.kind !== 'other' ? c.card.kind : (entry.kind as Kind | undefined)) ?? 'artist';
+    if (c.lastfm === undefined && config.lastfmApiKey && hasSongs(kindHint)) c.lastfm = await lastfmArtist(entry.name, config.lastfmApiKey);
     if (c.photo === undefined) {
       const raw = c.card?.image ? await commonsPhoto(c.card.image) : null;
       c.photo = false;
@@ -81,7 +92,7 @@ for (const { entry, slug } of mine) {
         c.photo = true;
       }
     }
-    if (c.videos === undefined && !noSongs) {
+    if (c.videos === undefined && !noSongs && hasSongs(kindHint)) {
       const channel = c.card?.channelId;
       c.videos = channel ? (youtubeKey ? await channelUploads(channel, youtubeKey, 2) : await channelFeed(channel)) : [];
     }
@@ -92,6 +103,8 @@ for (const { entry, slug } of mine) {
   }
   write('ig-cache.json', cache);
   const card = c.card;
+  const kind: Kind = (card && card.kind !== 'other' ? card.kind : (entry.kind as Kind | undefined)) ?? 'artist';
+  const incomplete = minimal || (!card && !c.lastfm?.listeners);
   const bio = c.bio?.extract ?? null;
   const old = previous.get(slug);
   artists.push({
@@ -121,6 +134,8 @@ for (const { entry, slug } of mine) {
     hasPhoto: !!c.photo,
     source: 'instagram',
     followed: true,
+    kind,
+    incomplete,
   });
   console.log(`  ${n}/${mine.length} ${entry.name}${c.photo ? ' 📷' : ''}${bio ? ' 📖' : ''}${c.lastfm?.listeners ? ' 🎧' : ''}${c.videos?.length ? ` ▶${c.videos.length}` : ''}`);
 }
@@ -134,7 +149,7 @@ for (const [slug, o] of Object.entries(overlay)) o.similar = matchSimilar(baseCa
 
 // ---------- Estilos con IA (Groq), con los géneros de Wikidata como pista ----------
 const groq = config.groqApiKey ? new GroqTextProvider(createGroqClient(config.groqApiKey), [...new Set([config.groqTextModel, ...config.groqFallbackModels, config.groqModel])]) : null;
-const need = artists.filter((a) => !a.styles.some((s) => s !== 'old school'));
+const need = artists.filter((a) => hasSongs((a.kind ?? 'artist') as Kind) && !a.incomplete && !a.styles.some((s) => s !== 'old school'));
 if (groq && need.length) {
   const allowed = new Set<string>(PERREO_STYLES);
   for (let i = 0; i < need.length; i += 25) {
