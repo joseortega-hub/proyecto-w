@@ -65,9 +65,14 @@ export class PerreoService {
     }
   }
 
+  /** Los que se enseñan: sin fichas mínimas («por completar») ni ocultos. */
+  async visible(): Promise<ArtistSummary[]> {
+    return (await this.all()).filter((a) => !a.incomplete && !a.hidden).map(summary);
+  }
+
   async list(query: ArtistQuery) {
     // Las fichas mínimas (solo usuario de Instagram, sin foto ni datos) no se enseñan en el explorador hasta completarlas.
-    const all = (await this.all()).filter((a) => !a.incomplete && !a.hidden).map(summary);
+    const all = await this.visible();
     return { artists: filterArtists(all, query), total: all.length, followedTotal: all.filter((a) => a.followed).length, facets: artistFacets(all) };
   }
 

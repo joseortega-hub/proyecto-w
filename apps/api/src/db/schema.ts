@@ -1,6 +1,7 @@
 import type { ItemDetails } from '../catalog/item-details.js';
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -266,6 +267,45 @@ export const perreoArtists = pgTable(
     color: text('color'),
   },
   (t) => [index('perreo_artists_fame_idx').on(t.fame)],
+);
+
+/** Novedades del Modo Perreo (Deezer y MusicBrainz, también lo que está por salir): las precalcula `pnpm perreo:pulse`. */
+export const perreoReleases = pgTable(
+  'perreo_releases',
+  {
+    /** 'deezer:<id>' o 'mb:<release-group>'. */
+    id: text('id').primaryKey(),
+    artistSlug: text('artist_slug').notNull(),
+    /** 'album' (discos y EP) o 'song' (sencillos). */
+    kind: text('kind').notNull(),
+    recordType: text('record_type'),
+    title: text('title').notNull(),
+    /** AAAA-MM-DD (o AAAA / AAAA-MM si MusicBrainz no sabe más). */
+    releaseDate: text('release_date').notNull(),
+    coverUrl: text('cover_url'),
+    link: text('link'),
+    source: text('source').notNull(),
+    fans: integer('fans'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('perreo_releases_date_idx').on(t.releaseDate), index('perreo_releases_artist_idx').on(t.artistSlug)],
+);
+
+/** Una foto al día de los números de cada artista (Last.fm, Deezer, YouTube y su puesto en el top de cada país). */
+export const perreoStats = pgTable(
+  'perreo_stats',
+  {
+    artistSlug: text('artist_slug').notNull(),
+    day: text('day').notNull(),
+    lastfmListeners: integer('lastfm_listeners'),
+    lastfmPlays: bigint('lastfm_plays', { mode: 'number' }),
+    deezerFans: integer('deezer_fans'),
+    youtubeViews: bigint('youtube_views', { mode: 'number' }),
+    youtubeSubs: integer('youtube_subs'),
+    /** { "España": 3 }: puesto en `geo.getTopArtists` de Last.fm. */
+    geo: jsonb('geo').$type<Record<string, number>>().notNull().default({}),
+  },
+  (t) => [primaryKey({ columns: [t.artistSlug, t.day] })],
 );
 
 /** Cuentas de Instagram dudosas de la segunda pasada: la persona las confirma o descarta en el Modo Perreo. */

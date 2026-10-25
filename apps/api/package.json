@@ -34,7 +34,8 @@
     "perreo:import": "tsx src/perreo/perreo.import.ts",
     "perreo:load": "tsx src/perreo/perreo.load.ts",
     "perreo:instagram": "tsx src/perreo/perreo.instagram.run.ts",
-    "perreo:instagram:import": "tsx src/perreo/perreo.instagram.import.ts"
+    "perreo:instagram:import": "tsx src/perreo/perreo.instagram.import.ts",
+    "perreo:pulse": "tsx src/perreo/perreo.pulse.run.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.104",

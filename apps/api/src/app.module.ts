@@ -28,6 +28,7 @@ import { TasteService } from './taste/taste.service.js';
 import { CreditsService } from './items/credits.service.js';
 import { PerreoController } from './perreo/perreo.controller.js';
 import { PerreoService } from './perreo/perreo.service.js';
+import { PerreoPulseService } from './perreo/perreo.pulse.service.js';
 import { FolderController } from './folder/folder.controller.js';
 import { FolderService } from './folder/folder.service.js';
 import { OpsController } from './ops/ops.controller.js';
@@ -64,6 +65,7 @@ import { FeedbackService } from './feedback/feedback.service.js';
     YouTubeService,
     FolderService,
     PerreoService,
+    PerreoPulseService,
     TraceService,
     OpsService,
     ThemesService,
