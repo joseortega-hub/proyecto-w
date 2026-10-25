@@ -17,9 +17,9 @@ const music: VibeSpec = {
   variant: 'eq',
   axes: { drive: 'energy', mood: 'positivity' },
   titles: {
-    lo: ['☔ Bajón con estilo', '🌙 Modo after tranquilo', '☀️ Domingo de sofá feliz'],
-    mid: ['🌧️ Nostalgia con ritmo', '🎧 Vibra de fondo', '😎 Buen rollo sin prisa'],
-    hi: ['⚡ Rabia con flow', '🏃 Ganas de movimiento', '🔥 {Dia} con ganas de guerra'],
+    lo: ['☔ Tarde de nostalgia', '🌙 Noche tranquila', '☀️ Domingo de sofá y sonrisa'],
+    mid: ['🌧️ Nostalgia con ritmo', '🎧 Música de fondo', '😎 Buen ánimo sin prisa'],
+    hi: ['⚡ Rabia con ritmo', '🏃 Ganas de movimiento', '🔥 {Dia} con toda la energía'],
   },
   rainy: '☔ Lluvia y cascos puestos',
 }
@@ -32,9 +32,9 @@ const SPECS: Record<string, VibeSpec> = {
     variant: 'hud',
     axes: { drive: 'intensity', mood: 'lightness' },
     titles: {
-      lo: ['🕯️ Rincón oscuro y tranquilo', '🧘 Zen con mando', '🌱 Sofá y buen rollo'],
+      lo: ['🕯️ Rincón oscuro y tranquilo', '🧘 Calma con mando', '🌱 Sofá y calma'],
       mid: ['🗡️ Aventura con sombras', '🎮 Partida sin prisa', '🧭 Exploración con sonrisa'],
-      hi: ['💀 Modo supervivencia', '⚔️ Hoy toca pelea', '🔥 {Dia} de locura jugable'],
+      hi: ['💀 Modo supervivencia', '⚔️ Hoy toca pelea', '🔥 {Dia} de juego intenso'],
     },
     rainy: '☔ Mando y lluvia',
   },
@@ -53,7 +53,7 @@ const SPECS: Record<string, VibeSpec> = {
     axes: { drive: 'pace', mood: 'mood' },
     titles: {
       lo: ['🕯️ Lectura a media luz', '📖 Página a página con calma', '☕ Café y novela suave'],
-      mid: ['🌫️ Misterio entre líneas', '📚 Lectura de fondo', '🌻 Libro de buen rollo'],
+      mid: ['🌫️ Misterio entre líneas', '📚 Lectura de fondo', '🌻 Libro de buen ánimo'],
       hi: ['🗝️ Devoralibros a oscuras', '⚡ Pasapáginas', '🚀 {Dia} sin soltar el libro'],
     },
     rainy: '☔ Libro y ventana mojada',

@@ -60,7 +60,7 @@ export function FolderConnectCard({
             <strong className="truncate text-[15px]">{folderName ?? 'Tu carpeta'}</strong>
             <Text size="sm" tone="muted">
               {reconnect
-                ? `${itemCount} canciones identificadas. Para que suenen, dale permiso a esta carpeta.`
+                ? `${itemCount} canciones identificadas. Para que suenen, da permiso a esta carpeta.`
                 : `${itemCount} canciones identificadas${found ? ` de ${found} en el dispositivo` : ''}.`}
               {!canRemember && !reconnect && (songsMode ? ' El móvil no recuerda los archivos: elígelos de nuevo cada vez que quieras escucharlos.' : ' Este navegador no recuerda la carpeta: tendrás que elegirla cada vez.')}
             </Text>

@@ -62,7 +62,7 @@ export function LearnedPanel({ learned }: { learned: WithIcon<StoryLearned>[] })
       </Heading>
       {learned.length === 0 ? (
         <Text size="sm" tone="muted">
-          Dale 👍 o 👎 a lo que te recomiende y aquí verás qué estilos te suben y cuáles te bajan.
+          Marca 👍 o 👎 en lo que te recomendemos y aquí verás qué estilos te suben y cuáles te bajan.
         </Text>
       ) : (
         learned.map((l) => (

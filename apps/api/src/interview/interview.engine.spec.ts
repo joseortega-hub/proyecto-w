@@ -229,7 +229,7 @@ describe('preferencias previas', () => {
   it('avisa cuando hay pocas en el idioma elegido y se completa con instrumentales', () => {
     const few = [...Array(3)].map(() => lang('es')).concat([...Array(9)].map(() => lang('instrumental')));
     expect(preferenceNotice(few, es, config, 'canciones', 12)).toBe(
-      'En español solo tengo 3 canciones que encajen, así que te completo la lista con instrumentales.',
+      'En español solo tengo 3 canciones que encajen, así que completamos la lista con instrumentales.',
     );
     const none = [...Array(12)].map(() => lang('instrumental'));
     expect(preferenceNotice(none, es, config, 'canciones', 12)).toMatch(/^En español no tengo canciones/);

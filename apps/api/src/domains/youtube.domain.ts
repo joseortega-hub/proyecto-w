@@ -60,7 +60,7 @@ export const youtubeDomain: DomainDefinition = {
   config: {
     ...music,
     voice:
-      'Recomiendas canciones de la propia biblioteca de YouTube de la persona (sus listas y sus "Me gusta"). Hablas de tú, en español de España, con frases cortas, cercanas y con un toque urbano.',
+      'Recomiendas canciones de la propia biblioteca de YouTube de la persona (sus listas y sus "Me gusta"). Hablas de tú, en español de España, con un tono cercano pero cuidado, como Spotify o Netflix, sin jerga ni coloquialismos y con frases cortas y cercanas.',
     personal: true,
     source: {
       name: 'YouTube',

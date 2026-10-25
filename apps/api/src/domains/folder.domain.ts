@@ -17,7 +17,7 @@ export const folderDomain: DomainDefinition = {
   config: {
     ...base,
     voice:
-      'Recomiendas canciones de la propia carpeta de música de la persona, la que tiene en su dispositivo. Hablas de tú, en español de España, con frases cortas, cercanas y con un toque urbano.',
+      'Recomiendas canciones de la propia carpeta de música de la persona, la que tiene en su dispositivo. Hablas de tú, en español de España, con un tono cercano pero cuidado, como Spotify o Netflix, sin jerga ni coloquialismos y con frases cortas y cercanas.',
     source: {
       name: 'carpeta',
       url: 'https://developer.mozilla.org/docs/Web/API/File_System_Access_API',

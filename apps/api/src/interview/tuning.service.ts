@@ -456,7 +456,7 @@ export class TuningService {
     const { config } = domain;
     const written = await this.text
       .write({
-        system: `${config.voice} Pones títulos cortos y con gancho a listas de ${domain.itemNounPlural}.`,
+        system: `${config.voice} Pones títulos cortos y con gancho, en tono cercano pero cuidado y sin jerga, a listas de ${domain.itemNounPlural}.`,
         prompt: [
           anchors.length ? `Ha pedido: ${anchors.map((a) => a.label).join(', ')}.` : null,
           `Lo que busca: ${profile.summary.join(', ') || 'sin preferencias claras'}.`,

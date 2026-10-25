@@ -54,7 +54,7 @@ export function HomePage() {
             </Text>
           </div>
         )}
-        <Heading size="display">Dime cómo estás y te pongo lo que encaja.</Heading>
+        <Heading size="display">Cuéntanos cómo te sientes y te recomendamos lo que mejor encaja.</Heading>
         <Text tone="muted" size="lead">
           Unas pocas preguntas de sí o no. Sin formularios ni registro.
         </Text>
@@ -99,7 +99,7 @@ export function HomePage() {
               <div className="flex flex-col gap-0.5">
                 <strong className="text-[15px]">Primera vez por aquí</strong>
                 <Text size="sm" tone="muted">
-                  Cuéntame qué {domain.nounPlural} te molan y las listas lo tendrán en cuenta. Tardas medio minuto.
+                  Cuéntanos qué {domain.nounPlural} te gustan y las listas lo tendrán en cuenta. Solo te llevará medio minuto.
                 </Text>
               </div>
             </div>

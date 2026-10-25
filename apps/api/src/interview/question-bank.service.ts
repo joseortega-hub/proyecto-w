@@ -77,7 +77,7 @@ export async function generateQuestionBank(
   for (let i = 0; i < missing.length; i += PROBES_PER_CALL) {
     const batch = missing.slice(i, i + PROBES_PER_CALL);
     const written = await text.write({
-      system: `${domain.config.voice} Redactas preguntas para una entrevista de sí o no sobre lo que le apetece ahora.`,
+      system: `${domain.config.voice} Redactas preguntas para una entrevista de sí o no sobre lo que le apetece ahora. Tono cercano pero cuidado: sin jerga ni coloquialismos.`,
       prompt: [
         `Para cada sonda, escribe ${VARIANTS} formas distintas de preguntarla, con vocabulario variado entre ellas.`,
         'Cada pregunta va en positivo, de forma que «sí» signifique exactamente lo indicado; sin negaciones («no», «sin»).',

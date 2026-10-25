@@ -15,7 +15,7 @@ export default defineConfig({
       manifest: {
         name: 'Sintonía',
         short_name: 'Sintonía',
-        description: 'Dime cómo estás y te pongo lo que encaja.',
+        description: 'Cuéntanos cómo te sientes y te recomendamos lo que mejor encaja.',
         lang: 'es',
         theme_color: '#3d4bf0',
         background_color: '#f3f4f8',

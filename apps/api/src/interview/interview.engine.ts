@@ -438,9 +438,9 @@ export function preferenceNotice(
       const scope = pref.alwaysPass.length && pref.fillerLabel ? `${Phrase} o ${pref.fillerLabel}` : Phrase;
       return `${scope} solo he encontrado ${list.length} ${itemNounPlural} que encajen.`;
     }
-    if (exact === 0) return `${Phrase} no tengo ${itemNounPlural} que encajen, así que te pongo ${pref.fillerLabel}.`;
+    if (exact === 0) return `${Phrase} no tengo ${itemNounPlural} que encajen, así que te mostramos ${pref.fillerLabel}.`;
     if (exact < Math.ceil(size / 2)) {
-      return `${Phrase} solo tengo ${exact} ${itemNounPlural} que encajen, así que te completo la lista con ${pref.fillerLabel}.`;
+      return `${Phrase} solo tengo ${exact} ${itemNounPlural} que encajen, así que completamos la lista con ${pref.fillerLabel}.`;
     }
   }
   return null;

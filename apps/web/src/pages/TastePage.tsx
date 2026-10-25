@@ -59,7 +59,7 @@ export function TastePage() {
         <Text font="label" className="text-domain">
           {domain.info?.name ?? ''} · {welcome ? 'Primera vez' : 'Mis gustos'}
         </Text>
-        <Heading>{welcome ? `¿Qué ${domain.nounPlural} te molan?` : `Tus gustos en ${domain.nounPlural}`}</Heading>
+        <Heading>{welcome ? `¿Qué ${domain.nounPlural} te gustan?` : `Tus gustos en ${domain.nounPlural}`}</Heading>
         <Text tone="muted">
           Esto es lo de siempre, no lo de hoy: la entrevista seguirá preguntando por tu ánimo. Va ligado a este navegador, sin registro.
         </Text>

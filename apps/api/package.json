@@ -26,6 +26,7 @@
     "details": "tsx src/catalog/details.ts",
     "classify": "tsx src/catalog/classify.ts",
     "questions": "tsx src/interview/question-bank.generate.ts",
+    "tone:bank": "tsx src/interview/question-bank.tone.ts",
     "sync-embeddings": "tsx src/db/sync-embeddings.ts",
     "eval": "tsx src/eval/interview.eval.ts",
     "facets": "tsx src/catalog/facets.ts",

@@ -73,7 +73,7 @@ export function TasteEditor({ value, onChange, groups, tags, onInterpret, nounPl
             value={text}
             onChange={setText}
             label="Cuéntamelo con tus palabras"
-            placeholder={`Ej.: me flipan los mundos abiertos y las sagas de rol; el terror no me va`}
+            placeholder={`Ej.: me encantan los mundos abiertos y las sagas de rol; el terror no me va`}
             hint="Lo traduzco a etiquetas del catálogo. No guardo el texto."
           />
           <Button variant="secondary" size="md" onClick={interpret} disabled={!text.trim() || interpreting} className="self-start">

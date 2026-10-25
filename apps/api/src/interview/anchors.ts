@@ -101,10 +101,10 @@ export function anchorNotice(anchors: Anchor[], inList: number, size: number, it
   anchors = anchors.filter((a) => a.kind !== 'title' && !a.similar);
   if (!anchors.length || inList >= size) return null;
   const labels = joinLabels(anchors);
-  if (mode === 'filter') return `Solo hay ${inList} de ${labels}: te pongo solo ${gender === 'f' ? 'esas' : 'esos'}.`;
+  if (mode === 'filter') return `Solo hay ${inList} de ${labels}: te mostramos solo ${gender === 'f' ? 'esas' : 'esos'}.`;
   const similar = gender === 'f' ? 'parecidas' : 'parecidos';
-  if (inList === 0) return `No tengo ${itemNounPlural} de ${labels}, así que te pongo ${gender === 'f' ? 'las' : 'los'} más ${similar}.`;
-  return `Solo tengo ${inList} de ${labels}; te completo la lista con ${itemNounPlural} ${similar}.`;
+  if (inList === 0) return `No tengo ${itemNounPlural} de ${labels}, así que te mostramos ${gender === 'f' ? 'las' : 'los'} más ${similar}.`;
+  return `Solo tengo ${inList} de ${labels}; completamos la lista con ${itemNounPlural} ${similar}.`;
 }
 
 /** Dimensiones de escala que más separan a los elementos del ancla (mayor varianza primero). */

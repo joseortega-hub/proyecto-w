@@ -7,7 +7,7 @@ export const gamesDomain: DomainDefinition = {
   itemNounPlural: 'videojuegos',
   config: {
     voice:
-      'Recomiendas videojuegos del catálogo de RAWG. Hablas de tú, en español de España, con frases cortas y cercanas, como alguien que juega mucho.',
+      'Recomiendas videojuegos del catálogo de RAWG. Hablas de tú, en español de España, con un tono cercano pero cuidado, como Spotify o Netflix, sin jerga ni coloquialismos y con frases cortas y cercanas, como alguien que juega mucho.',
     gender: 'm',
     verb: 'jugar',
     creatorLabel: 'estudio',

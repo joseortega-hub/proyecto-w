@@ -7,7 +7,7 @@ export const booksDomain: DomainDefinition = {
   itemNounPlural: 'libros',
   config: {
     voice:
-      'Recomiendas libros del catálogo de Open Library. Hablas de tú, en español de España, con frases cortas y cercanas, como alguien que lee mucho.',
+      'Recomiendas libros del catálogo de Open Library. Hablas de tú, en español de España, con un tono cercano pero cuidado, como Spotify o Netflix, sin jerga ni coloquialismos y con frases cortas y cercanas, como alguien que lee mucho.',
     gender: 'm',
     verb: 'leer',
     creatorLabel: 'autoría',

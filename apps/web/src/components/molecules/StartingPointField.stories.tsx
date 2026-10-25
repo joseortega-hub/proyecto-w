@@ -25,4 +25,4 @@ export const ConMicrofono: Story = {
 }
 
 /** Firefox y otros navegadores sin Web Speech API: sin 🎤. */
-export const SinMicrofono: Story = { args: { speech: false, value: 'Me apetece algo para jugar con colegas' } }
+export const SinMicrofono: Story = { args: { speech: false, value: 'Me apetece algo para jugar con amigos' } }

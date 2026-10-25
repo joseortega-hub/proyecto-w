@@ -7,7 +7,7 @@ export const musicDomain: DomainDefinition = {
   itemNounPlural: 'canciones',
   config: {
     voice:
-      'Recomiendas canciones del catálogo libre de Jamendo. Hablas de tú, en español de España, con frases cortas y cercanas.',
+      'Recomiendas canciones del catálogo libre de Jamendo. Hablas de tú, en español de España, con un tono cercano pero cuidado, como Spotify o Netflix, sin jerga ni coloquialismos y con frases cortas y cercanas.',
     gender: 'f',
     verb: 'escuchar',
     creatorLabel: 'artista',

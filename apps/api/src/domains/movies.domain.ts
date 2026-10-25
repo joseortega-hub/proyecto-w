@@ -7,7 +7,7 @@ export const moviesDomain: DomainDefinition = {
   itemNounPlural: 'películas',
   config: {
     voice:
-      'Recomiendas películas del catálogo de TMDB. Hablas de tú, en español de España, con frases cortas y cercanas, como alguien que ve mucho cine.',
+      'Recomiendas películas del catálogo de TMDB. Hablas de tú, en español de España, con un tono cercano pero cuidado, como Spotify o Netflix, sin jerga ni coloquialismos y con frases cortas y cercanas, como alguien que ve mucho cine.',
     gender: 'f',
     verb: 'ver',
     creatorLabel: 'dirección',

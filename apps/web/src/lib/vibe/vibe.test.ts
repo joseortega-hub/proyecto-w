@@ -5,18 +5,18 @@ import { levelWord } from './vibe-words'
 
 describe('título de la vibra', () => {
   it('describe la vibra según energía y positividad', () => {
-    expect(vibeTitle('music', { energy: 0.1, positivity: 0.5 }).text).toBe('Modo after tranquilo')
+    expect(vibeTitle('music', { energy: 0.1, positivity: 0.5 }).text).toBe('Noche tranquila')
     expect(vibeTitle('music', { energy: 0.1, positivity: 0.1 }).emoji).toBe('☔')
-    expect(vibeTitle('music', { energy: 0.9, positivity: 0.9 }, { diaSemana: 'viernes' }).text).toBe('Viernes con ganas de guerra')
+    expect(vibeTitle('music', { energy: 0.9, positivity: 0.9 }, { diaSemana: 'viernes' }).text).toBe('Viernes con toda la energía')
   })
   it('sin día de la semana, "Hoy"; sin atributos, el centro', () => {
-    expect(vibeTitle('music', { energy: 0.9, positivity: 0.9 }).text).toBe('Hoy con ganas de guerra')
-    expect(vibeTitle('music', {}).text).toBe('Vibra de fondo')
+    expect(vibeTitle('music', { energy: 0.9, positivity: 0.9 }).text).toBe('Hoy con toda la energía')
+    expect(vibeTitle('music', {}).text).toBe('Música de fondo')
   })
   it('la lluvia cambia el título tranquilo, no el bajón', () => {
     const rain = { tiempo: 'lluvia', franja: 'tarde' }
     expect(vibeTitle('music', { energy: 0.1, positivity: 0.6 }, rain).text).toBe('Lluvia y cascos puestos')
-    expect(vibeTitle('music', { energy: 0.1, positivity: 0.1 }, rain).text).toBe('Bajón con estilo')
+    expect(vibeTitle('music', { energy: 0.1, positivity: 0.1 }, rain).text).toBe('Tarde de nostalgia')
   })
   it('funciona en las 6 temáticas (los personales usan el de música)', () => {
     for (const d of ['music', 'games', 'movies', 'books', 'youtube', 'folder']) {

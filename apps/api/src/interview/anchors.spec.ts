@@ -58,7 +58,7 @@ describe('intención explícita (anclas)', () => {
     expect(anchorMode([marvel], 4, 10)).toBe('boost');
     expect(anchorMode([{ ...marvel, required: false }], 30, 10)).toBe('boost');
     expect(anchorMode([], 0, 10)).toBe('none');
-    expect(anchorNotice([marvel], 4, 10, 'películas', 'f')).toBe('Solo tengo 4 de Marvel; te completo la lista con películas parecidas.');
+    expect(anchorNotice([marvel], 4, 10, 'películas', 'f')).toBe('Solo tengo 4 de Marvel; completamos la lista con películas parecidas.');
     expect(anchorNotice([pokemon], 0, 12, 'videojuegos', 'm')).toMatch(/No tengo videojuegos de Pokémon/);
     expect(anchorNotice([marvel], 10, 10, 'películas', 'f')).toBeNull();
   });

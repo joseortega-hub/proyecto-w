@@ -8,7 +8,7 @@ type Story = StoryObj<typeof meta>
 export const Scale: Story = {
   render: () => (
     <div className="flex max-w-md flex-col gap-4">
-      <Heading size="display">Dime cómo estás y te pongo lo que encaja.</Heading>
+      <Heading size="display">Cuéntanos cómo te sientes y te recomendamos lo que mejor encaja.</Heading>
       <Heading size="question">¿Te apetece moverte?</Heading>
       <Heading size="title">Tarde de concentración</Heading>
       <Heading as="h2" size="section">Tu perfil de ánimo</Heading>
