@@ -193,6 +193,16 @@ export interface SessionResult {
   entries: ResultEntry[]
 }
 
+/** Sitio de un enlace de "Para saber más". */
+export type LinkSite = 'official' | 'wikipedia' | 'fandom' | 'tmdb' | 'rawg' | 'openlibrary' | 'musicbrainz' | 'reddit' | 'instagram' | 'youtube' | 'x'
+
+/** "Para saber más": la entidad de Wikidata y sus enlaces ya verificados (nunca inventados por la IA). */
+export interface EntityLinks {
+  query: string
+  entity: { id: string; label: string; description: string | null } | null
+  links: { site: LinkSite; url: string }[]
+}
+
 /** "Mi carpeta": lo que el servidor sabe de las canciones del dispositivo (nunca el audio). */
 export interface FolderStatus {
   itemCount: number
@@ -328,6 +338,10 @@ export interface GeneratedTheme {
 }
 
 export const api = {
+  /** "Para saber más" sobre una franquicia, saga, autor, estudio o artista. */
+  getLinks: (domainId: string, entity: string) => request<EntityLinks>(`/links?${new URLSearchParams({ domain: domainId, entity })}`),
+  /** "Para saber más" de una lista: sobre lo concreto que se pidió en su entrevista ("Marvel"). */
+  getSessionLinks: (sessionId: string) => request<EntityLinks>(`/links?${new URLSearchParams({ session: sessionId })}`),
   /** «Hoy para ti»: contexto, combo de esta noche y actividad por temática. */
   getHome: (client: ClientContext) => request<HomeSummary>('/home', { method: 'POST', body: JSON.stringify({ client }) }),
   /** A qué temática lleva lo escrito en la barra universal (el texto no se guarda). */
