@@ -7,6 +7,16 @@ export const GROUP_PREFIX = '@';
 
 export type Feedback = 'up' | 'down';
 
+/** Valoración de algo ya visto, leído, jugado o escuchado. */
+export type SeenRating = 'loved' | 'liked' | 'meh';
+export const SEEN_RATINGS: readonly SeenRating[] = ['loved', 'liked', 'meh'];
+
+/**
+ * Peso de cada valoración en lo aprendido, en «👍»: un 👍 vale 1 y un 👎, −1.
+ * «Me encantó» cuenta más que un 👍; «bien», como un 👍; «meh», como un 👎 suave.
+ */
+export const RATING_WEIGHT: Record<SeenRating | Feedback, number> = { up: 1, down: -1, loved: 1.5, liked: 1, meh: -0.5 };
+
 export interface TasteProfile {
   /** Etiquetas del catálogo o grupos (`@rpg`) que le gustan. */
   likes: string[];
@@ -51,24 +61,24 @@ export function tasteAffinity(item: { tags: string[] }, taste: TasteProfile | nu
 }
 
 /**
- * Ajusta lo aprendido con un 👍/👎. Si ya había una valoración del mismo elemento, se
+ * Ajusta lo aprendido con un 👍/👎 o con la valoración de algo ya visto (con su peso). Si ya había una valoración del mismo elemento, se
  * deshace primero, así cambiar de opinión (o quitarla, `next = null`) no acumula.
  * `common` son etiquetas demasiado frecuentes en el catálogo ("singleplayer"): no enseñan nada.
  */
 export function applyFeedback(
   learned: Record<string, number>,
   tags: string[],
-  previous: Feedback | null,
-  next: Feedback | null,
+  previous: Feedback | SeenRating | null,
+  next: Feedback | SeenRating | null,
   common: ReadonlySet<string> = new Set(),
 ): Record<string, number> {
   const out = { ...learned };
   const useful = tags.filter((t) => !common.has(t)).slice(0, FEEDBACK_TAGS);
-  const shift = (sign: number) => {
-    for (const t of useful) out[t] = Math.max(-1, Math.min(1, (out[t] ?? 0) + sign * FEEDBACK_STEP));
+  const shift = (weight: number) => {
+    for (const t of useful) out[t] = Math.max(-1, Math.min(1, (out[t] ?? 0) + weight * FEEDBACK_STEP));
   };
-  if (previous) shift(previous === 'up' ? -1 : 1);
-  if (next) shift(next === 'up' ? 1 : -1);
+  if (previous) shift(-RATING_WEIGHT[previous]);
+  if (next) shift(RATING_WEIGHT[next]);
   for (const [t, w] of Object.entries(out)) {
     if (Math.abs(w) < 0.01) delete out[t];
     else out[t] = Math.round(w * 100) / 100;

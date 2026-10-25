@@ -19,6 +19,7 @@ import { interviewSessions, type SessionRow } from '../db/schema.js';
 import { DomainsService, type DomainRow } from '../domains/domains.service.js';
 import { config as env } from '../config.js';
 import { domainDefinitions } from '../domains/index.js';
+import { SeenService } from '../seen/seen.service.js';
 import { ItemsService, type ItemWithoutEmbedding } from '../items/items.service.js';
 import type { Probe } from '../domains/domain.types.js';
 import { hasTaste, tasteLabel, tasteOnlyProbes, withoutOff } from '../taste/taste.engine.js';
@@ -157,6 +158,7 @@ export class InterviewService implements OnModuleInit {
     private readonly prefs: PreferencesService,
     private readonly items: ItemsService,
     @Inject(EMBEDDING_PROVIDER) private readonly embeddings: EmbeddingProvider,
+    private readonly seen: SeenService,
   ) {}
 
   /** Carga el banco de preguntas y calienta la primera pregunta al arrancar, sin bloquear el arranque. */
@@ -303,7 +305,7 @@ export class InterviewService implements OnModuleInit {
 
   /** Bolsa de candidatas con los filtros, anclas, exclusiones, señales y gustos de la sesión (null si queda vacía). */
   private async makeBag(domain: DomainRow, seed: SessionSeed, filters: FacetFilter[], semantic?: Map<string, number>) {
-    const filtered = await this.items.catalog(domain.id, filters, seed.userId);
+    const [filtered, seen] = await Promise.all([this.items.catalog(domain.id, filters, seed.userId), this.seen.ids(seed.userId, domain.id)]);
     // Los títulos pedidos entran aunque un filtro los deje fuera (los pidió por su nombre).
     const seeds = seedIds(seed.anchors ?? []).filter((id) => !filtered.some((it) => it.id === id));
     const catalog = seeds.length ? [...filtered, ...(await this.items.byIds(domain.id, seeds, seed.userId))] : filtered;
@@ -315,6 +317,7 @@ export class InterviewService implements OnModuleInit {
       filters,
       taste: seed.taste,
       semantic,
+      seen,
     });
     this.logger.log(`Bolsa: ${bag.entries.length} de ${catalog.length} (anclas: ${bag.mode}, ${bag.matched} coinciden)`);
     if (!bag.entries.length) return null;

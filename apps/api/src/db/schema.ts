@@ -18,7 +18,7 @@ import {
 import type { DomainConfig } from '../domains/domain.types.js';
 import type { InterviewContext } from '../interview/interview.context.js';
 import type { Anchor, BagEntry, InterviewTurn, MoodProfile, SessionPreferences, SessionResult, TextSignals } from '../interview/interview.types.js';
-import type { Feedback, TasteProfile } from '../taste/taste.engine.js';
+import type { Feedback, SeenRating, TasteProfile } from '../taste/taste.engine.js';
 import type { YouTubeImportState } from '../youtube/youtube.types.js';
 
 /** Un dominio del catálogo (música, películas…) con su configuración de entrevista. */
@@ -372,3 +372,28 @@ export const feedback = pgTable(
   },
   (t) => [index('feedback_status_idx').on(t.status, t.createdAt)],
 );
+
+/**
+ * «Ya lo vi / leí / jugué / escuché»: lo que la persona anónima ya consumió, por temática.
+ * No vuelve a recomendarse y su valoración (opcional) alimenta el perfil de gustos.
+ */
+export const seenItems = pgTable(
+  'seen_items',
+  {
+    userId: text('user_id').notNull(),
+    domainId: text('domain_id')
+      .notNull()
+      .references(() => domains.id, { onDelete: 'cascade' }),
+    itemId: uuid('item_id')
+      .notNull()
+      .references(() => items.id, { onDelete: 'cascade' }),
+    rating: text('rating').$type<SeenRating>(),
+    /** De dónde viene la marca: la app o una importación (`letterboxd`, `goodreads`, `steam`). */
+    source: text('source').notNull().default('app'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.itemId] }), index('seen_items_user_domain_idx').on(t.userId, t.domainId)],
+);
+
+export type SeenRow = typeof seenItems.$inferSelect;

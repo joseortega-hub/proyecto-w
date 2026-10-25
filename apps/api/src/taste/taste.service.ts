@@ -1,12 +1,12 @@
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { TEXT_PROVIDER, type TextProvider } from '../ai/text-provider.js';
 import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
 import { items, tasteProfiles, type TasteRow } from '../db/schema.js';
 import { DomainsService, type DomainRow } from '../domains/domains.service.js';
-import { applyFeedback, GROUP_PREFIX, tasteLabel, type Feedback, type TasteProfile } from './taste.engine.js';
+import { applyFeedback, GROUP_PREFIX, tasteLabel, type Feedback, type SeenRating, type TasteProfile } from './taste.engine.js';
 
 /** Etiquetas del vocabulario: las que aparecen en al menos estos elementos del dominio. */
 const MIN_TAG_COUNT = 3;
@@ -99,6 +99,31 @@ export class TasteService {
       .returning();
     this.logger.log(`${value ?? 'sin valoración'} en ${domainId}: ${Object.keys(saved.learned).length} etiquetas aprendidas`);
     return this.view(saved, domain, vocabulary);
+  }
+
+  /**
+   * Valoración de algo ya visto (o su cambio): ajusta lo aprendido con el peso de cada
+   * valoración, sin tocar los 👍/👎. Varios a la vez (una importación) en una sola escritura.
+   */
+  async rate(userId: string, domainId: string, changes: { itemId: string; previous: SeenRating | null; next: SeenRating | null }[]) {
+    const effective = changes.filter((c) => c.previous !== c.next);
+    if (!effective.length) return;
+    const domain = await this.domains.get(domainId);
+    const rows = await this.db
+      .select({ id: items.id, tags: items.tags })
+      .from(items)
+      .where(and(eq(items.domainId, domainId), inArray(items.id, effective.map((c) => c.itemId))));
+    const tags = new Map(rows.map((r) => [r.id, r.tags]));
+    const vocabulary = await this.vocabulary(domain, userId);
+    const row = await this.row(userId, domainId);
+    let learned = row?.learned ?? {};
+    for (const c of effective) learned = applyFeedback(learned, tags.get(c.itemId) ?? [], c.previous, c.next, vocabulary.common);
+    const values = { learned, updatedAt: new Date() };
+    await this.db
+      .insert(tasteProfiles)
+      .values({ userId, domainId, ...values })
+      .onConflictDoUpdate({ target: [tasteProfiles.userId, tasteProfiles.domainId], set: values });
+    this.logger.log(`${effective.length} valoraciones de «ya visto» en ${domainId}`);
   }
 
   /**

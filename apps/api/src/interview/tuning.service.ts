@@ -10,6 +10,7 @@ import { interviewSessions, items, type SessionRow } from '../db/schema.js';
 import { DomainsService, type DomainRow } from '../domains/domains.service.js';
 import { ItemsService, publicItem, type ItemWithoutEmbedding } from '../items/items.service.js';
 import { hasTaste, tasteHints, withoutOff, type TasteProfile } from '../taste/taste.engine.js';
+import { SeenService } from '../seen/seen.service.js';
 import { TasteService } from '../taste/taste.service.js';
 import {
   answerChips,
@@ -79,6 +80,7 @@ export class TuningService {
     private readonly interviews: InterviewService,
     private readonly tastes: TasteService,
     private readonly anchors: AnchorsService,
+    private readonly seen: SeenService,
   ) {}
 
   /**
@@ -107,8 +109,9 @@ export class TuningService {
     // Lo que se buscó en directo al empezar tiene que estar guardado antes de leer el catálogo.
     if (anchors.length) await this.anchors.awaitCoverage(domain, anchors, session.userId);
     const excludedTags = new Set(config.tagGroups.filter((g) => session.exclusions?.includes(g.key)).flatMap((g) => g.tags));
-    // Lo que no quiere ("nada de terror") no sale nunca, tenga o no bolsa la entrevista.
-    const filtered = (await this.items.catalog(domain.id, filters, session.userId)).filter((it) => !it.tags.some((t) => excludedTags.has(t)) && !excludedByAnchors(it, anchors));
+    // Lo que no quiere ("nada de terror") y lo que ya vio no salen nunca, tenga o no bolsa la entrevista.
+    const seenIds = await this.seen.ids(session.userId, domain.id);
+    const filtered = (await this.items.catalog(domain.id, filters, session.userId)).filter((it) => !seenIds.has(it.id) && !it.tags.some((t) => excludedTags.has(t)) && !excludedByAnchors(it, anchors));
     // Los títulos pedidos (semillas) van siempre, aunque un filtro los deje fuera.
     const seeds = seedIds(anchors);
     const missingSeeds = seeds.filter((id) => !filtered.some((it) => it.id === id));
@@ -116,7 +119,8 @@ export class TuningService {
     const matched = anchorMatches(catalog, anchors);
     const plan: AnchorPlan = { anchors, mode: anchorMode(anchors, matched.length, config.result.size), matched: new Set(matched.map((m) => m.id)) };
     if (anchors.length) this.logger.log(`Anclas ${anchors.map((a) => a.label).join(', ')}: ${matched.length} en el catálogo → ${plan.mode}`);
-    const candidates = await this.findCandidates(session, domain, profile, catalog, filters, taste, plan);
+    // La búsqueda semántica mira todo el dominio: lo ya visto se quita también aquí (salvo lo pedido por su nombre).
+    const candidates = (await this.findCandidates(session, domain, profile, catalog, filters, taste, plan)).filter((c) => !seenIds.has(c.item.id) || seeds.includes(c.item.id));
     yield {
       step: 'candidates',
       count: candidates.length,
@@ -259,7 +263,8 @@ export class TuningService {
       const filters = preferenceFilters(session.preferences, config);
       const anchors = session.anchors ?? [];
       const excludedTags = new Set(config.tagGroups.filter((g) => session.exclusions?.includes(g.key)).flatMap((g) => g.tags));
-      const catalog = (await this.items.catalog(domain.id, filters, session.userId)).filter((it) => !it.tags.some((t) => excludedTags.has(t)));
+      const seen = await this.seen.ids(session.userId, domain.id);
+      const catalog = (await this.items.catalog(domain.id, filters, session.userId)).filter((it) => !seen.has(it.id) && !it.tags.some((t) => excludedTags.has(t)));
       const matched = anchorMatches(catalog, anchors);
       const mode = anchorMode(anchors, matched.length, config.result.size);
       const matchedIds = new Set(matched.map((m) => m.id));

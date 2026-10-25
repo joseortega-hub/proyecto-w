@@ -182,6 +182,8 @@ export interface BagContext {
   taste?: TasteProfile | null;
   /** Parecido semántico con el texto (0–1) por id, si hubo cupo de embeddings. */
   semantic?: Map<string, number>;
+  /** Lo que ya vio, leyó, jugó o escuchó: fuera de la bolsa (salvo si lo pide por su nombre). */
+  seen?: ReadonlySet<string>;
 }
 
 /** Cómo se usan las anclas al montar la bolsa, y cuántos elementos casan (para los avisos). */
@@ -204,7 +206,7 @@ export function buildBag<T extends BagItem>(catalog: T[], ctx: BagContext): BagR
   let scope = catalog.filter(
     (it) =>
       seeds.has(it.id) ||
-      (!it.tags.some((t) => excluded.has(t)) && !excludedByAnchors(it, ctx.anchors) && ctx.filters.every((f) => f.values.some((v) => facetHas(it.facets[f.key], v)))),
+      (!ctx.seen?.has(it.id) && !it.tags.some((t) => excluded.has(t)) && !excludedByAnchors(it, ctx.anchors) && ctx.filters.every((f) => f.values.some((v) => facetHas(it.facets[f.key], v)))),
   );
   // "Parecido a X": lo de X sirve de referencia de parecido (aunque no entre en la lista).
   const references = [...seedItems, ...catalog.filter((it) => !seeds.has(it.id) && ctx.anchors.some((a) => a.like?.length && meetsAny(it, a.like)))];

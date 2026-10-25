@@ -42,10 +42,12 @@ import { ListsController } from './lists/lists.controller.js';
 import { ListsService } from './lists/lists.service.js';
 import { FeedbackController } from './feedback/feedback.controller.js';
 import { FeedbackService } from './feedback/feedback.service.js';
+import { SeenController } from './seen/seen.controller.js';
+import { SeenService } from './seen/seen.service.js';
 
 @Module({
   imports: [DbModule, AiModule],
-  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController, ListsController, LinksController, FeedbackController],
+  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController, ListsController, LinksController, FeedbackController, SeenController],
   providers: [
     DomainsService,
     AnchorsService,
@@ -74,6 +76,7 @@ import { FeedbackService } from './feedback/feedback.service.js';
     StoryService,
     ListsService,
     FeedbackService,
+    SeenService,
   ],
 })
 export class AppModule {}
