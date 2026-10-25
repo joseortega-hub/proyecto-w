@@ -40,7 +40,8 @@ export class PerreoService {
   }
 
   async list(query: ArtistQuery) {
-    const all = (await this.all()).map(summary);
+    // Las fichas mínimas (solo usuario de Instagram, sin foto ni datos) no se enseñan en el explorador hasta completarlas.
+    const all = (await this.all()).filter((a) => !a.incomplete).map(summary);
     return { artists: filterArtists(all, query), total: all.length, followedTotal: all.filter((a) => a.followed).length, facets: artistFacets(all) };
   }
 

@@ -50,7 +50,6 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
             )}
             {artist.kind !== 'artist' && <Chip variant="outline">{kindName(artist.kind)}</Chip>}
             {artist.incomplete && <Chip variant="outline">Por completar</Chip>}
-            {artist.followed && <Chip>♥ Lo sigues en Instagram</Chip>}
             <Chip variant="outline">{fameLabel(artist.fame)}</Chip>
             {artist.debutYear && (
               <Chip variant="outline">

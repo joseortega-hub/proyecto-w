@@ -16,7 +16,7 @@ export function PerreoArtistsPage() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-5 py-5 md:px-10 md:py-8">
       <div className="flex flex-col gap-1">
         <Heading>Artistas</Heading>
-        <Text tone="muted">Los 66 de UrbanoPedia y los que sigues en Instagram. Filtra por fama, país, época, sello o estilo y abre la ficha de cada uno.</Text>
+        <Text tone="muted">Filtra por fama, país, época, sello o estilo y abre la ficha de cada uno.</Text>
         {pending > 0 && (
           <Link to="/perreo/por-revisar" className="inline-flex min-h-11 items-center font-bold text-domain underline">
             {pending} cuentas por revisar →

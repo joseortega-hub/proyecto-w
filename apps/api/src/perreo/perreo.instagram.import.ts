@@ -15,8 +15,8 @@ import { PERREO_STYLES } from '../domains/perreo.domain.js';
 import { enrichSongs, ENRICH_BATCH } from '../youtube/youtube.enrich.js';
 import { fold } from './perreo.filters.js';
 import { hasSongs, type Kind } from './perreo.kinds.js';
-import { findDuplicate, freeSlug, type Known } from './perreo.resolve.js';
-import { commonsPhoto, wikidataCard, wikiSummaryByTitle, type WikidataCard } from './perreo.sources.ig.js';
+import { findDuplicate, freeSlug, squash, stylesFromTags, type Known } from './perreo.resolve.js';
+import { commonsPhoto, deezerArtist, downloadImage, lastfmTags, wikidataCard, wikiSummaryByTitle, type WikidataCard } from './perreo.sources.ig.js';
 import { channelFeed, channelUploads, cleanTitle, lastfmArtist, matchSimilar, songKey, type ChannelVideo, type LastfmArtist } from './perreo.sources.js';
 import type { IgArtist, PerreoArtistFile, PerreoOverlay, PerreoSongFile } from './perreo.types.js';
 
@@ -37,6 +37,8 @@ interface Cached {
   photo?: boolean;
   lastfm?: LastfmArtist;
   videos?: ChannelVideo[];
+  deezer?: { name: string; fans: number } | null;
+  tags?: string[];
 }
 const cache = read<Record<string, Cached>>('ig-cache.json', {});
 // --batch N: solo los lotes de 300 cuentas hasta el N (los demás se quedan sin tocar). Sin él, todos.
@@ -93,6 +95,18 @@ for (const { entry, slug } of mine) {
         c.photo = true;
       }
     }
+    // Sin foto de Wikidata: Deezer (nombre exacto y fans suficientes; para cuentas sin resolver, más exigente).
+    if (!c.photo && c.deezer === undefined) {
+      const d = entry.name.length >= 4 && (!minimal || entry.name.length >= 6) ? await deezerArtist(minimal ? entry.name : entry.name) : null;
+      const ok = d && d.fans >= (minimal ? 20000 : 200) && (!minimal || squash(d.name) === squash(entry.name));
+      c.deezer = ok ? { name: d.name, fans: d.fans } : null;
+      const raw = ok ? await downloadImage(d.picture) : null;
+      if (raw) {
+        await sharp(raw).rotate().resize({ width: 480, height: 480, fit: 'cover', position: 'top' }).webp({ quality: 70 }).toFile(join(out, 'photos', `${slug}.webp`));
+        c.photo = true;
+      }
+    }
+    if (c.tags === undefined && config.lastfmApiKey && !minimal) c.tags = await lastfmTags(entry.name, config.lastfmApiKey);
     if (c.videos === undefined && !noSongs && hasSongs(kindHint)) {
       const channel = c.card?.channelId;
       c.videos = channel ? (youtubeKey ? await channelUploads(channel, youtubeKey, 2) : await channelFeed(channel)) : [];
@@ -104,13 +118,13 @@ for (const { entry, slug } of mine) {
   }
   write('ig-cache.json', cache);
   const card = c.card;
-  const kind: Kind = (card && card.kind !== 'other' ? card.kind : (entry.kind as Kind | undefined)) ?? 'artist';
+  const kind: Kind = (card && card.kind !== 'other' ? card.kind : minimal && c.deezer ? 'artist' : (entry.kind as Kind | undefined)) ?? 'artist';
   const incomplete = minimal || (!card && !c.lastfm?.listeners);
   const bio = c.bio?.extract ?? null;
   const old = previous.get(slug);
   artists.push({
     slug,
-    name: entry.name,
+    name: minimal && c.deezer ? c.deezer.name : entry.name,
     realName: null,
     birthDate: card?.birthDate ?? null,
     country: card?.countries.join(' / ') || null,
@@ -175,6 +189,12 @@ if (groq && need.length) {
       break;
     }
   }
+}
+// Respaldo sin IA: géneros de Wikidata y etiquetas de Last.fm para los que sigan sin estilo.
+for (const a of artists) {
+  if (a.incomplete || a.styles.some((x) => x !== 'old school')) continue;
+  const found = stylesFromTags([...(cache[a.slug]?.card?.genres ?? []), ...(cache[a.slug]?.tags ?? [])]);
+  if (found.length) a.styles = [...new Set([...a.styles, ...found])].slice(0, 4);
 }
 write('ig-artists.json', artists);
 write('ig-overlay.json', overlay);

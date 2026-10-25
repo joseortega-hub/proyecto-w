@@ -105,3 +105,15 @@ export function mergePerreo(base: PerreoArtistFile[], ig: PerreoArtistFile[], ov
   fameFromListeners(all.map((a) => a.listeners)).forEach((f, i) => (all[i].fame = f));
   return all;
 }
+
+/** Estilos del Modo Perreo a partir de géneros y etiquetas (Wikidata, Last.fm): el respaldo sin IA. */
+export function stylesFromTags(tags: string[]): string[] {
+  const text = tags.map((t) => fold(t)).join(' | ');
+  const out: string[] = [];
+  if (/trap/.test(text)) out.push('trap');
+  if (/dembow|dominican/.test(text)) out.push('dembow');
+  if (/romantic|balada|bolero|pop latin|latin pop|baladas/.test(text)) out.push('romántico');
+  if (/reggaeton|reguet|perreo|urbano/.test(text) || (!out.length && /urban|latin/.test(text) && !/latin pop/.test(text))) out.push('perreo');
+  if (!out.length && /hip.?hop|rap/.test(text)) out.push('trap');
+  return [...new Set(out)];
+}

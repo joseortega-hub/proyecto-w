@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { artistFacets, cityParts, eraOf, filterArtists, type ArtistSummary } from './perreo.filters.js';
 import { interleave } from './perreo.service.js';
-import { accountHash, classify, findDuplicate, freeSlug, mergePerreo } from './perreo.resolve.js';
+import { stylesFromTags, accountHash, classify, findDuplicate, freeSlug, mergePerreo } from './perreo.resolve.js';
 import type { PerreoArtistFile } from './perreo.types.js';
 import { hasSongs, kindFromMusicBrainz, kindFromUsername, kindFromWikidata } from './perreo.kinds.js';
 import { cleanTitle, fameFromListeners, matchSimilar, parseFeed, songKey } from './perreo.sources.js';
@@ -170,5 +170,15 @@ describe('tipos de cuenta', () => {
     const l = [artist({ slug: 'a' }), artist({ slug: 'p', kind: 'producer' }), artist({ slug: 's', kind: 'label' })];
     expect(filterArtists(l, { kind: 'producer' }).map((a) => a.slug)).toEqual(['p']);
     expect(artistFacets(l).kinds.map((k) => k.value).sort()).toEqual(['artist', 'label', 'producer']);
+  });
+});
+
+describe('estilos sin IA', () => {
+  it('salen de los géneros y etiquetas', () => {
+    expect(stylesFromTags(['Latin trap', 'Trap'])).toEqual(['trap']);
+    expect(stylesFromTags(['reggaeton', 'urbano'])).toEqual(['perreo']);
+    expect(stylesFromTags(['Pop latino', 'balada'])).toEqual(['romántico']);
+    expect(stylesFromTags(['dembow', 'reggaeton'])).toEqual(['dembow', 'perreo']);
+    expect(stylesFromTags(['rock'])).toEqual([]);
   });
 });

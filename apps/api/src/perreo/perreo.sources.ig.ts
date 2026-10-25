@@ -164,3 +164,32 @@ export async function commonsPhoto(file: string): Promise<Buffer | null> {
   const res = await fetch(`https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(file)}?width=600`, { headers: { 'User-Agent': USER_AGENT }, redirect: 'follow' }).catch(() => null);
   return res?.ok ? Buffer.from(await res.arrayBuffer()) : null;
 }
+
+export interface DeezerArtist {
+  name: string;
+  fans: number;
+  picture: string;
+}
+
+/** Deezer (API pública, sin clave): artista con ese nombre exacto, con su foto y sus fans. Para las fotos que Wikidata no trae. */
+export async function deezerArtist(name: string): Promise<DeezerArtist | null> {
+  const found = await getJson<{ data?: { name: string; nb_fan: number; picture_xl?: string; picture_big?: string }[] }>(`https://api.deezer.com/search/artist?${new URLSearchParams({ q: name, limit: '3' })}`, 300);
+  const key = fold(name).replace(/[^a-z0-9]/g, '');
+  const hit = (found?.data ?? []).find((a) => fold(a.name).replace(/[^a-z0-9]/g, '') === key && (a.picture_xl || a.picture_big));
+  return hit ? { name: hit.name, fans: hit.nb_fan, picture: (hit.picture_xl ?? hit.picture_big)! } : null;
+}
+
+export async function downloadImage(url: string): Promise<Buffer | null> {
+  await sleep(300);
+  const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } }).catch(() => null);
+  return res?.ok ? Buffer.from(await res.arrayBuffer()) : null;
+}
+
+/** Etiquetas más votadas de Last.fm (`artist.getTopTags`). */
+export async function lastfmTags(name: string, apiKey: string): Promise<string[]> {
+  const body = await getJson<{ toptags?: { tag?: { name: string }[] } }>(
+    `https://ws.audioscrobbler.com/2.0/?${new URLSearchParams({ method: 'artist.gettoptags', artist: name, autocorrect: '1', api_key: apiKey, format: 'json' })}`,
+    250,
+  );
+  return (body?.toptags?.tag ?? []).slice(0, 8).map((t) => t.name);
+}
