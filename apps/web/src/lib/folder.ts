@@ -2,7 +2,8 @@
 // La importación vive fuera de React para que siga si se cambia de pantalla.
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
-import { api, type FolderStatus, type FolderTrackInput } from './api'
+import { api, type FolderAudioInput, type FolderStatus, type FolderTrackInput } from './api'
+import { AUDIO_VERSION, canAnalyzeAudio, createAnalyzer, decodeWindow } from './audio-analysis'
 import {
   allLocalFiles,
   folderPermission,
@@ -34,9 +35,20 @@ export interface FolderState {
   done: number
   total: number
   error?: string
+  /** Análisis del sonido en el dispositivo (Essentia.js), aparte de la identificación. */
+  audio: AudioState
 }
 
-let state: FolderState = { access: 'unknown', folderName: null, found: 0, phase: 'idle', step: '', done: 0, total: 0 }
+export interface AudioState {
+  phase: 'idle' | 'running' | 'done' | 'unsupported' | 'error'
+  done: number
+  total: number
+  /** Archivos que el navegador no ha podido decodificar (formato raro, demasiado grandes…). */
+  failed: number
+}
+
+const audioIdle: AudioState = { phase: 'idle', done: 0, total: 0, failed: 0 }
+let state: FolderState = { access: 'unknown', folderName: null, found: 0, phase: 'idle', step: '', done: 0, total: 0, audio: audioIdle }
 const listeners = new Set<() => void>()
 const set = (patch: Partial<FolderState>) => {
   state = { ...state, ...patch }
@@ -92,7 +104,8 @@ export async function forgetFolder() {
   await forgetHandle()
   handleRef = null
   registerFiles([])
-  set({ access: 'none', folderName: null, found: 0, phase: 'idle', step: '', done: 0, total: 0, error: undefined })
+  stopAudio()
+  set({ access: 'none', folderName: null, found: 0, phase: 'idle', step: '', done: 0, total: 0, error: undefined, audio: audioIdle })
 }
 
 const fileName = (key: string) => key.slice(0, key.lastIndexOf('|')).split('/').pop() ?? key
@@ -140,6 +153,67 @@ export async function importFolder(files: LocalAudio[], queryClient: QueryClient
     void queryClient.invalidateQueries({ queryKey: ['folder'] })
     void queryClient.invalidateQueries({ queryKey: ['domains'] })
     void queryClient.invalidateQueries({ queryKey: ['taste', 'folder'] })
+  }
+  // Con los nombres ya guardados, se mide el sonido en segundo plano.
+  if (state.phase === 'done') void analyzeAudio(queryClient)
+}
+
+// ——— Análisis del sonido (Essentia.js) ———
+
+/** Mediciones por envío: si se corta, lo enviado ya cuenta y se sigue por ahí. */
+const AUDIO_BATCH = 5
+const setAudio = (patch: Partial<AudioState>) => set({ audio: { ...state.audio, ...patch } })
+let audioRun = 0
+
+export const stopAudio = () => {
+  audioRun++
+  if (state.audio.phase === 'running') setAudio({ phase: 'idle' })
+}
+
+/**
+ * Mide en el dispositivo el tempo, la tonalidad, la energía y la bailabilidad de los archivos
+ * que el servidor aún no tiene medidos. Un archivo cada vez (memoria del móvil), en un worker
+ * (la interfaz no se bloquea) y por lotes reanudables. Sin Web Audio o WASM no hace nada.
+ */
+export async function analyzeAudio(queryClient: QueryClient) {
+  if (state.audio.phase === 'running') return
+  if (!canAnalyzeAudio()) return setAudio({ phase: 'unsupported' })
+  const run = ++audioRun
+  setAudio({ phase: 'running', done: 0, total: 0, failed: 0 })
+  const analyzer = createAnalyzer()
+  const outbox: FolderAudioInput[] = []
+  const flush = async () => {
+    if (!outbox.length) return
+    await api.folderAudio(outbox.splice(0))
+    void queryClient.invalidateQueries({ queryKey: ['folder'] })
+    void queryClient.invalidateQueries({ queryKey: ['item'] })
+  }
+  try {
+    const pending = new Set(await api.folderAudioPending())
+    const files = allLocalFiles().filter((f) => pending.has(f.key))
+    setAudio({ total: files.length })
+    let failed = 0
+    let measured = 0
+    for (const [i, { key, file }] of files.entries()) {
+      if (run !== audioRun) break
+      try {
+        const result = await analyzer.analyze(await decodeWindow(file))
+        outbox.push({ key, ...result, version: AUDIO_VERSION })
+        measured++
+      } catch (error) {
+        failed++
+        // Si Essentia no carga (sin red, CDN caído) no tiene sentido seguir probando.
+        if (!measured && failed >= 3) throw error
+      }
+      setAudio({ done: i + 1, failed })
+      if (outbox.length >= AUDIO_BATCH) await flush()
+    }
+    await flush()
+    if (run === audioRun) setAudio({ phase: 'done' })
+  } catch {
+    if (run === audioRun) setAudio({ phase: 'error' })
+  } finally {
+    analyzer.close()
   }
 }
 

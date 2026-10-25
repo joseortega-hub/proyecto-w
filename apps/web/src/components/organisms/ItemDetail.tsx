@@ -19,6 +19,18 @@ interface ItemDetailProps {
   onOpenSimilar?: (item: Item) => void
 }
 
+/** "120 BPM · La menor" si el sonido se midió en el dispositivo ("Mi carpeta"). */
+function soundLine(item: Item): string | null {
+  const bpm = item.facets?.bpm
+  const key = item.facets?.musicKey
+  if (!item.facets?.measured) return null
+  return [bpm ? `${bpm} BPM` : null, typeof key === 'string' ? key : null].filter(Boolean).join(' · ') || null
+}
+
+/** De dónde sale cada valor cuando hay medición: medido o estimado con IA. */
+const originOf = (measured: string | string[] | undefined, key: string) =>
+  !Array.isArray(measured) ? undefined : measured.includes(key) ? ('measured' as const) : ('ai' as const)
+
 /**
  * Ficha de un elemento. En música se reproduce aquí; en el resto de temáticas no hay
  * contenido que reproducir, así que se enlaza a la fuente con su atribución.
@@ -27,6 +39,8 @@ export function ItemDetail({ item, domain, attributes, details, similar, links, 
   const scales = attributes.filter((a) => a.kind === 'scale' && item.attributes[a.key] !== undefined)
   const sheet = techSheet(item.domainId, details ?? item.details)
   const meta = [itemYear(item), item.durationSec ? formatDuration(item.durationSec) : null].filter(Boolean).join(' · ')
+  const sound = soundLine(item)
+  const measured = item.facets?.measured
   return (
     <div className="flex flex-col gap-6 md:flex-row md:items-start">
       <div className="flex flex-col gap-4 md:w-72 md:flex-none">
@@ -60,6 +74,14 @@ export function ItemDetail({ item, domain, attributes, details, similar, links, 
               {meta}
             </Text>
           )}
+          {sound && (
+            <Text tone="muted" size="sm" className="flex items-center gap-1.5">
+              <Icon name="activity" className="size-4 flex-none text-domain" />
+              <span>
+                <span className="font-mono">{sound}</span> · medido en tu dispositivo
+              </span>
+            </Text>
+          )}
         </div>
         {item.description && <Text className="whitespace-pre-line">{item.description}</Text>}
         {item.tags.length > 0 && (
@@ -76,7 +98,7 @@ export function ItemDetail({ item, domain, attributes, details, similar, links, 
           <section className="flex flex-col gap-2.5" aria-label="Carácter">
             <Text font="label">Carácter</Text>
             {scales.map((a) => (
-              <AttributeMeter key={a.key} label={a.label} value={item.attributes[a.key]} hint={`${a.lowLabel} ↔ ${a.highLabel}`} />
+              <AttributeMeter key={a.key} label={a.label} value={item.attributes[a.key]} hint={`${a.lowLabel} ↔ ${a.highLabel}`} origin={originOf(measured, a.key)} />
             ))}
           </section>
         )}

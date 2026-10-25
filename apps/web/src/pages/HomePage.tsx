@@ -8,7 +8,7 @@ import { useListSize } from '@/lib/list-size'
 import { FolderPanel, YouTubePanel } from '@/components/organisms'
 import { Card } from '@/components/ui/card'
 import { useDomain } from '@/lib/domain'
-import { chooseFolder, importFolder, reconnectFolder, restoreFolder, useFolderState, useFolderStatus, useForgetFolder } from '@/lib/folder'
+import { analyzeAudio, chooseFolder, importFolder, stopAudio, reconnectFolder, restoreFolder, useFolderState, useFolderStatus, useForgetFolder } from '@/lib/folder'
 import { allLocalFiles, canRememberFolder, songsOnlyDevice } from '@/lib/local-files'
 import { timeAgo } from '@/lib/format'
 import { usePreferences } from '@/lib/preferences'
@@ -66,6 +66,9 @@ export function HomePage() {
             itemCount={folder.status.data?.itemCount}
             review={folder.status.data?.review}
             pending={(folder.status.data?.unanalyzed ?? 0) + (folder.status.data?.unembedded ?? 0)}
+            unmeasured={folder.status.data?.unmeasured}
+            onAnalyzeAudio={folder.analyzeAudio}
+            onStopAudio={stopAudio}
             canRemember={canRememberFolder()}
             songsMode={songsOnlyDevice()}
             onChoose={folder.choose}
@@ -231,6 +234,7 @@ function useFolderSection(enabled: boolean) {
         if (ok) void importFolder(allLocalFiles(), queryClient)
       }, fail),
     // En móvil "añadir" abre el selector de canciones; con carpeta, vuelve a mirar la ya elegida.
+    analyzeAudio: () => void analyzeAudio(queryClient),
     importNew: () => (songsOnlyDevice() ? void choose() : void importFolder(allLocalFiles(), queryClient)),
   }
 }
