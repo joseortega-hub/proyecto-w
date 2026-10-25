@@ -11,6 +11,7 @@ import { agree, useDomain } from '@/lib/domain'
 import { rememberSession } from '@/lib/ops'
 import { useSavedLists } from '@/lib/saved-lists'
 import { useFeedback, useTaste } from '@/lib/taste'
+import { youtubeQuotaWarning } from '@/lib/list-size'
 import { useSaveToYouTube } from '@/lib/youtube'
 import { vibeGradient } from '@/lib/vibe/vibe-color'
 import { renderVibeCard, shareVibeImage } from '@/lib/vibe/vibe-share'
@@ -251,7 +252,9 @@ export function ResultPage() {
               variant="secondary"
               block
               disabled={saveToYouTube.isPending}
-              onClick={() =>
+              onClick={() => {
+                const warning = youtubeQuotaWarning(data.entries.length)
+                if (warning && !window.confirm(warning)) return
                 saveToYouTube.mutate(undefined, {
                   onSuccess: (r) =>
                     toast.success('Lista creada en tu YouTube (privada)', {
@@ -267,7 +270,7 @@ export function ResultPage() {
                           : undefined,
                     }),
                 })
-              }
+              }}
             >
               <Icon name="listPlus" className="text-domain" />
               {saveToYouTube.isPending ? 'Creando la lista…' : 'Guardar en mi YouTube'}

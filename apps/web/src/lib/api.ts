@@ -420,8 +420,14 @@ export const api = {
     request<SavedPlaylist>('/youtube/playlists', { method: 'POST', body: JSON.stringify({ sessionId, privacy }) }),
 
   /** Sigue el progreso de Afinando por Server-Sent Events. Devuelve la función para cancelar. */
-  tune(id: string, refine: string[], onEvent: (e: TuningEvent) => void): () => void {
-    const qs = refine.length ? `?refine=${encodeURIComponent(refine.join(','))}` : ''
+  tune(id: string, refine: string[], onEvent: (e: TuningEvent) => void, size?: { min: number; max: number }): () => void {
+    const params = new URLSearchParams()
+    if (refine.length) params.set('refine', refine.join(','))
+    if (size) {
+      params.set('min', String(size.min))
+      params.set('max', String(size.max))
+    }
+    const qs = params.size ? `?${params}` : ''
     const source = new EventSource(`/api/sessions/${id}/tune${qs}`)
     source.onmessage = (msg) => {
       const event = JSON.parse(msg.data) as TuningEvent

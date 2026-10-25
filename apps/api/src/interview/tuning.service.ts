@@ -37,6 +37,7 @@ import { currentWeights } from './candidates.js';
 import { InterviewService } from './interview.service.js';
 import type { Anchor, MoodProfile, SessionResult } from './interview.types.js';
 import { applyVibe, reorderByVibe, vibeSources } from './vibe.engine.js';
+import { DEFAULT_SIZE, normalizeRange, pickBySize, sizeNotice, type SizeRange } from './list-size.js';
 
 export type TuningEvent =
   | { step: 'profile'; profile: MoodProfile }
@@ -84,10 +85,12 @@ export class TuningService {
    * Perfil (score) → candidatos (pgvector + atributos) → ¿encaja? (noul) → explicaciones.
    * Emite un evento por paso para que la pantalla Afinando muestre el progreso real.
    */
-  async *run(sessionId: string, refinements: string[]): AsyncGenerator<TuningEvent> {
+  async *run(sessionId: string, refinements: string[], size: SizeRange = DEFAULT_SIZE): AsyncGenerator<TuningEvent> {
     const session = await this.interviews.load(sessionId);
     if (session.status === 'asking') throw new BadRequestException('La entrevista aún no ha terminado');
-    const domain = await this.domains.get(session.domainId);
+    const loaded = await this.domains.get(session.domainId);
+    // Para llegar al máximo hace falta una bolsa algo mayor; `size` (que decide filtrar o subir lo pedido) no cambia.
+    const domain = { ...loaded, config: { ...loaded.config, result: { ...loaded.config.result, candidates: Math.max(loaded.config.result.candidates, size.max + 12) } } };
     const { config } = domain;
     // Gustos al día (incluye los últimos 👍/👎); sin persona, la copia del inicio de la entrevista.
     const fresh = withoutOff(await this.tastes.profile(session.userId, domain.id).catch(() => null), session.tasteOff);
@@ -165,6 +168,14 @@ export class TuningService {
         match: matchPercent(relevance[i], fit.get(item.id) ?? null),
       }))
       .sort((a, b) => anchored(b.item.id) - anchored(a.item.id) || b.match - a.match);
+    // Lo que pasa de los evaluados con IA se ordena con el ranking propio, sin más llamadas.
+    const restRelevance = percentiles(candidates.slice(judged.length).map((c) => c.relevance));
+    finalists.push(
+      ...candidates
+        .slice(judged.length)
+        .map(({ item }, i) => ({ item, fit: null as number | null, match: matchPercent(restRelevance[i], null) }))
+        .sort((a, b) => anchored(b.item.id) - anchored(a.item.id) || b.match - a.match),
+    );
     // Los títulos pedidos primero, siempre; si no llegaron a evaluarse, entran igual.
     const byId = new Map(catalog.map((it) => [it.id, it]));
     const seeded = seeds.flatMap((id) => {
@@ -180,7 +191,8 @@ export class TuningService {
       seen.add(key);
       return true;
     });
-    finalists.splice(0, finalists.length, ...unique.slice(0, config.result.size));
+    const sized = pickBySize(unique, size, (f) => seeds.includes(f.item.id));
+    finalists.splice(0, finalists.length, ...sized.picked);
 
     yield { step: 'explain' };
     const list = finalists.map((f) => f.item);
@@ -194,6 +206,7 @@ export class TuningService {
       [
         plan.mode !== 'none' ? anchorNotice(anchors, plan.mode === 'filter' ? plan.matched.size : inList, config.result.size, domain.itemNounPlural, config.gender, plan.mode) : null,
         preferenceNotice(list, session.preferences, config, domain.itemNounPlural, config.result.size),
+        sizeNotice(sized.good, sized.filled, domain.itemNounPlural),
       ]
         .filter(Boolean)
         .join(' ') || null;
@@ -227,9 +240,12 @@ export class TuningService {
   async revibe(sessionId: string, scales: Record<string, number> | undefined) {
     const session = await this.interviews.load(sessionId);
     if (!session.result || !session.profile) throw new BadRequestException('Esta entrevista todavía no tiene lista');
-    const domain = await this.domains.get(session.domainId);
-    const { config } = domain;
+    const loaded = await this.domains.get(session.domainId);
     const previous = session.result;
+    // «Tu vibra» mantiene el tamaño que tiene la lista (editada o no).
+    const keep = normalizeRange(previous.entries.length, previous.entries.length).max;
+    const domain = { ...loaded, config: { ...loaded.config, result: { ...loaded.config.result, size: keep, candidates: Math.max(loaded.config.result.candidates, keep + 12) } } };
+    const { config } = domain;
     const original = previous.vibe?.original ?? previous.entries;
     const moved = Object.fromEntries(Object.entries(scales ?? {}).filter(([k, v]) => Number.isFinite(v) && config.attributes.some((a) => a.key === k && a.kind === 'scale')));
 

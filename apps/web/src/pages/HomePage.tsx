@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, Cover, DomainIcon, Heading, Icon, IconButton, Text } from '@/components/atoms'
-import { PreferencePicker, StartingPointField } from '@/components/molecules'
+import { ListSizeField, PreferencePicker, StartingPointField } from '@/components/molecules'
+import { useListSize } from '@/lib/list-size'
 import { FolderPanel, YouTubePanel } from '@/components/organisms'
 import { Card } from '@/components/ui/card'
 import { useDomain } from '@/lib/domain'
@@ -18,6 +19,7 @@ import { useConnectYouTube, useDisconnectYouTube, useImportYouTube, useYouTubeSt
 export function HomePage() {
   const navigate = useNavigate()
   const domain = useDomain()
+  const [listSize, setListSize] = useListSize(domain.id)
   const { lists } = useSavedLists(domain.id)
   const last = lists[0]
   const preferences = domain.info?.preferences ?? []
@@ -130,6 +132,7 @@ export function HomePage() {
               label={`¿Cómo estás o qué te apetece ${domain.info?.verb ?? ''}?`.replace(' ?', '?')}
               placeholder="Ej.: vengo reventado del curro y quiero algo tranqui"
             />
+            <ListSizeField value={listSize} onChange={setListSize} noun={domain.nounPlural} />
             <Button block className="mt-2" onClick={() => start(text.trim() || undefined)}>
               {text.trim() ? 'Empezar con esto' : 'Empezar'}
             </Button>

@@ -3,6 +3,7 @@ import { Observable } from 'rxjs';
 import { z } from 'zod';
 import { InterviewService } from './interview.service.js';
 import { TuningService } from './tuning.service.js';
+import { normalizeRange } from './list-size.js';
 import { USER_HEADER } from '../taste/taste.controller.js';
 import { optionalUserId } from '../taste/taste.service.js';
 
@@ -118,13 +119,14 @@ export class InterviewController {
 
   /** Server-Sent Events con el progreso de Afinando. `?refine=more-energy,with-voice` relanza con ajustes. */
   @Sse(':id/tune')
-  tune(@Param('id') id: string, @Query('refine') refine?: string): Observable<MessageEvent> {
+  tune(@Param('id') id: string, @Query('refine') refine?: string, @Query('min') min?: string, @Query('max') max?: string): Observable<MessageEvent> {
+    const size = normalizeRange(min, max);
     const refinements = refine ? refine.split(',').filter(Boolean) : [];
     return new Observable((subscriber) => {
       let cancelled = false;
       (async () => {
         try {
-          for await (const event of this.tuning.run(id, refinements)) {
+          for await (const event of this.tuning.run(id, refinements, size)) {
             if (cancelled) return;
             subscriber.next({ data: event });
           }

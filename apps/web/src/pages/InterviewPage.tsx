@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, IconButton, Text } from '@/components/atoms'
-import { ContextBadge, EmptyState, InterviewProgress, UnderstandingCard, type UnderstoodChip } from '@/components/molecules'
+import { useListSize } from '@/lib/list-size'
+import { ListSizeField, ContextBadge, EmptyState, InterviewProgress, UnderstandingCard, type UnderstoodChip } from '@/components/molecules'
 import { DemoDock, InterviewPanel } from '@/components/organisms'
 import { FocusTemplate } from '@/components/templates/FocusTemplate'
 import { ApiError, api, type Answer, type SessionView, type Understanding } from '@/lib/api'
@@ -23,6 +24,7 @@ export function InterviewPage() {
   // Punto de partida opcional (texto o voz) que llega desde Inicio en el estado de la navegación.
   const location = useLocation()
   const navState = location.state as { initialText?: string; preferences?: Record<string, string> } | null
+  const [listSize, setListSize] = useListSize(domain.id)
   const initialText = navState?.initialText
   // Lo elegido con los botones ya se aplica en la primera pregunta, no solo al afinar.
   const [prefs, setPrefs] = useState<Record<string, string>>(() => navState?.preferences ?? storedPreferences(domain.id))
@@ -205,6 +207,7 @@ export function InterviewPage() {
     : data.question || thinking
       ? `Pregunta ${data.step + (answer.isPending ? 1 : 0)} · máx. ${data.maxQuestions}`
       : 'Perfil listo'
+        <ListSizeField value={listSize} onChange={setListSize} noun={domain.nounPlural} />
 
   return (
     <FocusTemplate>

@@ -1,3 +1,4 @@
+import { readListSize } from '@/lib/list-size'
 import { useEffect, useState } from 'react'
 import { Button, Heading, Text } from '@/components/atoms'
 import { EmptyState } from '@/components/molecules'
@@ -51,7 +52,7 @@ export function TuningPage({ sessionId, refine, attributes, onDone }: TuningPage
     }
 
     // Las preferencias previas ya van en la sesión desde que empezó la entrevista.
-    const stop = api.tune(sessionId, refineKey ? refineKey.split(',') : [], onEvent)
+    const stop = api.tune(sessionId, refineKey ? refineKey.split(',') : [], onEvent, readListSize(domain.id))
     return () => stop()
     // onDone cambia en cada render del padre; solo relanzamos al cambiar la sesión, los ajustes o al reintentar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
