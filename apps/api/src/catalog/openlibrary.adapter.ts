@@ -1,6 +1,7 @@
 import { bookDetails, type ItemDetails } from './item-details.js';
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorMatchesText } from '../interview/anchors.js';
+import { bestName, nameQueries } from '../interview/named.js';
 import type { CatalogAdapter, ImportedItem } from './catalog-adapter.js';
 import { clamp, logScale, mapLimit, politeFetcher, priorAverage, yearScale } from './derive.js';
 
@@ -129,6 +130,10 @@ const LIVE_MAX_READING_LOG = 50_000;
  * identificarse con un User-Agent y, así, admite hasta 3 peticiones por segundo (1 sin
  * contacto). Una búsqueda por tema y una petición por obra para la sinopsis.
  */
+/** Cuántos libros de una búsqueda en directo buscan su edición en español, y cuánto se espera como mucho. */
+const SPANISH_LOOKUPS = 15;
+const SPANISH_WAIT_MS = 8_000;
+
 export class OpenLibraryAdapter implements CatalogAdapter {
   readonly domainId = 'books';
   readonly source = 'openlibrary';
@@ -200,7 +205,28 @@ export class OpenLibraryAdapter implements CatalogAdapter {
       .filter((d) => d.author_name?.length && anchorMatchesText(`${d.title} ${d.author_name.join(' ')} ${(d.subject ?? []).join(' ')}`, anchor))
       .slice(0, limit);
     const items = docs.map((d) => this.toItem(d, null, LIVE_MAX_READING_LOG));
-    return this.spanish ? mapLimit(items, 3, (item) => this.withSpanishEdition(item)).then((out) => out.map((x, i) => x ?? items[i])) : items;
+    if (!this.spanish) return items;
+    // Edición en español de los más leídos y con tope de espera: Google Books a veces tarda (503) y no debe retrasar la lista.
+    const top = items.slice(0, SPANISH_LOOKUPS);
+    const enriched = mapLimit(top, 3, (item) => this.withSpanishEdition(item)).then((out) => [...out.map((x, i) => x ?? top[i]), ...items.slice(SPANISH_LOOKUPS)]);
+    return Promise.race([enriched, new Promise<ImportedItem[]>((resolve) => setTimeout(() => resolve(items), SPANISH_WAIT_MS))]);
+  }
+
+  /** Autor con su nombre real: busca cada palabra y su comienzo (la búsqueda de autores no tolera erratas) y se queda con el más parecido. */
+  async resolveName(name: string, kinds: Anchor['kind'][]): Promise<{ name: string; kind: Anchor['kind'] } | null> {
+    if (!kinds.includes('creator')) return null;
+    const found = await Promise.all(
+      nameQueries(name).map((q) => {
+        const url = new URL('https://openlibrary.org/search/authors.json');
+        url.search = new URLSearchParams({ q, limit: '40' }).toString();
+        return this.get<{ docs: { name: string; work_count?: number }[] }>(url).then((b) => b.docs).catch(() => []);
+      }),
+    );
+    const byName = new Map<string, { name: string; works: number }>();
+    for (const d of found.flat()) if (d.name && !byName.has(d.name)) byName.set(d.name, { name: d.name, works: d.work_count ?? 0 });
+    // Con la misma semejanza, el autor con más obras (el famoso) antes que un homónimo.
+    const best = bestName(name, [...byName.values()].sort((a, b) => b.works - a.works));
+    return best ? { name: best.candidate.name, kind: 'creator' } : null;
   }
 
   /** Título en español y sinopsis de una edición en español real (Google Books); si no la hay, el libro queda igual. */

@@ -41,9 +41,10 @@ import { buildBag, coveredProbes, effectiveCount, currentWeights, planNext } fro
 import { anchorsDone, askableProbes, assertNotAsked, autoAnswerExhausted, type InterviewFacts } from './interview.flow.js';
 import { NextQuestionPrefetch } from './interview.prefetch.js';
 import { anchorExample, anchorMatches, anchorQueryText, cleanAnchors, isStructured, probeDirection, seedIds } from './anchors.js';
-import { anchorsFromEntities, entityIndex, findEntities, pickWithoutAI } from './catalog-match.js';
+import { STOP, anchorsFromEntities, entityIndex, findEntities, pickWithoutAI } from './catalog-match.js';
+import { NamedService } from './named.service.js';
 import { withCues } from './text-cues.js';
-import { NONSENSE, replySummary } from './reply.js';
+import { NONSENSE, answerFromText, replySummary } from './reply.js';
 import { normalize } from './interview.engine.js';
 import { anchorTag } from '../catalog/catalog-adapter.js';
 import { AnchorsService, START_COVERAGE_WAIT_MS, type AnchorFocus } from './anchors.service.js';
@@ -139,6 +140,7 @@ export class InterviewService implements OnModuleInit {
     private readonly tastes: TasteService,
     private readonly anchors: AnchorsService,
     private readonly similar: SimilarService,
+    private readonly named: NamedService,
     private readonly understanding: UnderstandingService,
     private readonly prefs: PreferencesService,
     private readonly items: ItemsService,
@@ -177,12 +179,20 @@ export class InterviewService implements OnModuleInit {
    * elige entre ellas; lo que no esté se buscará fuera. Sin IA, se eligen por reglas.
    */
   private async comprehend(domain: DomainRow, text: string, userId: string | null, question?: string): Promise<Understanding> {
+    // Primero, los nombres propios pedidos por palabras ("de la autora X"): filtro duro, sin IA.
+    const named = await this.named.resolve(domain, text, userId);
     const catalog = await this.items.catalog(domain.id, [], userId);
     const index = entityIndex(catalog, domain.config, { titleFamilies: !domain.config.playable });
-    const entities = findEntities(text, catalog, domain.config, index);
+    // La IA solo entiende lo que queda del texto (ánimo, parecidos…) y nunca quita lo anterior.
+    const entities = findEntities(named.rest, catalog, domain.config, index);
     this.logger.log(`Entidades del catálogo en el texto: ${entities.map((e) => `${e.name} (${e.kind}, ${e.count})`).join(', ') || 'ninguna'}`);
+    const leftover = named.anchors.length && !normalize(named.rest).split(/[^\p{L}\p{N}]+/u).some((w) => w.length > 2 && !STOP.has(w));
+    const understood = leftover ? emptyUnderstanding() : await this.understanding.understand(domain, named.rest, entities, question);
+    if (question && leftover) understood.answer = answerFromText(text) ?? 'unknown';
+    const same = (a: Anchor, b: Anchor) => [a.label, ...a.terms].some((t) => [b.label, ...b.terms].some((u) => normalize(t) === normalize(u)));
+    understood.anchors = cleanAnchors([...named.anchors, ...understood.anchors.filter((a) => !named.anchors.some((n) => same(a, n)))]);
     // Lo más común ("para entrenar", "sin letra") se entiende también sin IA.
-    return withCues(await this.understanding.understand(domain, text, entities, question), domain.id, text, domain.config);
+    return withCues(understood, domain.id, text, domain.config);
   }
 
   /**

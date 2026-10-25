@@ -21,6 +21,11 @@ export interface CatalogAdapter {
    * llevan la etiqueta del ancla, para que el catálogo los reconozca después.
    */
   search?(anchor: Anchor, limit: number): Promise<ImportedItem[]>;
+  /**
+   * Cómo se escribe de verdad un nombre que la persona escribió con errata ("saran j maas" →
+   * "Sarah J. Maas"), según la fuente: autor, persona, compañía o desarrolladora. Null si no hay uno parecido.
+   */
+  resolveName?(name: string, kinds: Anchor['kind'][]): Promise<{ name: string; kind: Anchor['kind'] } | null>;
 }
 
 /** Etiqueta con la que se marcan los resultados de una búsqueda en directo ("marvel"). */

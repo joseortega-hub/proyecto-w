@@ -5,6 +5,7 @@ import { DomainsController } from './domains/domains.controller.js';
 import { DomainsService } from './domains/domains.service.js';
 import { InterviewController } from './interview/interview.controller.js';
 import { AnchorsService } from './interview/anchors.service.js';
+import { NamedService } from './interview/named.service.js';
 import { SourcesService } from './sources/sources.service.js';
 import { SimilarService } from './interview/similar.service.js';
 import { InterviewService } from './interview/interview.service.js';
@@ -34,15 +35,16 @@ import { ThemesController } from './themes/themes.controller.js';
 import { ThemesService } from './themes/themes.service.js';
 import { YouTubeController } from './youtube/youtube.controller.js';
 import { YouTubeService } from './youtube/youtube.service.js';
-
 import { ListsController } from './lists/lists.controller.js';
 import { ListsService } from './lists/lists.service.js';
+
 @Module({
   imports: [DbModule, AiModule],
   controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController, ListsController],
   providers: [
     DomainsService,
     AnchorsService,
+    NamedService,
     SimilarService,
     SourcesService,
     InterviewService,
@@ -63,7 +65,7 @@ import { ListsService } from './lists/lists.service.js';
     HomeService,
     RouteIntentService,
     StoryService,
+    ListsService,
   ],
 })
-    ListsService,
 export class AppModule {}

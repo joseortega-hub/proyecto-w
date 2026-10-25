@@ -16,6 +16,8 @@ const anchorSchema = z.object({
   match: z.array(z.object({ field: z.string().max(20), values: z.array(z.string().max(120)).max(20) })).max(6).optional(),
   ids: z.array(z.uuid()).max(5).optional(),
   similar: z.boolean().optional(),
+  named: z.boolean().optional(),
+  said: z.string().max(120).optional(),
   like: z.array(z.object({ field: z.string().max(20), values: z.array(z.string().max(120)).max(20) })).max(6).optional(),
   not: z.array(z.object({ field: z.string().max(20), values: z.array(z.string().max(120)).max(20) })).max(6).optional(),
 });

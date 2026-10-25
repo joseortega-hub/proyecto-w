@@ -35,7 +35,7 @@ export interface Entity {
   ids: string[];
 }
 
-const STOP = new Set(
+export const STOP = new Set(
   ('a al algo alguna alguno algun ahora como con cual cuando de del desde donde e el ella en es esa ese esta este eso esto estoy ' +
     'hay hoy la las le lo los me mi mis muy no ni nada o otra otro para pero poco por pon ponme que quiero quieres se sea ser si sin ' +
     'su sus tal te tipo tu un una uno unos unas y ya yo apetece apetecen busco dame lista libros libro peliculas pelicula cancion ' +

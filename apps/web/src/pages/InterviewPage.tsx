@@ -15,16 +15,19 @@ import { storedPreferences } from '@/lib/preferences'
 import { useTaste } from '@/lib/taste'
 
 /** /:domain/entrevista crea la sesión y redirige a /:domain/entrevista/:sesion. */
+/** Icono del chip de un nombre propio pedido por palabras ("📚 de Sarah J. Maas"). */
+const NAMED_ICONS: Record<string, string> = { books: '📚', movies: '🎬', games: '🎮', music: '🎵' }
+
 export function InterviewPage() {
   const { sesion } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const started = useRef(false)
   const domain = useDomain()
+  const [listSize, setListSize] = useListSize(domain.id)
   // Punto de partida opcional (texto o voz) que llega desde Inicio en el estado de la navegación.
   const location = useLocation()
   const navState = location.state as { initialText?: string; preferences?: Record<string, string> } | null
-  const [listSize, setListSize] = useListSize(domain.id)
   const initialText = navState?.initialText
   // Lo elegido con los botones ya se aplica en la primera pregunta, no solo al afinar.
   const [prefs, setPrefs] = useState<Record<string, string>>(() => navState?.preferences ?? storedPreferences(domain.id))
@@ -59,7 +62,13 @@ export function InterviewPage() {
       const label = m.level === 'high' ? attr?.highLabel : attr?.lowLabel
       if (label) out.push({ id: `mood:${m.key}`, icon: '😴', label })
     }
-    for (const a of understood.anchors) out.push({ id: `anchor:${a.label}`, icon: '🎯', label: a.label })
+    for (const a of understood.anchors) {
+      out.push(
+        a.named
+          ? { id: `anchor:${a.label}`, icon: NAMED_ICONS[domain.id] ?? '🎯', label: `de ${a.label}`, note: a.said ? `He entendido ${a.label}` : undefined }
+          : { id: `anchor:${a.label}`, icon: '🎯', label: a.label },
+      )
+    }
     for (const p of domain.info?.preferences ?? []) {
       const value = prefs[p.key]
       if (value && value !== p.anyValue) {
@@ -198,6 +207,7 @@ export function InterviewPage() {
           onStart={() => start.mutate()}
           starting={start.isPending}
         />
+        <ListSizeField value={listSize} onChange={setListSize} noun={domain.nounPlural} />
       </FocusTemplate>
     )
   }
@@ -207,7 +217,6 @@ export function InterviewPage() {
     : data.question || thinking
       ? `Pregunta ${data.step + (answer.isPending ? 1 : 0)} · máx. ${data.maxQuestions}`
       : 'Perfil listo'
-        <ListSizeField value={listSize} onChange={setListSize} noun={domain.nounPlural} />
 
   return (
     <FocusTemplate>

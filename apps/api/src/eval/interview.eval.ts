@@ -219,6 +219,45 @@ const SCENARIOS: Scenario[] = [
     text: 'algo de Brandon Sanderson',
     checks: (r) => [all(r, (it) => /sanderson/.test(blob(it)), 'de Sanderson', 4)],
   },
+  // Nombres propios por palabras (filtro duro antes de la IA, con erratas).
+  {
+    id: 'named-maas',
+    domain: 'books',
+    title: 'Libros: «de la autora saran j maas» (errata) → solo Sarah J. Maas',
+    text: 'libros de la autora saran j maas',
+    checks: (r) => [
+      expect(r.understanding?.anchors.some((a) => /sarah j\. maas/.test(norm(JSON.stringify(a)))) ?? false, 'chip «Sarah J. Maas» en lo entendido'),
+      all(r, (it) => /maas/.test(norm(it.subtitle ?? '')), 'de Sarah J. Maas', 4),
+    ],
+  },
+  {
+    id: 'named-nolan',
+    domain: 'movies',
+    title: 'Películas: «del director nolan» → solo Nolan',
+    text: 'películas del director nolan',
+    checks: (r) => [all(r, (it) => /nolan/.test(blob(it)), 'de Nolan', 4)],
+  },
+  {
+    id: 'named-nintendo',
+    domain: 'games',
+    title: 'Videojuegos: «juegos de nintendo» → solo Nintendo',
+    text: 'juegos de nintendo',
+    checks: (r) => [all(r, isNintendo, 'de Nintendo (desarrolla o edita)', 6)],
+  },
+  {
+    id: 'named-zelda',
+    domain: 'games',
+    title: 'Videojuegos: «de la saga zelda» → solo Zelda',
+    text: 'quiero algo de la saga zelda',
+    checks: (r) => [all(r, (it) => /zelda/.test(norm(it.title)), 'de Zelda', 3)],
+  },
+  {
+    id: 'named-sanderson',
+    domain: 'books',
+    title: 'Libros: «de brandon sanderzon» (errata) → solo Sanderson',
+    text: 'libros de brandon sanderzon',
+    checks: (r) => [all(r, (it) => /sanderson/.test(blob(it)), 'de Sanderson', 4)],
+  },
   {
     id: 'pokemon',
     domain: 'games',

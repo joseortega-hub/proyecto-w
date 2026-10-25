@@ -94,6 +94,17 @@ export class AnchorsService {
     return anchors;
   }
 
+  /** Cómo se escribe de verdad un nombre con errata según la fuente del dominio (null si no hay uno parecido o no se puede buscar). */
+  async canonicalName(domain: DomainRow, name: string, kinds: Anchor['kind'][]): Promise<{ name: string; kind: Anchor['kind'] } | null> {
+    if (domain.config.personal || !LIVE_ADAPTERS[domain.id]) return null;
+    try {
+      return (await LIVE_ADAPTERS[domain.id](this.sources).resolveName?.(name, kinds)) ?? null;
+    } catch (error) {
+      this.logger.warn(`Sin nombre real en ${domain.id}: ${(error as Error).message.slice(0, 120)}`);
+      return null;
+    }
+  }
+
   /** Elementos del ancla y dimensiones que más los separan (con caché corta). */
   focus(domain: DomainRow, anchors: Anchor[], userId: string | null): Promise<AnchorFocus> {
     const key = this.key(domain, anchors, userId);

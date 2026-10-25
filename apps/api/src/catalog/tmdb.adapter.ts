@@ -1,5 +1,6 @@
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorMatchesText } from '../interview/anchors.js';
+import { bestName, nameQueries } from '../interview/named.js';
 import { anchorTag, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
 import { movieDetails, type ItemDetails } from './item-details.js';
 import { clamp, logScale, mapLimit, nudge, politeFetcher, priorAverage, yearScale } from './derive.js';
@@ -146,6 +147,26 @@ export class TmdbAdapter implements CatalogAdapter {
     });
     const maxVotes = Math.max(...movies.map((m) => m.vote_count));
     return movies.map((m, i) => this.toItem({ ...m, ...details[i] }, maxVotes));
+  }
+
+  /** Persona, compañía o colección con su nombre real (la búsqueda de TMDB no tolera bien las erratas: se prueba también por palabras). */
+  async resolveName(name: string, kinds: Anchor['kind'][]): Promise<{ name: string; kind: Anchor['kind'] } | null> {
+    const paths: [Anchor['kind'], string][] = [['creator', 'search/person'], ['studio', 'search/company'], ['franchise', 'search/collection']];
+    const hits = await Promise.all(
+      paths
+        .filter(([kind]) => kinds.includes(kind))
+        .map(async ([kind, path]) => {
+          const names: { name: string }[] = [];
+          for (const query of nameQueries(name).filter((q) => !q.endsWith('*'))) {
+            const body = await this.get<{ results: { name?: string }[] }>(this.url(path, { query })).catch(() => ({ results: [] as { name?: string }[] }));
+            names.push(...body.results.slice(0, 6).filter((r): r is { name: string } => !!r.name));
+            if (bestName(name, names)) break;
+          }
+          const best = bestName(name, names);
+          return best ? { name: best.candidate.name, kind, similarity: best.similarity } : null;
+        }),
+    );
+    return hits.filter((h): h is NonNullable<typeof h> => !!h).sort((a, b) => b.similarity - a.similarity)[0] ?? null;
   }
 
   /**

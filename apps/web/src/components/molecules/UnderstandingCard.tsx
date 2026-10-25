@@ -8,6 +8,8 @@ export interface UnderstoodChip {
   /** Preferencias: opciones entre las que se puede corregir lo entendido. */
   options?: { value: string; label: string }[]
   value?: string
+  /** Explicación bajo el chip (p. ej. «He entendido Sarah J. Maas» tras corregir una errata). */
+  note?: string
 }
 
 interface UnderstandingCardProps {
@@ -49,7 +51,10 @@ export function UnderstandingCard({ chips, onRemove, onChange, onStart, starting
                   ))}
                 </select>
               ) : (
-                <span>{c.label}</span>
+                <span>
+                  {c.label}
+                  {c.note && <span className="block text-[12px] font-normal text-muted-foreground">{c.note}</span>}
+                </span>
               )}
               <button
                 type="button"

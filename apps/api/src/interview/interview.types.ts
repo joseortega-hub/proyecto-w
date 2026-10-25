@@ -100,6 +100,10 @@ export interface Anchor {
   similar?: boolean;
   like?: AnchorCondition[];
   not?: AnchorCondition[];
+  /** Nombre propio pedido por palabras ("de la autora X"): filtro duro que la IA no puede quitar. */
+  named?: boolean;
+  /** Cómo lo escribió la persona cuando lo corregimos ("saran j maas" → label "Sarah J. Maas"). */
+  said?: string;
 }
 
 /** Una condición sobre el catálogo: `field` es `id`, `title`, `creator`, `tags` o una faceta (`companies`, `collection`…). */

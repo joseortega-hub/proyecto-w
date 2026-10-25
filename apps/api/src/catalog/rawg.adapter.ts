@@ -1,5 +1,6 @@
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorMatchesText } from '../interview/anchors.js';
+import { bestName, nameQueries } from '../interview/named.js';
 import { anchorTag, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
 import { gameDetails, type ItemDetails } from './item-details.js';
 import { clamp, logScale, mapLimit, nudge, politeFetcher, priorAverage } from './derive.js';
@@ -151,6 +152,21 @@ export class RawgAdapter implements CatalogAdapter {
       return detail;
     });
     return games.map((g, i) => this.toItem({ ...g, ...details[i] }, maxAdded));
+  }
+
+  /** Desarrolladora o editora con su nombre real (RAWG ya es aproximado; si no, se prueba por palabras). */
+  async resolveName(name: string, kinds: Anchor['kind'][]): Promise<{ name: string; kind: Anchor['kind'] } | null> {
+    if (!kinds.includes('studio')) return null;
+    const names: { name: string }[] = [];
+    for (const search of nameQueries(name).filter((q) => !q.endsWith('*'))) {
+      for (const path of ['developers', 'publishers']) {
+        const body = await this.get<{ results: { name: string }[] }>(this.url(path, { search, page_size: '8' })).catch(() => ({ results: [] as { name: string }[] }));
+        names.push(...body.results);
+      }
+      if (bestName(name, names)) break;
+    }
+    const best = bestName(name, names);
+    return best ? { name: best.candidate.name, kind: 'studio' } : null;
   }
 
   /**

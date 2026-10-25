@@ -41,6 +41,9 @@ export interface Anchor {
   kind: 'franchise' | 'creator' | 'studio' | 'title' | 'tag'
   terms: string[]
   required: boolean
+  /** Nombre propio pedido por palabras (filtro duro) y, si lo corregimos, cómo lo escribió. */
+  named?: boolean
+  said?: string
 }
 
 /** Lo que la IA entiende del texto inicial ("Esto es lo que he entendido"). */
@@ -361,12 +364,12 @@ export const api = {
   undo: (id: string) => request<SessionView>(`/sessions/${id}/undo`, { method: 'POST' }),
   getResult: (id: string) => request<SessionResult>(`/sessions/${id}/result`),
   /** Reordena la lista dentro de la bolsa con las barras movidas (sin IA). Sin `scales`, vuelve a la original. */
-  revibe: (id: string, scales?: Record<string, number>) =>
-    request<SessionResult>(`/sessions/${id}/vibe`, { method: 'POST', body: JSON.stringify({ scales }) }),
-  getSimilar: (itemId: string, limit = 10) => request<SimilarItems>(`/items/${itemId}/similar?limit=${limit}`),
   /** Guarda el orden y los elementos de la lista (editar). */
   saveEntries: (id: string, itemIds: string[]) =>
     request<SessionResult>(`/sessions/${id}/entries`, { method: 'PUT', body: JSON.stringify({ itemIds }) }),
+  revibe: (id: string, scales?: Record<string, number>) =>
+    request<SessionResult>(`/sessions/${id}/vibe`, { method: 'POST', body: JSON.stringify({ scales }) }),
+  getSimilar: (itemId: string, limit = 10) => request<SimilarItems>(`/items/${itemId}/similar?limit=${limit}`),
   getItem: (itemId: string) => request<Item>(`/items/${itemId}`),
   /** Detalles del elemento; en música completa los créditos desde MusicBrainz la primera vez. */
   getDetails: (itemId: string) => request<ItemDetails>(`/items/${itemId}/details`),
