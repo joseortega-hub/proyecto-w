@@ -86,3 +86,38 @@
 @media (prefers-reduced-motion: reduce) {
   .perreo-burst, .perreo-glow { animation: none; }
 }
+
+/* Desliza: la tarjeta de arriba sale volando (View Transitions) y la siguiente sube a su sitio.
+   Solo cuando `swipeTransition` marca <html data-swipe>; el resto de la página no se anima. */
+.swipe-top { view-transition-name: swipe-card; }
+html[data-swipe]::view-transition-old(root),
+html[data-swipe]::view-transition-new(root) { animation: none; }
+html[data-swipe]::view-transition-group(swipe-card) { animation: none; }
+html[data-swipe]::view-transition-old(swipe-card) { animation: swipe-out 0.32s var(--ease-standard, ease-out) both; }
+html[data-swipe]::view-transition-new(swipe-card) { animation: swipe-in 0.32s var(--ease-standard, ease-out) both; }
+html[data-swipe='like']::view-transition-old(swipe-card) { --swipe-to-x: 120vw; --swipe-to-y: 0px; --swipe-to-r: 18deg; }
+html[data-swipe='nope']::view-transition-old(swipe-card) { --swipe-to-x: -120vw; --swipe-to-y: 0px; --swipe-to-r: -18deg; }
+html[data-swipe='detail']::view-transition-old(swipe-card) { --swipe-to-x: 0px; --swipe-to-y: -60vh; --swipe-to-r: 0deg; }
+/* Deshacer: la tarjeta vuelve desde el lado por el que se fue. */
+html[data-swipe^='undo']::view-transition-old(swipe-card) { animation: swipe-fade 0.2s ease-out both; }
+html[data-swipe='undo-like']::view-transition-new(swipe-card) { animation: swipe-back 0.32s var(--ease-standard, ease-out) both; --swipe-back-x: 120vw; }
+html[data-swipe='undo-nope']::view-transition-new(swipe-card) { animation: swipe-back 0.32s var(--ease-standard, ease-out) both; --swipe-back-x: -120vw; }
+@keyframes swipe-out {
+  from { transform: translate(var(--swipe-x, 0px), var(--swipe-y, 0px)) rotate(var(--swipe-r, 0deg)); opacity: 1; }
+  to { transform: translate(var(--swipe-to-x), var(--swipe-to-y)) rotate(var(--swipe-to-r)); opacity: 0; }
+}
+@keyframes swipe-in {
+  from { transform: scale(0.94) translateY(12px); opacity: 0.6; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes swipe-back {
+  from { transform: translateX(var(--swipe-back-x)) rotate(8deg); }
+  to { transform: none; }
+}
+@keyframes swipe-fade {
+  to { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-swipe]::view-transition-old(swipe-card),
+  html[data-swipe]::view-transition-new(swipe-card) { animation: none; }
+}

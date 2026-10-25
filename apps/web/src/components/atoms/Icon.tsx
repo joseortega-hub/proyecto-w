@@ -58,6 +58,8 @@ import {
   Repeat,
   Repeat1,
   ChevronUp,
+  GalleryHorizontalEnd,
+  Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -121,6 +123,8 @@ const ICONS = {
   system: Monitor,
   activity: Activity,
   calendar: CalendarDays,
+  swipe: GalleryHorizontalEnd,
+  info: Info,
 }
 
 export type IconName = keyof typeof ICONS
