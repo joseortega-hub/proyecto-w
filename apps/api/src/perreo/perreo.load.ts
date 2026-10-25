@@ -44,6 +44,10 @@ if (!songs.length) console.warn('Sin canciones: se cargan solo los artistas.');
 const { db, client } = createDb(target ?? config.databaseUrl);
 try {
   await migrate(db, { migrationsFolder: resolve(dirname(fileURLToPath(import.meta.url)), '../../drizzle') });
+  // Comprobación previa: si una migración no se aplicó, se dice claro en vez de fallar en el insert.
+  const cols = await client<{ column_name: string }[]>`select column_name from information_schema.columns where table_name = 'perreo_artists'`;
+  const missing = ['source', 'followed', 'kind', 'incomplete'].filter((c) => !cols.some((x) => x.column_name === c));
+  if (missing.length) throw new Error(`Faltan columnas en perreo_artists (${missing.join(', ')}): la migración no se aplicó. Haz git pull y repite el comando; si sigue, revisa que drizzle/meta/_journal.json incluya 0016_perreo_kind.`);
   const d = perreoDomain;
   const row = { id: d.id, name: d.name, itemNoun: d.itemNoun, itemNounPlural: d.itemNounPlural, config: d.config };
   await db.insert(domains).values(row).onConflictDoUpdate({ target: domains.id, set: row });

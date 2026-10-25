@@ -24,7 +24,8 @@ const noSongs = process.argv.includes('--no-songs');
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../');
 const out = join(root, 'data', 'privado', 'perreo');
 const youtubeKey = process.env.YOUTUBE_API_KEY?.trim() ?? '';
-const SONGS_PER_ARTIST = 14;
+/** Directos, clips, remixes y sesiones no valen como «el tema» del artista. */
+const NOT_A_TRACK = /(live|en vivo|directo|clip|remix|session|sesi[oó]n|tour|freestyle|bzrp)/i;
 const SIMILAR_MAX = 12;
 mkdirSync(join(out, 'photos'), { recursive: true });
 const read = <T>(file: string, fallback: T): T => (existsSync(join(out, file)) ? (JSON.parse(readFileSync(join(out, file), 'utf8')) as T) : fallback);
@@ -185,19 +186,16 @@ if (!noSongs) {
   for (const a of artists) {
     const c = cache[a.slug];
     const top = new Map((c.lastfm?.topTracks ?? []).map((t, i) => [songKey(t), i]));
-    const found = new Map<string, PerreoSongFile>();
-    for (const v of c.videos ?? []) {
+    // Una canción por artista: la más escuchada de Last.fm emparejada con su vídeo del canal; si no se empareja, la subida más reciente que parezca un tema.
+    const candidates = (c.videos ?? []).flatMap((v) => {
       const title = cleanTitle(v.title, a.name);
-      if (!title) continue;
-      const key = songKey(title);
-      const rank = top.get(key);
-      const popularity = rank != null ? 0.5 + 0.5 * (1 - rank / 30) : 0.25;
-      if (!found.has(key) || found.get(key)!.popularity < popularity) {
-        const prior = oldSongs.get(v.id);
-        found.set(key, { videoId: v.id, title, artistSlug: a.slug, artistName: a.name, popularity, ...(prior ? { attributes: prior.attributes, tags: prior.tags, language: prior.language, durationSec: prior.durationSec } : {}) });
-      }
+      return title && !NOT_A_TRACK.test(title) ? [{ v, title, rank: top.get(songKey(title)) }] : [];
+    });
+    const pick = candidates.filter((x) => x.rank === 0)[0] ?? candidates.filter((x) => x.rank != null).sort((x, y) => x.rank! - y.rank!)[0] ?? candidates[0];
+    if (pick) {
+      const prior = oldSongs.get(pick.v.id);
+      songs.push({ videoId: pick.v.id, title: pick.title, artistSlug: a.slug, artistName: a.name, popularity: pick.rank != null ? 1 - pick.rank / 30 : 0.4, ...(prior ? { attributes: prior.attributes, tags: prior.tags, language: prior.language, durationSec: prior.durationSec } : {}) });
     }
-    songs.push(...[...found.values()].sort((x, y) => y.popularity - x.popularity).slice(0, SONGS_PER_ARTIST));
   }
   console.log(`Canciones: ${songs.length} de ${artists.filter((a) => cache[a.slug]?.videos?.length).length} artistas con canal`);
   if (groq) {
