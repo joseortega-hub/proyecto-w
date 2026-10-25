@@ -60,3 +60,6 @@ export const Artist: Story = {
 
 /** Sin enlaces verificados el bloque no aparece. */
 export const Empty: Story = { args: { links: { query: 'Algo raro', entity: null, links: [] } } }
+
+/** Mientras se buscan y comprueban los enlaces. */
+export const Loading: Story = { args: { loading: true, name: 'Rockstar North' } }

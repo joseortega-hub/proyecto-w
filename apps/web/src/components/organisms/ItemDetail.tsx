@@ -14,6 +14,9 @@ interface ItemDetailProps {
   similar?: { similarity: number; item: Item }[]
   /** "Para saber más" sobre su saga, autoría, estudio o artista; sin enlaces no se muestra. */
   links?: EntityLinks
+  /** Mientras se buscan los enlaces y sobre qué ("Rockstar North"). */
+  linksLoading?: boolean
+  linksName?: string | null
   playing?: boolean
   onPlay?: () => void
   onOpenSimilar?: (item: Item) => void
@@ -35,7 +38,7 @@ const originOf = (measured: string | string[] | undefined, key: string) =>
  * Ficha de un elemento. En música se reproduce aquí; en el resto de temáticas no hay
  * contenido que reproducir, así que se enlaza a la fuente con su atribución.
  */
-export function ItemDetail({ item, domain, attributes, details, similar, links, playing, onPlay, onOpenSimilar }: ItemDetailProps) {
+export function ItemDetail({ item, domain, attributes, details, similar, links, linksLoading, linksName, playing, onPlay, onOpenSimilar }: ItemDetailProps) {
   const scales = attributes.filter((a) => a.kind === 'scale' && item.attributes[a.key] !== undefined)
   const sheet = techSheet(item.domainId, details ?? item.details)
   const meta = [itemYear(item), item.durationSec ? formatDuration(item.durationSec) : null].filter(Boolean).join(' · ')
@@ -122,7 +125,7 @@ export function ItemDetail({ item, domain, attributes, details, similar, links, 
             </ul>
           </section>
         )}
-        {links && <LearnMore links={links} />}
+        <LearnMore links={links} loading={linksLoading} name={linksName} />
       </div>
     </div>
   )

@@ -399,7 +399,7 @@ export function ResultPage() {
         <Text tone="muted" size="xs" font="mono">
           {data.candidates} {agree(domain.info, 'candidatas', 'candidatos')} entre {data.catalogSize} · {agree(domain.info, 'elegidas y explicadas', 'elegidos y explicados')} con IA
         </Text>
-        {learnMore.data && <LearnMore links={learnMore.data} className="mt-2" />}
+        <LearnMore links={learnMore.data} loading={learnMore.isLoading} className="mt-2" />
         {domain.info && <SourceAttribution {...domain.info.source} />}
       </aside>
     </div>

@@ -23,7 +23,8 @@ export function ItemPage() {
     staleTime: Infinity,
   })
   const similar = useQuery({ queryKey: ['similar', itemId], queryFn: () => api.getSimilar(itemId, 6) })
-  const links = useEntityLinks(domain.id, item.data ? itemEntity(item.data, details.data) : null)
+  const linksName = item.data ? itemEntity(item.data, details.data) : null
+  const links = useEntityLinks(domain.id, linksName)
 
   const back = (
     <IconButton icon="back" label="Volver" onClick={() => (history.length > 1 ? navigate(-1) : navigate(domain.path('biblioteca')))} />
@@ -61,6 +62,8 @@ export function ItemPage() {
           details={details.data}
           similar={similar.data?.items}
           links={links.data}
+          linksLoading={links.isLoading}
+          linksName={linksName}
           playing={isCurrent && player.playing}
           onPlay={() =>
             isCurrent ? player.toggle() : player.playList([{ item: data, reason: '', match: 0 }], { title: data.title, id: `item:${data.id}`, domainId: domain.id })
