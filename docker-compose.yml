@@ -27,6 +27,22 @@ services:
       - ollaya-models:/home/ollaya/.ollaya
     restart: unless-stopped
 
+  # Laya protegido con clave, para exponerlo con un túnel (scripts/laya-tunel.ps1) a la API de Render.
+  # Usa LAYA_API_KEY del .env; escucha solo en local (127.0.0.1:11436), el túnel es lo único que lo saca.
+  ollaya-public:
+    image: ghcr.io/ollaya-dev/ollaya
+    container_name: ollaya-public
+    profiles: ["laya-public"]
+    ports:
+      - "127.0.0.1:11436:11435"
+    environment:
+      OLLAYA_API_KEY: ${LAYA_API_KEY:?Falta LAYA_API_KEY en el .env (lo genera scripts/laya-tunel.ps1)}
+      OLLAYA_KEEP_ALIVE: "-1"
+      OLLAYA_MAX_QUEUE: "16"
+    volumes:
+      - ollaya-models:/home/ollaya/.ollaya
+    restart: unless-stopped
+
 volumes:
   pgdata:
   # Mismo volumen que el contenedor creado a mano: se reutilizan los modelos descargados.
