@@ -334,6 +334,8 @@ export const api = {
   /** Genera un tema a partir de una descripción (no se guarda). `variant` > 0 pide otra versión. */
   generateTheme: (description: string, variant = 0) =>
     request<GeneratedTheme>('/themes/generate', { method: 'POST', body: JSON.stringify({ description, variant }) }),
+  /** Avisa al servidor de que esta persona desbloqueó el Modo Perreo (sin la frase). */
+  unlockSecret: () => request<{ ok: boolean }>('/domains/unlock', { method: 'POST' }),
   getDomains: () => request<DomainInfo[]>('/domains?hidden=1'),
   /** Modo Perreo: explorador de artistas (filtros y orden) y ficha. */
   perreoArtists: (query: string) => request<PerreoArtistList>(`/perreo/artists${query ? `?${query}` : ''}`),

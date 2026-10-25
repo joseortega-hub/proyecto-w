@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { PreferencesService } from '../interview/preferences.service.js';
 import { DomainsService } from './domains.service.js';
 import { USER_HEADER } from '../taste/taste.controller.js';
-import { optionalUserId } from '../taste/taste.service.js';
+import { optionalUserId, requireUserId } from '../taste/taste.service.js';
 
 const guessSchema = z.object({ text: z.string().trim().min(1).max(500) });
 
@@ -18,6 +18,13 @@ export class DomainsController {
   /** Con `?hidden=1` incluye las temáticas secretas: las pide la web y solo las enseña a quien las desbloqueó. */
   list(@Headers(USER_HEADER) user?: string, @Query('hidden') hidden?: string) {
     return this.domains.list(optionalUserId(user), hidden === '1');
+  }
+
+  /** La persona acaba de acertar una frase secreta: desde ahora la temática secreta existe para ella. No recibe ni guarda la frase. */
+  @Post('unlock')
+  async unlock(@Headers(USER_HEADER) user?: string) {
+    await this.domains.unlock(requireUserId(user));
+    return { ok: true };
   }
 
   /** Preselecciona las preferencias previas (p. ej. idioma) a partir del texto inicial. No guarda el texto. */

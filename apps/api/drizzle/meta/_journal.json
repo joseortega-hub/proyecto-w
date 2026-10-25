@@ -106,6 +106,13 @@
       "when": 1793400000000,
       "tag": "0014_perreo_instagram",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793500000000,
+      "tag": "0015_perreo_unlocks",
+      "breakpoints": true
     }
   ]
 }

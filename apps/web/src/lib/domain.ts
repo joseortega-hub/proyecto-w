@@ -3,11 +3,20 @@ import { useCallback } from 'react'
 import { useParams } from 'react-router'
 import type { IconName } from '@/components/atoms/Icon'
 import { api, type DomainInfo } from './api'
-import { usePerreoUnlock } from './perreo'
+import { readUnlock, usePerreoUnlock } from './perreo'
 
 /** Todas las temáticas, también las secretas (para resolver la ruta actual). */
 function useAllDomains() {
-  return useQuery({ queryKey: ['domains'], queryFn: api.getDomains, staleTime: 60_000 })
+  const unlocked = usePerreoUnlock() !== null
+  return useQuery({
+    queryKey: ['domains', unlocked],
+    queryFn: async () => {
+      // El servidor decide: solo enseña las secretas a quien las desbloqueó (se avisa una vez, es idempotente).
+      if (readUnlock()) await api.unlockSecret().catch(() => undefined)
+      return api.getDomains()
+    },
+    staleTime: 60_000,
+  })
 }
 
 /** Las temáticas que se enseñan: las secretas solo a quien las ha desbloqueado. */

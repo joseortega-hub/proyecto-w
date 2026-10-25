@@ -259,3 +259,9 @@ export const perreoReview = pgTable('perreo_review', {
   status: text('status').notNull().default('pending'),
 });
 export type PerreoArtistRow = typeof perreoArtists.$inferSelect;
+
+/** Quién ha desbloqueado alguna vez el Modo Perreo (identificador anónimo del navegador): sin fila, la temática no existe para esa persona. */
+export const perreoUnlocks = pgTable('perreo_unlocks', {
+  userId: text('user_id').primaryKey(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});

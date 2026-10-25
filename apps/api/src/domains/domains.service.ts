@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger, NotFoundException, type OnModuleInit } from
 import { eq, sql } from 'drizzle-orm';
 import { DB } from '../db/db.module.js';
 import type { Db } from '../db/client.js';
-import { domainAttributes, domains, items } from '../db/schema.js';
+import { domainAttributes, domains, items, perreoUnlocks } from '../db/schema.js';
 import { visibleTo } from '../items/items.service.js';
 import { domainDefinitions } from './index.js';
 
@@ -41,8 +41,20 @@ export class DomainsService implements OnModuleInit {
     this.logger.log(`${domainDefinitions.length} dominios sincronizados`);
   }
 
-  /** Temáticas con su número de elementos; en las personales, solo cuentan los de la persona. */
+  /** ¿Ha desbloqueado esta persona alguna temática secreta? */
+  async hasUnlocked(userId: string | null): Promise<boolean> {
+    if (!userId) return false;
+    const [row] = await this.db.select({ id: perreoUnlocks.userId }).from(perreoUnlocks).where(eq(perreoUnlocks.userId, userId));
+    return !!row;
+  }
+
+  async unlock(userId: string) {
+    await this.db.insert(perreoUnlocks).values({ userId }).onConflictDoNothing();
+  }
+
+  /** Temáticas con su número de elementos; en las personales, solo cuentan los de la persona. Las secretas solo salen con includeHidden y si la persona las desbloqueó. */
   async list(userId: string | null = null, includeHidden = false) {
+    const showHidden = includeHidden && (await this.hasUnlocked(userId));
     const [rows, counts] = await Promise.all([
       this.db.select().from(domains),
       this.db
@@ -55,7 +67,7 @@ export class DomainsService implements OnModuleInit {
     const order = new Map(domainDefinitions.map((d, i) => [d.id, i]));
     rows.sort((a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99));
     return rows
-      .filter((domain) => includeHidden || !domain.config.hidden)
+      .filter((domain) => showHidden || !domain.config.hidden)
       .map((domain) => ({
       id: domain.id,
       name: domain.name,
