@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Button, Chip, SearchField, Text } from '@/components/atoms'
-import { ArtistCard, FameSlider } from '@/components/molecules'
+import { ArtistCard, BottomSheet, FameSlider } from '@/components/molecules'
 import { activeFilterCount, KIND_LABELS, kindCounter, NO_FILTERS, type PerreoArtistList, type PerreoFilters, type PerreoSort } from '@/lib/perreo-types'
 import { flagOf } from '@/lib/perreo-format'
 import { cn } from '@/lib/utils'
@@ -51,6 +52,7 @@ function ChipGroup({ label, options, value, onSelect }: { label: string; options
 
 /** Explorador de artistas: filtros combinables (fama, país, ciudad, época, sello y estilo), orden y galería. */
 export function ArtistExplorer({ filters, onChange, data, loading, photoUrl, onOpen, className }: ArtistExplorerProps) {
+  const [sheet, setSheet] = useState(false)
   const set = <K extends keyof PerreoFilters>(key: K, value: PerreoFilters[K]) => onChange({ ...filters, [key]: value })
   const active = activeFilterCount(filters)
   const facets = data?.facets
@@ -72,19 +74,35 @@ export function ArtistExplorer({ filters, onChange, data, loading, photoUrl, onO
       <FameSlider min={filters.fameMin} max={filters.fameMax} onChange={({ min, max }) => onChange({ ...filters, fameMin: min, fameMax: max })} />
 
       {facets && (
-        <details className="group rounded-lg border-[1.5px] border-border bg-card p-3">
-          <summary className="flex min-h-11 cursor-pointer items-center justify-between font-bold">
-            Filtros {active > 0 && <span className="text-sm font-normal text-muted-foreground">{active} activos</span>}
-          </summary>
-          <div className="mt-3 flex flex-col gap-4">
-            <ChipGroup label="Tipo" value={filters.kind} onSelect={(v) => set('kind', v)} options={facets.kinds.map((k) => ({ value: k.value, label: KIND_LABELS[k.value] ?? k.value, count: k.count }))} />
-            <ChipGroup label="País" value={filters.country} onSelect={(v) => set('country', v)} options={facets.countries.map((c) => ({ ...c, prefix: flagOf(c.value) }))} />
-            <ChipGroup label="Ciudad" value={filters.city} onSelect={(v) => set('city', v)} options={facets.cities} />
-            <ChipGroup label="Época" value={filters.era} onSelect={(v) => set('era', v)} options={facets.eras.map((e) => ({ value: e.value, label: e.label, count: e.count }))} />
-            <ChipGroup label="Estilo" value={filters.style} onSelect={(v) => set('style', v)} options={facets.styles} />
-            <ChipGroup label="Sello" value={filters.label} onSelect={(v) => set('label', v)} options={facets.labels.slice(0, 14)} />
-          </div>
-        </details>
+        <>
+          <Button variant="secondary" size="md" onClick={() => setSheet(true)} className="self-start">
+            Filtros{active > 0 && <span className="rounded-full bg-domain px-2 text-sm text-card">{active}</span>}
+          </Button>
+          <BottomSheet
+            open={sheet}
+            onClose={() => setSheet(false)}
+            title="Filtros"
+            footer={
+              <>
+                <Button variant="secondary" size="md" className="flex-1" disabled={active === 0} onClick={() => onChange({ ...NO_FILTERS, sort: filters.sort })}>
+                  Limpiar
+                </Button>
+                <Button size="md" className="flex-1" onClick={() => setSheet(false)}>
+                  Ver {data?.artists.length ?? ""}
+                </Button>
+              </>
+            }
+          >
+            <div className="flex flex-col gap-4">
+              <ChipGroup label="Tipo" value={filters.kind} onSelect={(v) => set('kind', v)} options={facets.kinds.map((k) => ({ value: k.value, label: KIND_LABELS[k.value] ?? k.value, count: k.count }))} />
+              <ChipGroup label="País" value={filters.country} onSelect={(v) => set('country', v)} options={facets.countries.map((c) => ({ ...c, prefix: flagOf(c.value) }))} />
+              <ChipGroup label="Ciudad" value={filters.city} onSelect={(v) => set('city', v)} options={facets.cities} />
+              <ChipGroup label="Época" value={filters.era} onSelect={(v) => set('era', v)} options={facets.eras.map((e) => ({ value: e.value, label: e.label, count: e.count }))} />
+              <ChipGroup label="Estilo" value={filters.style} onSelect={(v) => set('style', v)} options={facets.styles} />
+              <ChipGroup label="Sello" value={filters.label} onSelect={(v) => set('label', v)} options={facets.labels.slice(0, 14)} />
+            </div>
+          </BottomSheet>
+        </>
       )}
 
       {facets && facets.kinds.length > 1 && (
@@ -109,7 +127,7 @@ export function ArtistExplorer({ filters, onChange, data, loading, photoUrl, onO
           Ningún artista cumple todo a la vez. Quita algún filtro, bro.
         </Text>
       ) : (
-        <ul className={cn('grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5', loading && 'opacity-60')}>
+        <ul className={cn('grid grid-cols-2 gap-3 max-[340px]:grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5', loading && 'opacity-60')}>
           {(data?.artists ?? []).map((a) => (
             <li key={a.slug}>
               <ArtistCard name={a.name} photoUrl={photoUrl(a.slug)} country={a.country} debutYear={a.debutYear} fame={a.fame} styles={a.styles} kind={a.kind} incomplete={a.incomplete} onOpen={() => onOpen(a.slug)} />

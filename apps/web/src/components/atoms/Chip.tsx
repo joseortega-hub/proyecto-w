@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
-const chipStyles = cva('rounded-full px-3 py-1 text-[13px] font-bold', {
+const chipStyles = cva('h-auto min-w-0 max-w-full rounded-full px-3 py-1 text-[13px] font-bold whitespace-normal break-words', {
   variants: {
     variant: {
       /** Algo que ya sabemos de la persona. */

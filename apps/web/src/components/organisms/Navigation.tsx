@@ -26,7 +26,7 @@ function useLinks() {
 export function BottomNav() {
   const links = useLinks()
   return (
-    <nav aria-label="Principal" className="grid grid-cols-5 border-t border-border bg-card pt-2 pb-[max(env(safe-area-inset-bottom),14px)] short:pt-0 short:pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav aria-label="Principal" className="grid grid-cols-5 gap-0.5 border-t border-border bg-card pt-2 pb-[max(env(safe-area-inset-bottom),14px)] short:pt-0 short:pb-[env(safe-area-inset-bottom)] md:hidden">
       {links.map((l) => (
         <NavLink
           key={l.to}
@@ -34,13 +34,13 @@ export function BottomNav() {
           end={l.end}
           className={({ isActive }) =>
             cn(
-              'flex min-h-11 flex-col items-center gap-[3px] p-1 text-xs short:flex-row short:justify-center short:gap-2',
+              'flex min-h-11 min-w-0 flex-col items-center justify-center gap-[3px] px-0.5 py-1 text-center text-[11px] leading-tight min-[360px]:text-xs short:flex-row short:gap-2',
               isActive ? 'font-bold text-accent-foreground' : 'text-muted-foreground',
             )
           }
         >
-          <Icon name={l.icon} className="size-[22px]" />
-          {l.label}
+          <Icon name={l.icon} className="size-[22px] flex-none" />
+          <span className="max-w-full truncate">{l.label}</span>
         </NavLink>
       ))}
     </nav>

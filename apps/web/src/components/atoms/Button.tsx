@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react'
 import { Button as UiButton } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const buttonStyles = cva('rounded-full font-bold transition-colors duration-200 ease-standard', {
+const buttonStyles = cva('max-w-full rounded-full font-bold whitespace-normal transition-colors duration-200 ease-standard', {
   variants: {
     variant: {
       primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
@@ -11,8 +11,8 @@ const buttonStyles = cva('rounded-full font-bold transition-colors duration-200 
       ghost: 'bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground',
     },
     size: {
-      md: 'h-11 px-5 text-base',
-      lg: 'h-13 px-6 text-[17px]',
+      md: 'h-auto min-h-11 px-5 py-1.5 text-base',
+      lg: 'h-auto min-h-13 px-6 py-2 text-[17px]',
     },
     block: { true: 'w-full' },
   },

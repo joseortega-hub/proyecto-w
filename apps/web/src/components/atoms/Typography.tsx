@@ -2,7 +2,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import type { ComponentProps, ElementType } from 'react'
 import { cn } from '@/lib/utils'
 
-const headingStyles = cva('font-display font-extrabold tracking-[-0.01em] text-balance', {
+const headingStyles = cva('font-display font-extrabold tracking-[-0.01em] text-balance break-words', {
   variants: {
     size: {
       display: 'text-[38px] leading-[1.05] md:text-4xl',

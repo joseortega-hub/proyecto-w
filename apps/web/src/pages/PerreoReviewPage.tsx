@@ -41,7 +41,7 @@ export function PerreoReviewPage() {
             </ul>
           )}
           {review.data.accepted + review.data.rejected > 0 && (
-            <Text tone="muted" size="sm">
+            <Text tone="muted" size="sm" className="[overflow-wrap:anywhere]">
               {review.data.accepted} confirmadas y {review.data.rejected} descartadas. Para que entren sus fichas, desde tu PC: <code>pnpm perreo:instagram --apply-review --prod</code>, luego <code>pnpm perreo:instagram:import</code> y <code>pnpm perreo:load --prod</code>.
             </Text>
           )}
