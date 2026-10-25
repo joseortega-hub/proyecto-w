@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, Chip, Heading, Icon, IconButton, Skeleton, Text } from '@/components/atoms'
-import { EmptyState, LayoutSwitch, LearnMore, SourceAttribution } from '@/components/molecules'
+import { EmptyState, Hideable, LayoutSwitch, LearnMore, SourceAttribution } from '@/components/molecules'
 import { AddTracksPanel, ResultList, SwipeDeck, VibeCard } from '@/components/organisms'
 import { ApiError, api, type Item, type ResultEntry, type SessionResult } from '@/lib/api'
 import { geekLine } from '@/lib/details'
@@ -198,6 +198,7 @@ export function ResultPage() {
   }
   // En móvil va encima de la lista (para ver cómo se reordena); en escritorio, en el lateral.
   const vibeCard = (
+    <Hideable id="result.vibe">
     <VibeCard
       domainId={domain.id}
       attributes={data.attributes}
@@ -212,6 +213,7 @@ export function ResultPage() {
       onReset={() => revibe.mutate(undefined)}
       onShare={shareVibe}
     />
+    </Hideable>
   )
 
   return (
@@ -391,15 +393,21 @@ export function ResultPage() {
       </div>
       <aside className="flex flex-col gap-3 lg:w-80 lg:flex-none">
         <div className="hidden lg:block">{vibeCard}</div>
-        <div className="flex flex-wrap gap-1.5" aria-label="Tus respuestas">
-          {data.chips.map((c) => (
-            <Chip key={c}>{c}</Chip>
-          ))}
-        </div>
-        <Text tone="muted" size="xs" font="mono">
-          {data.candidates} {agree(domain.info, 'candidatas', 'candidatos')} entre {data.catalogSize} · {agree(domain.info, 'elegidas y explicadas', 'elegidos y explicados')} con IA
-        </Text>
-        <LearnMore links={learnMore.data} loading={learnMore.isLoading} className="mt-2" />
+        <Hideable id="result.answers">
+          <div className="flex flex-wrap gap-1.5" aria-label="Tus respuestas">
+            {data.chips.map((c) => (
+              <Chip key={c}>{c}</Chip>
+            ))}
+          </div>
+        </Hideable>
+        <Hideable id="result.stats">
+          <Text tone="muted" size="xs" font="mono">
+            {data.candidates} {agree(domain.info, 'candidatas', 'candidatos')} entre {data.catalogSize} · {agree(domain.info, 'elegidas y explicadas', 'elegidos y explicados')} con IA
+          </Text>
+        </Hideable>
+        <Hideable id="result.learnMore">
+          <LearnMore links={learnMore.data} loading={learnMore.isLoading} className="mt-2" />
+        </Hideable>
         {domain.info && <SourceAttribution {...domain.info.source} />}
       </aside>
     </div>

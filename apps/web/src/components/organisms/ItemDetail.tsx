@@ -1,5 +1,5 @@
 import { Button, Chip, Cover, Heading, Icon, Text } from '@/components/atoms'
-import { AttributeMeter, ItemRow, LearnMore, SourceAttribution, TechSheet } from '@/components/molecules'
+import { AttributeMeter, Hideable, ItemRow, LearnMore, SourceAttribution, TechSheet } from '@/components/molecules'
 import type { Attribute, DomainInfo, EntityLinks, Item, ItemDetails } from '@/lib/api'
 import { techSheet } from '@/lib/details'
 import { formatDuration } from '@/lib/format'
@@ -88,6 +88,7 @@ export function ItemDetail({ item, domain, attributes, details, similar, links, 
         </div>
         {item.description && <Text className="whitespace-pre-line">{item.description}</Text>}
         {item.tags.length > 0 && (
+          <Hideable id="item.tags">
           <div className="flex flex-wrap gap-1.5" aria-label="Etiquetas">
             {item.tags.slice(0, 10).map((t) => (
               <Chip key={t} variant="outline">
@@ -95,17 +96,23 @@ export function ItemDetail({ item, domain, attributes, details, similar, links, 
               </Chip>
             ))}
           </div>
+          </Hideable>
         )}
-        <TechSheet rows={sheet} source={domain.source.name + (item.domainId === 'music' || item.domainId === 'youtube' ? ' y MusicBrainz' : '')} />
+        <Hideable id="item.tech">
+          <TechSheet rows={sheet} source={domain.source.name + (item.domainId === 'music' || item.domainId === 'youtube' ? ' y MusicBrainz' : '')} />
+        </Hideable>
         {scales.length > 0 && (
+          <Hideable id="item.character">
           <section className="flex flex-col gap-2.5" aria-label="Carácter">
             <Text font="label">Carácter</Text>
             {scales.map((a) => (
               <AttributeMeter key={a.key} label={a.label} value={item.attributes[a.key]} hint={`${a.lowLabel} ↔ ${a.highLabel}`} origin={originOf(measured, a.key)} />
             ))}
           </section>
+          </Hideable>
         )}
         {similar && similar.length > 0 && (
+          <Hideable id="item.similar">
           <section className="flex flex-col gap-1.5" aria-label="Parecidos">
             <Text font="label">Si te gusta, prueba también</Text>
             <ul className="flex flex-col gap-1">
@@ -124,8 +131,11 @@ export function ItemDetail({ item, domain, attributes, details, similar, links, 
               ))}
             </ul>
           </section>
+          </Hideable>
         )}
-        <LearnMore links={links} loading={linksLoading} name={linksName} />
+        <Hideable id="item.learnMore">
+          <LearnMore links={links} loading={linksLoading} name={linksName} />
+        </Hideable>
       </div>
     </div>
   )

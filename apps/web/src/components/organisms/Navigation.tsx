@@ -4,6 +4,7 @@ import { useDomain } from '@/lib/domain'
 import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 import { DomainSwitcher } from './DomainSwitcher'
+import { CustomizeMenu } from './CustomizeMenu'
 import { ThemeMenu } from './ThemeMenu'
 
 const LINKS: { to: string; label: string; icon: IconName }[] = [
@@ -81,6 +82,7 @@ export function SideNav() {
       </div>
       <div className="mt-auto flex gap-2">
         <ThemeMenu side="top" align="start" />
+        <CustomizeMenu side="top" align="start" />
         <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
         <IconButton icon="activity" variant="ghost" label="Bajo el capó: la IA por dentro" onClick={() => navigate('/bajo-el-capo')} />
       </div>

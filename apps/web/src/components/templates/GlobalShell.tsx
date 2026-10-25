@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router'
 import { Heading, Icon, IconButton, type IconName } from '@/components/atoms'
-import { ThemeMenu } from '@/components/organisms'
+import { CustomizeMenu, ThemeMenu } from '@/components/organisms'
 import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
@@ -47,6 +47,7 @@ export function GlobalShell({ children }: { children: ReactNode }) {
           </nav>
           <div className="flex gap-2">
             <IconButton icon="activity" variant="ghost" label="Bajo el capó: la IA por dentro" onClick={() => navigate('/bajo-el-capo')} />
+            <CustomizeMenu />
             <ThemeMenu />
             <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
           </div>

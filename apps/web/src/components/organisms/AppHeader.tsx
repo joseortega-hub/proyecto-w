@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router'
 import { Heading, IconButton } from '@/components/atoms'
 import { useTheme } from '@/lib/theme'
 import { DomainSwitcher } from './DomainSwitcher'
+import { CustomizeMenu } from './CustomizeMenu'
 import { ThemeMenu } from './ThemeMenu'
 
 /** Cabecera móvil: marca, estilo (🎨), modo claro/oscuro y pestañas de temática. En escritorio van en la barra lateral. */
@@ -16,8 +17,9 @@ export function AppHeader() {
             Sintonía
           </Heading>
         </Link>
-        <div className="flex gap-2">
+        <div className="flex gap-1 min-[380px]:gap-2">
           <IconButton icon="activity" variant="ghost" label="Bajo el capó: la IA por dentro" onClick={() => navigate('/bajo-el-capo')} />
+          <CustomizeMenu />
           <ThemeMenu />
           <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
         </div>

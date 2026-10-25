@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router'
 import { Skeleton } from '@/components/atoms'
-import { DomainTile, EmptyState } from '@/components/molecules'
+import { DomainTile, EmptyState, Hideable } from '@/components/molecules'
 import { ComboCard, TodayHero, type ComboSlotView } from '@/components/organisms'
 import { GlobalShell } from '@/components/templates/GlobalShell'
 import { domainIcon, useDomains } from '@/lib/domain'
@@ -65,6 +65,7 @@ export function TodayPage() {
         onPick={bar.pick}
       />
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1.1fr_1fr]">
+        <Hideable id="today.combo">
         {home.isPending || slots.length > 0 ? (
           <ComboCard
             title={home.data?.combo?.title ?? 'El combo de esta noche'}
@@ -73,6 +74,7 @@ export function TodayPage() {
             loading={home.isPending}
           />
         ) : null}
+        </Hideable>
         <section aria-label="Temáticas" className="flex flex-col gap-2.5 lg:col-start-2 lg:row-start-1" aria-busy={domains.isPending}>
           {domains.isError ? (
             <EmptyState icon="retry" title="No puedo cargar los catálogos" description={domains.error.message} />

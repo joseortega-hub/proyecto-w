@@ -60,6 +60,16 @@ import {
   ChevronUp,
   GalleryHorizontalEnd,
   Info,
+  LayoutDashboard,
+  PanelLeft,
+  PanelBottom,
+  Orbit,
+  MessageSquareText,
+  Bug,
+  Lightbulb,
+  ImagePlus,
+  SlidersHorizontal,
+  Rocket,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -125,6 +135,16 @@ const ICONS = {
   calendar: CalendarDays,
   swipe: GalleryHorizontalEnd,
   info: Info,
+  customize: SlidersHorizontal,
+  layout: LayoutDashboard,
+  sidebar: PanelLeft,
+  bottomBar: PanelBottom,
+  orbit: Orbit,
+  feedback: MessageSquareText,
+  bug: Bug,
+  idea: Lightbulb,
+  improve: Rocket,
+  image: ImagePlus,
 }
 
 export type IconName = keyof typeof ICONS
