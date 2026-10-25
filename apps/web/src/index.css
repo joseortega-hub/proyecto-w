@@ -47,6 +47,11 @@
   html.dark {
     color-scheme: dark;
   }
+  html,
+  body {
+    /* Sin rebote de toda la página: cada pantalla desplaza solo su contenido. */
+    overscroll-behavior-y: none;
+  }
   body {
     @apply bg-background text-foreground font-body antialiased;
     -webkit-tap-highlight-color: transparent;

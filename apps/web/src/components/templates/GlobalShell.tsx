@@ -20,7 +20,7 @@ export function GlobalShell({ children }: { children: ReactNode }) {
   return (
     // `px-safe` va en el marco de fuera: como utilidad propia pisaría al padding de dentro.
     <div className="pt-safe px-safe min-h-dvh">
-      <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-5 pb-8 md:px-10">
+      <div className="mx-auto flex min-h-[calc(100dvh-env(safe-area-inset-top))] w-full max-w-5xl flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] md:px-10">
         <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3 short:py-1">
           <Link to="/" className="inline-flex min-h-11 items-center rounded-sm">
             <Heading as="span" size="brand">

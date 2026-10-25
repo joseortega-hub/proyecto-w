@@ -64,7 +64,7 @@ export function ItemDetail({ item, domain, attributes, details, similar, links, 
         )}
         <SourceAttribution {...domain.source} />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-4 [overflow-wrap:anywhere]">
         <div className="flex flex-col gap-1">
           <Heading>{item.title}</Heading>
           {item.subtitle && (

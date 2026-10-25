@@ -9,12 +9,14 @@ export function AppShell() {
   const { current } = player
   const domain = useDomain()
   return (
-    // data-domain fija el color de la temática para todo lo que hay dentro.
-    <div className="pt-safe px-safe flex h-dvh" data-domain={domain.id}>
+    // data-domain fija el color de la temática para todo lo que hay dentro. El marco va fijo a
+    // la pantalla (sin depender de 100vh/dvh): solo se desplaza <main>, así el rebote del móvil
+    // no arrastra la barra de navegación ni deja huecos debajo.
+    <div className="pt-safe px-safe fixed inset-0 flex overflow-hidden" data-domain={domain.id}>
       <SideNav />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <AppHeader />
-        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <main className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain">
           <Outlet />
         </main>
         {current && (

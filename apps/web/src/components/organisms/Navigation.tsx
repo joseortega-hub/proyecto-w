@@ -53,7 +53,7 @@ export function SideNav() {
   const links = useLinks()
   const navigate = useNavigate()
   return (
-    <nav aria-label="Principal" className="hidden w-60 flex-none flex-col gap-1 border-r border-border bg-card p-4 md:flex">
+    <nav aria-label="Principal" className="hidden w-60 flex-none flex-col gap-1 overflow-y-auto overscroll-contain border-r border-border bg-card p-4 md:flex">
       <Link to="/" className="rounded-sm px-3 pt-2 pb-6">
         <Heading as="span" size="brand">
           Sintonía
