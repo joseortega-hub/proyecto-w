@@ -27,10 +27,12 @@ export function BottomSheet({ open, onClose, title, children, footer, className 
       aria-label={title}
       onClose={onClose}
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      className="fixed inset-x-0 top-auto bottom-0 m-0 w-full max-w-none overflow-hidden rounded-t-xl border-[1.5px] border-border bg-card p-0 text-foreground backdrop:bg-black/60 md:inset-0 md:m-auto md:max-w-xl md:rounded-xl md:[max-height:90dvh] md:h-fit"
+      className="sheet fixed inset-x-0 top-auto bottom-0 m-0 w-full max-w-none overflow-hidden rounded-t-xl border-[1.5px] border-border bg-card p-0 text-foreground backdrop:bg-black/60 md:inset-0 md:m-auto md:max-w-xl md:rounded-xl md:[max-height:90dvh] md:h-fit"
     >
       {open && (
         <div className={cn('flex max-h-[92dvh] min-w-0 flex-col md:max-h-[90dvh]', className)}>
+          {/* Asa visual del móvil: indica que es una hoja que sube desde abajo. */}
+          <span aria-hidden className="mx-auto mt-2 h-1 w-10 flex-none rounded-full bg-border md:hidden" />
           <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-2 pl-[max(1.25rem,env(safe-area-inset-left))]">
             <h2 className="min-w-0 truncate font-display text-lg font-extrabold">{title}</h2>
             <IconButton icon="close" variant="ghost" label="Cerrar" onClick={onClose} />

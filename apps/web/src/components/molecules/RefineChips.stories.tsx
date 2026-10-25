@@ -25,3 +25,13 @@ function InteractiveChips(args: Story['args']) {
 
 export const Interactive: Story = { render: (args) => <InteractiveChips {...args} /> }
 export const Disabled: Story = { args: { value: ['more-energy'], disabled: true } }
+
+const genres = ['Acción', 'Aventura', 'RPG', 'Estrategia', 'Shooter', 'Indie', 'Carreras', 'Deportes', 'Puzle'].map((label) => ({ key: label.toLowerCase(), label }))
+
+function ManyChips() {
+  const [value, setValue] = useState<string[]>(['rpg', 'indie'])
+  return <RefineChips label="Géneros" options={genres} value={value} onChange={setValue} />
+}
+
+/** Con muchas opciones: fila deslizable y «Todos» abre la hoja en el móvil. */
+export const Many: Story = { render: () => <ManyChips /> }

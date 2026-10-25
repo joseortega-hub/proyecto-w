@@ -66,6 +66,17 @@
   color: var(--muted-foreground);
 }
 
+/* Hojas inferiores: suben desde abajo en el móvil y aparecen con un fundido en escritorio. */
+@keyframes sheet-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+dialog.sheet[open] { animation: sheet-up 0.24s var(--ease-standard, ease-out) both; }
+dialog.sheet[open]::backdrop { animation: swipe-fade 0.2s ease-out reverse both; }
+@media (prefers-reduced-motion: reduce) {
+  dialog.sheet[open], dialog.sheet[open]::backdrop { animation: none; }
+}
+
 /* Tu vibra: la marca del ecualizador respira cuando nadie la toca. */
 @keyframes vibe-cap {
   0%, 100% { transform: translateY(0); }
