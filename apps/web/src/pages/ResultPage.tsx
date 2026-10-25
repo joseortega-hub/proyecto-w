@@ -3,15 +3,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, Chip, Heading, Icon, IconButton, Skeleton, Text } from '@/components/atoms'
-import { EmptyState, LearnMore, SourceAttribution } from '@/components/molecules'
-import { AddTracksPanel, ResultList, VibeCard } from '@/components/organisms'
+import { EmptyState, LayoutSwitch, LearnMore, SourceAttribution } from '@/components/molecules'
+import { AddTracksPanel, ResultList, SwipeDeck, VibeCard } from '@/components/organisms'
 import { ApiError, api, type Item, type ResultEntry, type SessionResult } from '@/lib/api'
+import { geekLine } from '@/lib/details'
 import { totalMinutes } from '@/lib/format'
 import { agree, useDomain } from '@/lib/domain'
 import { rememberSession } from '@/lib/ops'
 import { useSavedLists } from '@/lib/saved-lists'
 import { useSessionLinks } from '@/lib/links'
+import { loadLayout, saveLayout, type ResultLayout } from '@/lib/swipe'
 import { useFeedback, useTaste } from '@/lib/taste'
+import { useSwipeSession } from '@/lib/use-swipe'
 import { youtubeQuotaWarning } from '@/lib/list-size'
 import { useSaveToYouTube } from '@/lib/youtube'
 import { vibeGradient } from '@/lib/vibe/vibe-color'
@@ -114,6 +117,22 @@ export function ResultPage() {
     updateEntries([...before, { item, match: 0, fit: null, reason: '' }])
     toast.success(`Añadida al final: ${item.title}`, { duration: 2200 })
   }
+
+  // «Desliza»: una tarjeta cada vez; el navegador recuerda si se prefiere así o en lista.
+  const [layout, setLayoutState] = useState<ResultLayout>(loadLayout)
+  const setLayout = (next: ResultLayout) => {
+    setLayoutState(next)
+    saveLayout(next)
+    if (next === 'swipe') setEditing(false)
+  }
+  const swipe = useSwipeSession({
+    sessionId: id,
+    entries: result.data?.entries ?? [],
+    feedback: taste.data?.feedback ?? {},
+    sendFeedback: (itemId, value) => feedback.mutate({ itemId, value }, { onError: (e) => toast.error('No he podido guardarlo', { description: e.message }) }),
+    updateEntries,
+    enabled: layout === 'swipe' && !!result.data,
+  })
 
   const notReady = result.error instanceof ApiError && result.error.status === 400
   if (tuning || notReady) {
@@ -229,7 +248,7 @@ export function ResultPage() {
               {playingThisList && player.playing ? 'Pausar' : 'Reproducir'}
             </Button>
           )}
-          <IconButton icon={editing ? 'check' : 'edit'} variant={editing ? 'primary' : 'subtle'} label={editing ? 'Terminar de editar la lista' : 'Editar la lista'} aria-pressed={editing} onClick={() => setEditing((v) => !v)} />
+          {layout === 'list' && <IconButton icon={editing ? 'check' : 'edit'} variant={editing ? 'primary' : 'subtle'} label={editing ? 'Terminar de editar la lista' : 'Editar la lista'} aria-pressed={editing} onClick={() => setEditing((v) => !v)} />}
           <Button
             variant="secondary"
             onClick={() => {
@@ -292,6 +311,61 @@ export function ResultPage() {
             <AddTracksPanel domainId={domain.id} noun={domain.nounPlural} existingIds={new Set(data.entries.map((e) => e.item.id))} onAdd={addEntry} />
           </>
         )}
+        <LayoutSwitch value={layout} onChange={setLayout} />
+        {layout === 'swipe' ? (
+          <SwipeDeck
+            cards={swipe.cards}
+            loading={swipe.loading}
+            lastVerdict={swipe.lastVerdict}
+            onUndo={swipe.canUndo ? swipe.undo : undefined}
+            inList={(itemId) => data.entries.some((e) => e.item.id === itemId)}
+            detail={(e) => geekLine(e.item.domainId, e.item.details)}
+            onGesture={(gesture, entry) =>
+              gesture === 'detail' ? navigate(domain.path(`biblioteca/${entry.item.id}`)) : swipe.decide(gesture, entry)
+            }
+            actions={(entry) => {
+              if (domain.playable) {
+                const on = player.current?.item.id === entry.item.id
+                const index = data.entries.findIndex((e) => e.item.id === entry.item.id)
+                return (
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() =>
+                      on ? player.toggle() : index >= 0 ? play(index) : player.playList([{ item: entry.item, reason: entry.reason, match: entry.match }], { title: data.title, id: `${data.id}:desliza`, domainId: data.domainId })
+                    }
+                  >
+                    <Icon name={on && player.playing ? 'pause' : 'play'} />
+                    {on && player.playing ? 'Pausar' : 'Escuchar'}
+                  </Button>
+                )
+              }
+              return entry.item.externalUrl ? (
+                <Button variant="secondary" className="flex-1" asChild>
+                  <a href={entry.item.externalUrl} target="_blank" rel="noreferrer">
+                    <Icon name="external" /> Ver en {domain.info?.source.name ?? 'la fuente'}
+                  </a>
+                </Button>
+              ) : null
+            }}
+            empty={
+              <EmptyState
+                icon="check"
+                title="Ya lo has visto todo"
+                description={`Tu lista se queda con ${data.entries.length} ${domain.nounPlural}. Puedes verla entera o repasarla otra vez.`}
+                action={
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button onClick={() => setLayout('list')}>Ver la lista</Button>
+                    <Button variant="secondary" onClick={swipe.restart}>
+                      Repasar otra vez
+                    </Button>
+                  </div>
+                }
+              />
+            }
+          />
+        ) : (
+          <>
         <div className="lg:hidden">{vibeCard}</div>
         <ResultList
           entries={data.entries}
@@ -312,6 +386,8 @@ export function ResultPage() {
             )
           }
         />
+          </>
+        )}
       </div>
       <aside className="flex flex-col gap-3 lg:w-80 lg:flex-none">
         <div className="hidden lg:block">{vibeCard}</div>
