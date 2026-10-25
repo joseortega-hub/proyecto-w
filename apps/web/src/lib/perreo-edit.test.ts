@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { changedLinks, compactPhoto } from './perreo-edit'
+import { changedLinks, compactPhoto, photoUrl } from './perreo-edit'
+
+describe('photoUrl', () => {
+  it('cambia de URL cuando cambia la foto (huella del servidor), para saltarse la caché de un día', () => {
+    const before = photoUrl({ slug: 'bad-bunny', photoV: 'aaa' })
+    const after = photoUrl({ slug: 'bad-bunny', photoV: 'bbb' })
+    expect(before).toBe('/api/perreo/artists/bad-bunny/photo?v=aaa')
+    expect(after).not.toBe(before)
+    expect(photoUrl({ slug: 'x', photoV: null })).toBe('/api/perreo/artists/x/photo')
+  })
+})
 
 describe('compactPhoto', () => {
   it('usa WebP cuando el navegador sabe codificarlo', () => {

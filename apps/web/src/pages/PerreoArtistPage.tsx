@@ -33,7 +33,7 @@ export function PerreoArtistPage() {
         artist={artist}
         similar={similar}
         firstList={firstList}
-        photoUrl={photoUrl(artist.slug)}
+        photoUrl={photoUrl(artist)}
         activeItemId={player.listId === listId ? player.current?.item.id : null}
         playing={player.playing}
         onPlay={play}
@@ -45,7 +45,7 @@ export function PerreoArtistPage() {
         open={editing}
         artist={artist}
         ownSongs={ownSongs}
-        photoUrl={photoUrl(artist.slug)}
+        photoUrl={photoUrl(artist)}
         saving={editArtist.isPending}
         error={editArtist.error?.message ?? null}
         onSave={(patch) => editArtist.mutate(patch, { onSuccess: () => setEditing(false) })}

@@ -16,6 +16,8 @@ export interface ArtistSummary {
   /** Ficha mínima, por completar. */
   incomplete: boolean;
   nickname?: string | null;
+  /** Huella de la foto (null si no tiene): cambia cuando cambia la foto. */
+  photoV?: string | null;
 }
 
 export type ArtistSort = 'fame' | 'age' | 'name';
@@ -65,7 +67,7 @@ export const cityParts = (city: string | null): string[] =>
 export function filterArtists(list: ArtistSummary[], query: ArtistQuery): ArtistSummary[] {
   const q = query.q ? fold(query.q) : '';
   const out = list.filter((a) => {
-    if (q && !fold(a.name).includes(q)) return false;
+    if (q && !fold(a.name).includes(q) && !fold(a.nickname ?? '').includes(q)) return false;
     if (query.followed && !a.followed) return false;
     if (query.kind && a.kind !== query.kind) return false;
     if (query.fameMin != null && a.fame < query.fameMin) return false;

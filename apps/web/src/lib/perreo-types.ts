@@ -19,6 +19,8 @@ export interface PerreoArtist {
   /** Ficha mínima: por completar. */
   incomplete: boolean
   nickname?: string | null
+  /** Huella de la foto: cambia cuando la foto cambia (null si no tiene). */
+  photoV?: string | null
 }
 
 export interface PerreoFacets {

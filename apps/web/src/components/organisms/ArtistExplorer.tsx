@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button, Chip, SearchField, Text } from '@/components/atoms'
 import { ArtistCard, BottomSheet, FameSlider } from '@/components/molecules'
-import { activeFilterCount, KIND_LABELS, kindCounter, NO_FILTERS, type PerreoArtistList, type PerreoFilters, type PerreoSort } from '@/lib/perreo-types'
+import { activeFilterCount, KIND_LABELS, kindCounter, NO_FILTERS, type PerreoArtist, type PerreoArtistList, type PerreoFilters, type PerreoSort } from '@/lib/perreo-types'
 import { flagOf } from '@/lib/perreo-format'
 import { cn } from '@/lib/utils'
 
@@ -16,7 +16,7 @@ interface ArtistExplorerProps {
   onChange: (filters: PerreoFilters) => void
   data?: PerreoArtistList
   loading?: boolean
-  photoUrl: (slug: string) => string
+  photoUrl: (artist: PerreoArtist) => string
   onOpen: (slug: string) => void
   className?: string
 }
@@ -130,7 +130,7 @@ export function ArtistExplorer({ filters, onChange, data, loading, photoUrl, onO
         <ul className={cn('grid grid-cols-2 gap-3 max-[340px]:grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5', loading && 'opacity-60')}>
           {(data?.artists ?? []).map((a) => (
             <li key={a.slug}>
-              <ArtistCard name={a.name} photoUrl={photoUrl(a.slug)} country={a.country} debutYear={a.debutYear} fame={a.fame} styles={a.styles} kind={a.kind} incomplete={a.incomplete} onOpen={() => onOpen(a.slug)} />
+              <ArtistCard name={a.name} photoUrl={photoUrl(a)} country={a.country} debutYear={a.debutYear} fame={a.fame} styles={a.styles} kind={a.kind} incomplete={a.incomplete} onOpen={() => onOpen(a.slug)} />
             </li>
           ))}
         </ul>

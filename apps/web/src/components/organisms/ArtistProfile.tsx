@@ -26,7 +26,9 @@ interface ArtistProfileProps {
 
 /** Ficha de un artista: foto, datos, biografía, sellos, enlaces, parecidos y su primera lista. */
 export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, photoUrl, activeItemId, playing, onPlay, onMakeList, onOpenArtist, onEdit, className }: ArtistProfileProps) {
-  const [failed, setFailed] = useState(false)
+  // Se recuerda qué URL falló: si llega otra (foto nueva), se vuelve a intentar.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const failed = !!photoUrl && failedSrc === photoUrl
   const years = careerYears(artist.debutYear)
   const origin = originLabel(artist.city, artist.countries)
   return (
@@ -34,7 +36,7 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end">
         <div className="size-40 flex-none overflow-hidden rounded-lg bg-domain-soft sm:size-48">
           {photoUrl && !failed ? (
-            <img src={photoUrl} alt={`Foto de ${artist.name}`} onError={() => setFailed(true)} className="size-full object-cover object-top" />
+            <img src={photoUrl} alt={`Foto de ${artist.name}`} onError={() => setFailedSrc(photoUrl)} className="size-full object-cover object-top" />
           ) : (
             <span aria-hidden className="grid size-full place-items-center font-display text-5xl font-extrabold text-domain">
               {initials(artist.name)}

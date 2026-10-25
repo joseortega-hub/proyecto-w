@@ -22,12 +22,14 @@ export const shortBio = (bio: string) => (bio.match(/[^.!?]+[.!?]+(\s|$)/g)?.sli
 
 /** Portada de homenaje del Modo Perreo: foto con brillo neón, apodo, biografía y las tres acciones. */
 export function TributeCover({ artistName, nickname, photoUrl, bio, songCount, onPlay, onMakeList, onExplore, className }: TributeCoverProps) {
-  const [failed, setFailed] = useState(false)
+  // Se recuerda qué URL falló: si llega otra (foto nueva), se vuelve a intentar.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const failed = !!photoUrl && failedSrc === photoUrl
   return (
     <section aria-label={`Homenaje a ${artistName}`} data-domain="perreo" className={cn('flex flex-col items-center gap-6 px-4 py-8 text-center', className)}>
       <div className="perreo-glow size-52 overflow-hidden rounded-full border-4 border-domain bg-domain-soft sm:size-64">
         {photoUrl && !failed ? (
-          <img src={photoUrl} alt={`Foto de ${artistName}`} onError={() => setFailed(true)} className="size-full object-cover object-top" />
+          <img src={photoUrl} alt={`Foto de ${artistName}`} onError={() => setFailedSrc(photoUrl)} className="size-full object-cover object-top" />
         ) : (
           <span aria-hidden className="grid size-full place-items-center text-domain">
             <Icon name="flame" className="size-20" />

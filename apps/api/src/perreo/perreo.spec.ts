@@ -33,6 +33,9 @@ describe('explorador de artistas', () => {
 
   it('busca por nombre sin tildes ni mayúsculas y filtra por ciudad en orígenes con varias', () => {
     expect(filterArtists(list, { q: 'NÍCKY' }).map((a) => a.slug)).toEqual(['nicky']);
+    // También por el apodo puesto a mano.
+    const withNick = [...list, artist({ slug: 'ozuna', name: 'Ozuna', nickname: 'El Negrito de Ojos Claros' })];
+    expect(filterArtists(withNick, { q: 'negrito de ojos' }).map((a) => a.slug)).toEqual(['ozuna']);
     expect(filterArtists(list, { city: 'lawrence' }).map((a) => a.slug)).toEqual(['nicky']);
     expect(cityParts('San Juan / Filadelfia, Pensilvania,')).toEqual(['San Juan', 'Filadelfia']);
   });

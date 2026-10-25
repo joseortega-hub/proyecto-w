@@ -11,8 +11,10 @@ import { isPrivateHost, planEdit, youtubeId, type ArtistPatch } from './perreo.e
 import { artistFacets, filterArtists, type ArtistQuery, type ArtistSummary } from './perreo.filters.js';
 
 export const PERREO_DOMAIN = 'perreo';
-const { photo: _photo, ...artistColumns } = getTableColumns(perreoArtists);
-type Artist = Omit<typeof perreoArtists.$inferSelect, 'photo'>;
+const { photo: _photo, ...tableColumns } = getTableColumns(perreoArtists);
+// La foto no viaja con la ficha, solo una huella: la web la pone en la URL y, al cambiar la foto, el navegador pide la nueva.
+const artistColumns = { ...tableColumns, photoV: sql<string | null>`left(md5(${perreoArtists.photo}), 10)` };
+type Artist = Omit<typeof perreoArtists.$inferSelect, 'photo'> & { photoV: string | null };
 
 const summary = (a: Artist): ArtistSummary => ({
   slug: a.slug,
@@ -28,6 +30,7 @@ const summary = (a: Artist): ArtistSummary => ({
   kind: a.kind,
   incomplete: a.incomplete,
   nickname: a.nickname,
+  photoV: a.photoV,
 });
 
 /** Explorador de artistas del Modo Perreo: fichas, fotos y la primera lista de cada artista. */

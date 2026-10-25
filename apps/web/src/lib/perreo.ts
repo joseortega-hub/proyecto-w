@@ -102,17 +102,14 @@ export function usePerreoReview() {
   return useQuery({ queryKey: ['perreo', 'review'], queryFn: api.perreoReview, staleTime: 60_000 })
 }
 
-// La foto se cachea un día: al cambiarla se añade una versión para ver la nueva al momento.
-const photoVersion = new Map<string, number>()
-export const photoUrl = (slug: string) => `/api/perreo/artists/${encodeURIComponent(slug)}/photo${photoVersion.has(slug) ? `?v=${photoVersion.get(slug)}` : ''}`
+export { photoUrl } from './perreo-edit'
 
 /** Guarda a mano un artista; el explorador, los filtros y la ficha se refrescan al momento. */
 export function useEditArtist(slug: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (patch: PerreoArtistPatch) => api.perreoEdit(slug, patch),
-    onSuccess: (detail, patch) => {
-      if (patch.photoUrl || patch.photoData) photoVersion.set(slug, Date.now())
+    onSuccess: (detail) => {
       qc.setQueryData(['perreo', 'artist', slug], detail)
       void qc.invalidateQueries({ queryKey: ['perreo', 'artists'] })
     },

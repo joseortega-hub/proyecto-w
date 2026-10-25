@@ -33,7 +33,7 @@ export function PerreoTributePage() {
       <TributeCover
         artistName={artist.name}
         nickname={nickname}
-        photoUrl={photoUrl(artist.slug)}
+        photoUrl={photoUrl(artist)}
         bio={artist.bio}
         songCount={firstList.length}
         onPlay={play}

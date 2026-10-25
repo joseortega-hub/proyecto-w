@@ -22,7 +22,9 @@ interface ArtistCardProps {
 
 /** Un artista en la galería del explorador: foto, nombre, origen, fama y estilos. */
 export function ArtistCard({ name, photoUrl, country, debutYear, fame, styles = [], kind, incomplete, onOpen, className }: ArtistCardProps) {
-  const [failed, setFailed] = useState(false)
+  // Se recuerda qué URL falló: si llega otra (foto nueva), se vuelve a intentar.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const failed = !!photoUrl && failedSrc === photoUrl
   return (
     <button
       type="button"
@@ -34,7 +36,7 @@ export function ArtistCard({ name, photoUrl, country, debutYear, fame, styles = 
     >
       <div className="relative aspect-square w-full overflow-hidden bg-secondary">
         {photoUrl && !failed ? (
-          <img src={photoUrl} alt="" loading="lazy" onError={() => setFailed(true)} className="size-full object-cover object-top transition-transform duration-300 group-hover:scale-105" />
+          <img src={photoUrl} alt="" loading="lazy" onError={() => setFailedSrc(photoUrl)} className="size-full object-cover object-top transition-transform duration-300 group-hover:scale-105" />
         ) : (
           <span aria-hidden className="grid size-full place-items-center bg-domain-soft font-display text-3xl font-extrabold text-domain">
             {initials(name)}

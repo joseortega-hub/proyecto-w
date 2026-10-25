@@ -1,6 +1,13 @@
 // Utilidades sin DOM del formulario de edición de artistas del Modo Perreo.
 
 /**
+ * Foto de un artista. Se cachea un día, así que lleva la huella que da el servidor:
+ * al cambiar la foto cambia la URL y el navegador (en cualquier dispositivo) pide la nueva.
+ */
+export const photoUrl = (artist: { slug: string; photoV?: string | null }) =>
+  `/api/perreo/artists/${encodeURIComponent(artist.slug)}/photo${artist.photoV ? `?v=${artist.photoV}` : ''}`
+
+/**
  * Codifica la foto en base64 pequeño. Safari (iPhone) no sabe codificar WebP en un canvas
  * y devuelve PNG, que pesa diez veces más: en ese caso se usa JPEG.
  */
