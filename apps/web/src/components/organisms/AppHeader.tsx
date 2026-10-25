@@ -1,16 +1,23 @@
 import { Link, useNavigate } from 'react-router'
 import { Heading, IconButton } from '@/components/atoms'
 import { useTheme } from '@/lib/theme'
+import { cn } from '@/lib/utils'
 import { DomainSwitcher } from './DomainSwitcher'
 import { CustomizeMenu } from './CustomizeMenu'
 import { ThemeMenu } from './ThemeMenu'
 
-/** Cabecera móvil: marca, estilo (🎨), modo claro/oscuro y pestañas de temática. En escritorio van en la barra lateral. */
-export function AppHeader() {
+const HIDE_FROM = { md: 'md:hidden', lg: 'lg:hidden', never: '' }
+
+/**
+ * Cabecera: marca, estilo (🎨), personalizar, modo claro/oscuro y pestañas de temática.
+ * Se oculta donde la navegación ya los lleva (la barra lateral desde 768 px, la columna de
+ * temáticas de «Biblioteca» desde 1024 px); con el «Dock» se ve siempre.
+ */
+export function AppHeader({ hideFrom = 'md' }: { hideFrom?: keyof typeof HIDE_FROM }) {
   const { theme, toggle } = useTheme()
   const navigate = useNavigate()
   return (
-    <header className="flex flex-col gap-3 px-5 pt-5 short:flex-row short:items-center short:gap-2 short:pt-2 md:hidden">
+    <header className={cn('flex flex-none flex-col gap-3 px-5 pt-5 short:flex-row short:items-center short:gap-2 short:pt-2 md:px-10', HIDE_FROM[hideFrom])}>
       <div className="flex flex-none items-center justify-between short:gap-2">
         <Link to="/" className="inline-flex min-h-11 items-center rounded-sm">
           <Heading as="span" size="brand">

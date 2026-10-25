@@ -25,7 +25,7 @@ export function MiniPlayer({ entry, playing, onToggle, videoSlot: slotProp, shuf
   const contextSlot = usePlayerVideoSlot()
   const videoSlot = slotProp ?? contextSlot
   return (
-    <div className="mx-2.5 mb-2 flex items-center gap-2.5 rounded-[14px] bg-foreground py-2 pr-1.5 pl-2.5 text-background md:hidden">
+    <div className="mx-2.5 mb-2 flex flex-none items-center gap-2.5 rounded-[14px] bg-foreground py-2 pr-1.5 pl-2.5 text-background md:hidden">
       <Link to="/reproductor" className="flex min-w-0 flex-1 items-center gap-2.5" aria-label={`Abrir el reproductor: ${entry.item.title}`}>
         {videoSlot ? (
           <span ref={videoSlot} className="aspect-video h-10 flex-none rounded-[8px] bg-black" aria-hidden />
@@ -61,7 +61,7 @@ export function PlayerBar({ entry, playing, onToggle, position, duration, hasPre
   const contextSlot = usePlayerVideoSlot()
   const videoSlot = slotProp ?? contextSlot
   return (
-    <div className="hidden items-center gap-6 border-t border-border bg-card px-6 py-3 md:flex">
+    <div className="hidden flex-none items-center gap-6 border-t border-border bg-card px-6 py-3 md:flex">
       <Link to="/reproductor" className="flex w-72 min-w-0 items-center gap-3">
         {videoSlot ? (
           <span ref={videoSlot} className="aspect-video h-12 flex-none rounded-[8px] bg-black" aria-hidden />
