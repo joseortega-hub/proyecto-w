@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, Chip, Heading, Icon, IconButton, Skeleton, Text } from '@/components/atoms'
 import { EmptyState, SourceAttribution } from '@/components/molecules'
-import { ResultList, VibeCard } from '@/components/organisms'
-import { ApiError, api } from '@/lib/api'
+import { AddTracksPanel, ResultList, VibeCard } from '@/components/organisms'
+import { ApiError, api, type Item, type ResultEntry, type SessionResult } from '@/lib/api'
 import { totalMinutes } from '@/lib/format'
 import { agree, useDomain } from '@/lib/domain'
 import { rememberSession } from '@/lib/ops'
@@ -29,7 +29,7 @@ export function ResultPage() {
   const queryClient = useQueryClient()
   const player = usePlayer()
   const domain = useDomain()
-  const { save, isSaved } = useSavedLists(domain.id)
+  const { save, sync, isSaved } = useSavedLists(domain.id)
   const taste = useTaste(domain.id)
   const feedback = useFeedback(domain.id)
   const saveToYouTube = useSaveToYouTube(id)
@@ -64,6 +64,52 @@ export function ResultPage() {
     },
     onError: (e: Error) => toast.error('No he podido reordenar la lista', { description: e.message }),
   })
+
+  // Editar la lista: el cambio se ve al momento y se guarda en la API tras medio segundo sin tocar nada.
+  const [editing, setEditing] = useState(false)
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const flushEntries = useCallback(() => {
+    clearTimeout(saveTimer.current)
+    saveTimer.current = undefined
+    const current = queryClient.getQueryData<SessionResult>(['result', id])
+    if (!current?.entries.length) return
+    api.saveEntries(id, current.entries.map((e) => e.item.id)).catch((e: Error) => {
+      toast.error('No he podido guardar los cambios de la lista', { description: e.message })
+      void queryClient.invalidateQueries({ queryKey: ['result', id] })
+    })
+  }, [id, queryClient])
+  useEffect(() => () => { if (saveTimer.current) flushEntries() }, [flushEntries])
+  const updateEntries = useCallback(
+    (entries: ResultEntry[]) => {
+      const current = queryClient.getQueryData<SessionResult>(['result', id])
+      if (!current) return
+      const next = { ...current, entries }
+      queryClient.setQueryData(['result', id], next)
+      sync(next)
+      if (player.listId === id) player.syncQueue(entries.map((e) => ({ item: e.item, reason: e.reason, match: e.match })))
+      clearTimeout(saveTimer.current)
+      saveTimer.current = setTimeout(flushEntries, 500)
+    },
+    [id, queryClient, sync, player, flushEntries],
+  )
+  const moveEntry = (from: number, to: number) => {
+    const list = [...(queryClient.getQueryData<SessionResult>(['result', id])?.entries ?? [])]
+    if (!list[from] || to < 0 || to >= list.length) return
+    list.splice(to, 0, list.splice(from, 1)[0])
+    updateEntries(list)
+  }
+  const removeEntry = (index: number) => {
+    const before = queryClient.getQueryData<SessionResult>(['result', id])?.entries ?? []
+    if (before.length <= 1) return void toast.info('La lista no puede quedarse vacía')
+    updateEntries(before.filter((_, i) => i !== index))
+    toast(`Quitada: ${before[index].item.title}`, { duration: 5000, action: { label: 'Deshacer', onClick: () => updateEntries(before) } })
+  }
+  const addEntry = (item: Item) => {
+    const before = queryClient.getQueryData<SessionResult>(['result', id])?.entries ?? []
+    if (before.some((e) => e.item.id === item.id)) return
+    updateEntries([...before, { item, match: 0, fit: null, reason: '' }])
+    toast.success(`Añadida al final: ${item.title}`, { duration: 2200 })
+  }
 
   const notReady = result.error instanceof ApiError && result.error.status === 400
   if (tuning || notReady) {
@@ -179,6 +225,7 @@ export function ResultPage() {
               {playingThisList && player.playing ? 'Pausar' : 'Reproducir'}
             </Button>
           )}
+          <IconButton icon={editing ? 'check' : 'edit'} variant={editing ? 'primary' : 'subtle'} label={editing ? 'Terminar de editar la lista' : 'Editar la lista'} aria-pressed={editing} onClick={() => setEditing((v) => !v)} />
           <Button
             variant="secondary"
             onClick={() => {
@@ -226,12 +273,26 @@ export function ResultPage() {
               {saveToYouTube.isPending ? 'Creando la lista…' : 'Guardar en mi YouTube'}
             </Button>
           ))}
+        {editing && (
+          <>
+            <Text size="sm" tone="muted">
+              Arrastra el asa ⠿ (en el móvil, mantén pulsado) o usa ↑ ↓ para ordenar. Los cambios se guardan solos.
+            </Text>
+            {data.youtube && (
+              <Text size="sm" role="status">
+                Esta lista ya está en tu YouTube y allí no se actualiza: los cambios se quedan en Sintonía.
+              </Text>
+            )}
+            <AddTracksPanel domainId={domain.id} noun={domain.nounPlural} existingIds={new Set(data.entries.map((e) => e.item.id))} onAdd={addEntry} />
+          </>
+        )}
         <div className="lg:hidden">{vibeCard}</div>
         <ResultList
           entries={data.entries}
           currentId={playingThisList ? player.current?.item.id : null}
           playing={player.playing}
           opensDetail={!domain.playable}
+          edit={editing ? { onMove: moveEntry, onRemove: removeEntry } : undefined}
           // Sin reproductor (películas, libros, videojuegos), el toque abre la ficha con el enlace a la fuente.
           onSelect={domain.playable ? play : (i) => navigate(domain.path(`biblioteca/${data.entries[i].item.id}`))}
           feedback={taste.data?.feedback}

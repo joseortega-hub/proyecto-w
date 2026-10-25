@@ -57,7 +57,12 @@ export function useSavedLists(domainId: string) {
     }
     write([entry, ...read().filter((l) => l.id !== result.id)])
   }, [])
+  /** Si la lista está guardada, pone al día su recuento y su portada tras editarla. */
+  const sync = useCallback((result: SessionResult) => {
+    if (!read().some((l) => l.id === result.id)) return
+    write(read().map((l) => (l.id === result.id ? { ...l, count: result.entries.length, cover: result.entries[0]?.item.imageUrl ?? null } : l)))
+  }, [])
   const remove = useCallback((id: string) => write(read().filter((l) => l.id !== id)), [])
   const isSaved = useCallback((id: string) => lists.some((l) => l.id === id), [lists])
-  return { lists, save, remove, isSaved }
+  return { lists, save, sync, remove, isSaved }
 }

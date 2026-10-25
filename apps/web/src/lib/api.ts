@@ -364,6 +364,9 @@ export const api = {
   revibe: (id: string, scales?: Record<string, number>) =>
     request<SessionResult>(`/sessions/${id}/vibe`, { method: 'POST', body: JSON.stringify({ scales }) }),
   getSimilar: (itemId: string, limit = 10) => request<SimilarItems>(`/items/${itemId}/similar?limit=${limit}`),
+  /** Guarda el orden y los elementos de la lista (editar). */
+  saveEntries: (id: string, itemIds: string[]) =>
+    request<SessionResult>(`/sessions/${id}/entries`, { method: 'PUT', body: JSON.stringify({ itemIds }) }),
   getItem: (itemId: string) => request<Item>(`/items/${itemId}`),
   /** Detalles del elemento; en música completa los créditos desde MusicBrainz la primera vez. */
   getDetails: (itemId: string) => request<ItemDetails>(`/items/${itemId}/details`),

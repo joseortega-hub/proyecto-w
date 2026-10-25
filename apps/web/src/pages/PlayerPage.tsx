@@ -13,7 +13,7 @@ export function PlayerPage() {
   if (!player.current) {
     return (
       <FocusTemplate className="justify-center">
-        <EmptyState icon="play" title="No suena nada todavía" description="Haz una entrevista y te preparo una lista." action={<Button onClick={() => navigate('/')}>Empezar</Button>} />
+        <EmptyState icon="play" title="No suena nada todavía" description="Haz una entrevista y te preparamos una lista." action={<Button onClick={() => navigate('/')}>Empezar</Button>} />
       </FocusTemplate>
     )
   }
@@ -26,8 +26,12 @@ export function PlayerPage() {
         playing={player.playing}
         position={player.position}
         duration={player.duration}
-        hasPrevious={player.index > 0}
-        hasNext={player.index < player.queue.length - 1}
+        hasPrevious={player.hasPrevious}
+        hasNext={player.hasNext}
+        shuffle={player.order !== null}
+        repeat={player.repeat}
+        onShuffle={player.toggleShuffle}
+        onRepeat={player.cycleRepeat}
         onClose={close}
         onToggle={player.toggle}
         onPrevious={player.previous}

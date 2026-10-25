@@ -52,6 +52,12 @@ import {
   Monitor,
   Activity,
   CalendarDays,
+  GripVertical,
+  Plus,
+  Shuffle,
+  Repeat,
+  Repeat1,
+  ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -71,6 +77,12 @@ const ICONS = {
   check: Check,
   edit: Pencil,
   chevronDown: ChevronDown,
+  chevronUp: ChevronUp,
+  grip: GripVertical,
+  plus: Plus,
+  shuffle: Shuffle,
+  repeat: Repeat,
+  repeatOne: Repeat1,
   close: X,
   home: Home,
   library: Library,

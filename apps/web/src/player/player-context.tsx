@@ -3,6 +3,7 @@ import type { Item } from '@/lib/api'
 import { toast } from 'sonner'
 import { localUrl } from '@/lib/local-files'
 import { VideoDock } from './VideoDock'
+import { nextIndex, previousIndex, reindex, shuffledOrder, type RepeatMode } from './queue-order'
 import { loadYouTubeApi, YT_STATE, type YTPlayer } from './youtube-iframe'
 
 export interface QueueEntry {
@@ -20,6 +21,9 @@ interface PlayerState {
   playing: boolean
   position: number
   duration: number
+  /** Reproducción aleatoria: orden de los índices de la cola (null = en orden). */
+  order: number[] | null
+  repeat: RepeatMode
 }
 
 interface PlayerApi extends PlayerState {
@@ -27,6 +31,13 @@ interface PlayerApi extends PlayerState {
   /** Si lo que suena es un vídeo de YouTube (reproductor IFrame) en vez de audio. */
   video: boolean
   playList: (entries: QueueEntry[], opts: { title: string; id: string; domainId: string; start?: number }) => void
+  /** Cambia el contenido y el orden de la cola sin cortar lo que suena (tras editar la lista). */
+  syncQueue: (entries: QueueEntry[]) => void
+  toggleShuffle: () => void
+  cycleRepeat: () => void
+  /** Si hay canción siguiente (con repetir toda la lista siempre la hay). */
+  hasNext: boolean
+  hasPrevious: boolean
   toggle: () => void
   next: () => void
   previous: () => void
@@ -70,12 +81,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     playing: false,
     position: 0,
     duration: 0,
+    order: null,
+    repeat: 'off',
   })
   const current = state.queue[state.index] ?? null
   const video = isVideo(current)
   const stateRef = useRef(state)
   stateRef.current = state
   const goToRef = useRef<(index: number) => void>(() => undefined)
+  const advanceRef = useRef<(auto: boolean) => void>(() => undefined)
 
   if (!audio.current && typeof Audio !== 'undefined') audio.current = new Audio()
 
@@ -100,10 +114,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
                 if (!isVideo(stateRef.current.queue[stateRef.current.index])) return
                 if (data === YT_STATE.PLAYING) setState((s) => ({ ...s, playing: true }))
                 else if (data === YT_STATE.PAUSED) setState((s) => ({ ...s, playing: false }))
-                else if (data === YT_STATE.ENDED) goToRef.current(stateRef.current.index + 1)
+                else if (data === YT_STATE.ENDED) advanceRef.current(true)
               },
               // Vídeo retirado o que no se deja incrustar: a la siguiente.
-              onError: () => goToRef.current(stateRef.current.index + 1),
+              onError: () => advanceRef.current(false),
             },
           })
         }),
@@ -152,13 +166,35 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   )
   goToRef.current = goTo
 
+  /** Pasa a la siguiente: en orden (el editado) o aleatoria; al final, para o vuelve a empezar si se repite. */
+  const advance = useCallback(
+    (auto: boolean) => {
+      const { index, queue, order, repeat } = stateRef.current
+      const target = nextIndex({ index, length: queue.length, order, repeat, auto })
+      if (target === null) return
+      // Con aleatorio y "repetir todo", al llegar al final se baraja de nuevo.
+      if (order && order.indexOf(index) === order.length - 1) setState((s) => ({ ...s, order: shuffledOrder(queue.length, target) }))
+      if (target === index && auto) {
+        // Repetir la misma: se reinicia sin recargar.
+        if (isVideo(queue[index])) yt.current?.seekTo(0, true)
+        else if (audio.current) audio.current.currentTime = 0
+        if (isVideo(queue[index])) yt.current?.playVideo()
+        else audio.current?.play().catch(() => undefined)
+        return
+      }
+      goTo(target)
+    },
+    [goTo],
+  )
+  advanceRef.current = advance
+
   useEffect(() => {
     const el = audio.current
     if (!el) return
     const onTime = () => setState((s) => ({ ...s, position: el.currentTime, duration: el.duration || s.duration }))
     const onPlay = () => setState((s) => ({ ...s, playing: true }))
     const onPause = () => setState((s) => (isVideo(s.queue[s.index]) ? s : { ...s, playing: false }))
-    const onEnded = () => goTo(stateRef.current.index + 1)
+    const onEnded = () => advanceRef.current(true)
     el.addEventListener('timeupdate', onTime)
     el.addEventListener('loadedmetadata', onTime)
     el.addEventListener('play', onPlay)
@@ -171,7 +207,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       el.removeEventListener('pause', onPause)
       el.removeEventListener('ended', onEnded)
     }
-  }, [goTo])
+  }, [])
 
   // El IFrame no emite "timeupdate": se pregunta la posición mientras suena.
   useEffect(() => {
@@ -185,7 +221,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const playList = useCallback<PlayerApi['playList']>(
     (entries, { title, id, domainId, start = 0 }) => {
-      setState((s) => ({ ...s, queue: entries, index: start, listTitle: title, listId: id, domainId, position: 0, duration: 0 }))
+      setState((s) => ({ ...s, queue: entries, index: start, listTitle: title, listId: id, domainId, position: 0, duration: 0, order: s.order ? shuffledOrder(entries.length, start) : null }))
       load(entries[start])
     },
     [load],
@@ -205,14 +241,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     else el.pause()
   }, [])
 
-  const next = useCallback(() => goTo(state.index + 1), [goTo, state.index])
+  const syncQueue = useCallback((entries: QueueEntry[]) => {
+    setState((s) => {
+      const index = reindex(s.queue.map((e) => ({ id: e.item.id })), s.index, entries.map((e) => ({ id: e.item.id })))
+      return { ...s, queue: entries, index, order: s.order ? shuffledOrder(entries.length, index) : null }
+    })
+  }, [])
+  const toggleShuffle = useCallback(() => setState((s) => ({ ...s, order: s.order ? null : shuffledOrder(s.queue.length, s.index) })), [])
+  const cycleRepeat = useCallback(() => setState((s) => ({ ...s, repeat: s.repeat === 'off' ? 'all' : s.repeat === 'all' ? 'one' : 'off' })), [])
+  const hasNext = nextIndex({ index: state.index, length: state.queue.length, order: state.order, repeat: state.repeat, auto: false }) !== null
+
+  const hasPrevious = state.order ? state.order.indexOf(state.index) > 0 : state.index > 0
+
+  const next = useCallback(() => advance(false), [advance])
   const previous = useCallback(() => {
     const position = video ? (yt.current?.getCurrentTime() ?? 0) : (audio.current?.currentTime ?? 0)
     if (position > 3) {
       if (video) yt.current?.seekTo(0, true)
       else if (audio.current) audio.current.currentTime = 0
-    } else goTo(Math.max(0, state.index - 1))
-  }, [goTo, state.index, video])
+    } else goTo(previousIndex(state.index, state.order))
+  }, [goTo, state.index, state.order, video])
   const seek = useCallback(
     (seconds: number) => {
       if (video) yt.current?.seekTo(seconds, true)
@@ -238,8 +286,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [current, state.listTitle, toggle, next, previous])
 
   const value = useMemo<PlayerApi>(
-    () => ({ ...state, current, video, playList, toggle, next, previous, seek, setVideoSlot, prepareVideo }),
-    [state, current, video, playList, toggle, next, previous, seek, setVideoSlot, prepareVideo],
+    () => ({ ...state, current, video, hasNext, hasPrevious, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, setVideoSlot, prepareVideo }),
+    [state, current, video, hasNext, hasPrevious, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, setVideoSlot, prepareVideo],
   )
   return (
     <PlayerContext.Provider value={value}>

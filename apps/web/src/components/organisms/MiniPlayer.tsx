@@ -1,7 +1,9 @@
 import { Link } from 'react-router'
 import { Cover, Icon, IconButton, MatchBadge } from '@/components/atoms'
 import { PlaybackControls, SeekBar } from '@/components/molecules'
+import { REPEAT_LABEL } from '@/components/molecules/PlaybackControls'
 import { usePlayerVideoSlot, type QueueEntry } from '@/player/player-context'
+import type { RepeatMode } from '@/player/queue-order'
 
 interface PlayerViewProps {
   entry: QueueEntry
@@ -9,10 +11,14 @@ interface PlayerViewProps {
   onToggle: () => void
   /** Si suena un vídeo de YouTube: hueco donde se ve, en lugar de la portada. */
   videoSlot?: (el: HTMLElement | null) => (() => void) | undefined
+  shuffle?: boolean
+  repeat?: RepeatMode
+  onShuffle?: () => void
+  onRepeat?: () => void
 }
 
 /** Mini-reproductor del móvil, encima de la navegación. Al tocarlo se abre el reproductor. */
-export function MiniPlayer({ entry, playing, onToggle, videoSlot: slotProp }: PlayerViewProps) {
+export function MiniPlayer({ entry, playing, onToggle, videoSlot: slotProp, shuffle, repeat = 'off', onShuffle, onRepeat }: PlayerViewProps) {
   // El hook va siempre (reglas de los hooks); la prop, si llega, manda.
   const contextSlot = usePlayerVideoSlot()
   const videoSlot = slotProp ?? contextSlot
@@ -29,6 +35,8 @@ export function MiniPlayer({ entry, playing, onToggle, videoSlot: slotProp }: Pl
           <span className="truncate text-xs opacity-75">{entry.item.subtitle}</span>
         </span>
       </Link>
+      {onShuffle && <IconButton icon="shuffle" label={shuffle ? 'Aleatorio: activado' : 'Aleatorio: desactivado'} aria-pressed={!!shuffle} variant="ghost" className={shuffle ? 'text-primary-foreground bg-primary/80' : 'opacity-70'} onClick={onShuffle} />}
+      {onRepeat && <IconButton icon={repeat === 'one' ? 'repeatOne' : 'repeat'} label={REPEAT_LABEL[repeat]} aria-pressed={repeat !== 'off'} variant="ghost" className={repeat !== 'off' ? 'text-primary-foreground bg-primary/80' : 'opacity-70'} onClick={onRepeat} />}
       <IconButton icon={playing ? 'pause' : 'play'} label={playing ? 'Pausar' : 'Reproducir'} variant="ghost" onClick={onToggle} />
     </div>
   )
@@ -45,7 +53,7 @@ interface PlayerBarProps extends PlayerViewProps {
 }
 
 /** Barra de reproducción de escritorio (≥ 768 px). */
-export function PlayerBar({ entry, playing, onToggle, position, duration, hasPrevious, hasNext, onPrevious, onNext, onSeek, videoSlot: slotProp }: PlayerBarProps) {
+export function PlayerBar({ entry, playing, onToggle, position, duration, hasPrevious, hasNext, onPrevious, onNext, onSeek, videoSlot: slotProp, shuffle, repeat, onShuffle, onRepeat }: PlayerBarProps) {
   // El hook va siempre (reglas de los hooks); la prop, si llega, manda.
   const contextSlot = usePlayerVideoSlot()
   const videoSlot = slotProp ?? contextSlot
@@ -64,7 +72,7 @@ export function PlayerBar({ entry, playing, onToggle, position, duration, hasPre
       </Link>
       <div className="flex flex-1 flex-col gap-1">
         <div className="[&_[data-size=lg]]:size-12 [&_[data-size=lg]_svg]:size-5">
-          <PlaybackControls playing={playing} onToggle={onToggle} onPrevious={onPrevious} onNext={onNext} hasPrevious={hasPrevious} hasNext={hasNext} />
+          <PlaybackControls playing={playing} onToggle={onToggle} onPrevious={onPrevious} onNext={onNext} hasPrevious={hasPrevious} hasNext={hasNext} shuffle={shuffle} repeat={repeat} onShuffle={onShuffle} onRepeat={onRepeat} />
         </div>
         <SeekBar position={position} duration={duration} onSeek={onSeek} />
       </div>

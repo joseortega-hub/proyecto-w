@@ -1,7 +1,9 @@
-import { Icon } from '@/components/atoms'
+import { useRef, useState } from 'react'
+import { DragHandle, Icon, IconButton } from '@/components/atoms'
 import { Explanation, FeedbackButtons, ItemRow } from '@/components/molecules'
 import { geekLine } from '@/lib/details'
 import type { Feedback, ResultEntry } from '@/lib/api'
+import { useDragReorder } from '@/lib/drag-reorder'
 import { cn } from '@/lib/utils'
 
 interface ResultListProps {
@@ -14,17 +16,34 @@ interface ResultListProps {
   /** 👍/👎 de la persona por elemento; sin `onFeedback` no se muestran. */
   feedback?: Record<string, Feedback>
   onFeedback?: (itemId: string, value: Feedback | null) => void
+  /** Modo edición: asa para reordenar y botón para quitar. */
+  edit?: { onMove: (from: number, to: number) => void; onRemove: (index: number) => void }
 }
 
 /** La lista personalizada. La primera (o la que suena) se destaca con su explicación abierta. */
-export function ResultList({ entries, currentId, playing, onSelect, opensDetail, feedback = {}, onFeedback }: ResultListProps) {
+export function ResultList({ entries, currentId, playing, onSelect, opensDetail, feedback = {}, onFeedback, edit }: ResultListProps) {
+  const listRef = useRef<HTMLOListElement>(null)
+  const [announce, setAnnounce] = useState('')
+  const { dragging, handleProps, listProps } = useDragReorder({
+    listRef,
+    onMove: (from, to) => {
+      edit?.onMove(from, to)
+      setAnnounce(`${entries[from]?.item.title} pasa a la posición ${to + 1} de ${entries.length}`)
+    },
+  })
   const highlighted = currentId ?? entries[0]?.item.id
   return (
-    <ol className="flex flex-col gap-1.5">
+    <>
+    {edit && <p role="status" className="sr-only">{announce}</p>}
+    <ol ref={listRef} className={cn('flex flex-col gap-1.5', dragging !== null && 'select-none')} {...(edit ? listProps : {})}>
       {entries.map((e, i) => {
         const active = e.item.id === highlighted
         return (
-          <li key={e.item.id}>
+          <li
+            key={e.item.id}
+            className={cn(edit && 'flex items-start gap-1 rounded-[14px] transition-shadow', dragging === i && 'relative z-10 scale-[1.02] bg-card shadow-lg ring-2 ring-ring')}
+          >
+            {edit && <DragHandle {...handleProps(i, e.item.id, entries.length)} active={dragging === i} label={`Mover ${e.item.title} (posición ${i + 1} de ${entries.length})`} className="mt-1.5" />}
             <ItemRow
               title={e.item.title}
               subtitle={e.item.subtitle}
@@ -36,7 +55,7 @@ export function ResultList({ entries, currentId, playing, onSelect, opensDetail,
               playing={playing}
               onSelect={() => onSelect(i)}
               actionLabel={opensDetail ? 'Ver la ficha de' : undefined}
-              className={cn('rounded-[14px] px-3 py-2', active && 'border border-border bg-card py-3')}
+              className={cn('min-w-0 flex-1 rounded-[14px] px-3 py-2', active && 'border border-border bg-card py-3')}
             >
               {(e.reason || onFeedback || e.likes?.length) && (
                 <div className="flex flex-col gap-1.5">
@@ -55,9 +74,11 @@ export function ResultList({ entries, currentId, playing, onSelect, opensDetail,
                 </div>
               )}
             </ItemRow>
+            {edit && <IconButton icon="trash" variant="ghost" label={`Quitar ${e.item.title}`} className="mt-1.5" onClick={() => edit.onRemove(i)} />}
           </li>
         )
       })}
     </ol>
+    </>
   )
 }

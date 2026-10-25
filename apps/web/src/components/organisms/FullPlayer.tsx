@@ -1,6 +1,7 @@
 import { Cover, Heading, IconButton, MatchBadge, Text } from '@/components/atoms'
 import { Explanation, PlaybackControls, SeekBar } from '@/components/molecules'
 import type { QueueEntry } from '@/player/player-context'
+import type { RepeatMode } from '@/player/queue-order'
 
 interface FullPlayerProps {
   entry: QueueEntry
@@ -10,6 +11,10 @@ interface FullPlayerProps {
   duration: number
   hasPrevious: boolean
   hasNext: boolean
+  shuffle?: boolean
+  repeat?: RepeatMode
+  onShuffle?: () => void
+  onRepeat?: () => void
   onClose: () => void
   onToggle: () => void
   onPrevious: () => void
@@ -47,7 +52,7 @@ export function FullPlayer({ entry, listTitle, onClose, videoSlot, ...p }: FullP
         {entry.match > 0 && <MatchBadge value={entry.match} />}
       </div>
       <SeekBar position={p.position} duration={p.duration || item.durationSec || 0} onSeek={p.onSeek} />
-      <PlaybackControls playing={p.playing} onToggle={p.onToggle} onPrevious={p.onPrevious} onNext={p.onNext} hasPrevious={p.hasPrevious} hasNext={p.hasNext} />
+      <PlaybackControls playing={p.playing} onToggle={p.onToggle} onPrevious={p.onPrevious} onNext={p.onNext} hasPrevious={p.hasPrevious} hasNext={p.hasNext} shuffle={p.shuffle} repeat={p.repeat} onShuffle={p.onShuffle} onRepeat={p.onRepeat} />
       {entry.reason && <Explanation reason={entry.reason} label="Por qué suena" collapsible={false} />}
       {item.source === 'local' && <Text size="xs" tone="muted" className="text-center">Suena desde tu dispositivo · el archivo no sale de aquí</Text>}
       {item.externalUrl && (

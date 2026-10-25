@@ -35,9 +35,11 @@ import { ThemesService } from './themes/themes.service.js';
 import { YouTubeController } from './youtube/youtube.controller.js';
 import { YouTubeService } from './youtube/youtube.service.js';
 
+import { ListsController } from './lists/lists.controller.js';
+import { ListsService } from './lists/lists.service.js';
 @Module({
   imports: [DbModule, AiModule],
-  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController],
+  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController, ListsController],
   providers: [
     DomainsService,
     AnchorsService,
@@ -63,4 +65,5 @@ import { YouTubeService } from './youtube/youtube.service.js';
     StoryService,
   ],
 })
+    ListsService,
 export class AppModule {}
