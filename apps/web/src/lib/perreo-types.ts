@@ -21,6 +21,12 @@ export interface PerreoArtist {
   nickname?: string | null
   /** Huella de la foto: cambia cuando la foto cambia (null si no tiene). */
   photoV?: string | null
+  aliases?: string[]
+  /** «Nivel de calle» 0–100 (a mano). */
+  streetLevel?: number | null
+  status?: string | null
+  /** Color propio #rrggbb (a mano o el de su foto). */
+  color?: string | null
 }
 
 export interface PerreoFacets {
@@ -44,7 +50,10 @@ export interface PerreoArtistFull extends Omit<PerreoArtist, 'labels'> {
   birthDate: string | null
   listeners: number | null
   labels: { name: string; start: number | null; end: number | null }[]
-  links: Partial<Record<'instagram' | 'tiktok' | 'x' | 'web' | 'spotify' | 'youtubeMusic' | 'appleMusic', string>>
+  links: Partial<Record<LinkKey, string>>
+  activeUntil?: number | null
+  collaborators?: string[]
+  youtubeChannelId?: string | null
   bio: string | null
   bioSource: string | null
   similar: string[]
@@ -141,6 +150,23 @@ export const kindCounter = (kinds: { value: string; count: number }[]) =>
     .flatMap((k) => kinds.filter((x) => x.value === k && x.count > 0).map((x) => `${x.count} ${KIND_LABELS[k]}`))
     .join(' · ')
 
+/** Redes y plataformas editables, en el orden del formulario. */
+export const LINK_FIELDS = [
+  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/…' },
+  { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@…' },
+  { key: 'x', label: 'X (Twitter)', placeholder: 'https://x.com/…' },
+  { key: 'youtubeMusic', label: 'YouTube', placeholder: 'https://music.youtube.com/…' },
+  { key: 'spotify', label: 'Spotify', placeholder: 'https://open.spotify.com/…' },
+  { key: 'appleMusic', label: 'Apple Music', placeholder: 'https://music.apple.com/…' },
+  { key: 'soundcloud', label: 'SoundCloud', placeholder: 'https://soundcloud.com/…' },
+  { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/…' },
+  { key: 'web', label: 'Web oficial', placeholder: 'https://…' },
+] as const
+export type LinkKey = (typeof LINK_FIELDS)[number]['key']
+
+/** Estado del artista. */
+export const STATUS_LABELS: Record<string, string> = { active: 'En activo', hiatus: 'En pausa', retired: 'Retirado', deceased: 'Fallecido' }
+
 /** Lo que se manda al editar un artista a mano (todo opcional). */
 export interface PerreoArtistPatch {
   name?: string
@@ -149,10 +175,21 @@ export interface PerreoArtistPatch {
   country?: string | null
   city?: string | null
   debutYear?: number | null
+  activeUntil?: number | null
+  status?: string | null
+  realName?: string | null
+  birthDate?: string | null
+  fame?: number
+  streetLevel?: number | null
+  listeners?: number | null
+  aliases?: string[]
+  collaborators?: string[]
+  youtubeChannelId?: string | null
+  color?: string | null
   styles?: string[]
   labels?: { name: string; start?: number | null; end?: number | null }[]
   bio?: string | null
-  links?: { instagram?: string; youtubeMusic?: string; spotify?: string }
+  links?: Partial<Record<LinkKey, string>>
   photoUrl?: string
   photoData?: string
   featured?: string | null
@@ -160,5 +197,5 @@ export interface PerreoArtistPatch {
 }
 
 /** Estilos sugeridos en el formulario. */
-export const STYLE_OPTIONS = ['perreo', 'romántico', 'trap', 'dembow', 'old school']
+export const STYLE_OPTIONS = ['perreo', 'perreo old school', 'romántico', 'trap', 'trap latino', 'dembow', 'reparto', 'rkt', 'mambo', 'neoperreo', 'drill', 'dancehall', 'moombahton', 'cumbia villera', 'afrobeat', 'pop urbano', 'old school']
 export const KIND_OPTIONS = Object.keys(KIND_LABELS)

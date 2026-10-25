@@ -1,8 +1,8 @@
 import { useId, useState, type ComponentProps, type ReactNode } from 'react'
 import { Button, Chip, Switch, Text } from '@/components/atoms'
 import { BottomSheet } from '@/components/molecules'
-import { changedLinks, compactPhoto } from '@/lib/perreo-edit'
-import { KIND_OPTIONS, STYLE_OPTIONS, kindName, type PerreoArtistFull, type PerreoArtistPatch } from '@/lib/perreo-types'
+import { changedLinks, compactPhoto, labelLines, lines, parseLabelLines } from '@/lib/perreo-edit'
+import { KIND_OPTIONS, LINK_FIELDS, STATUS_LABELS, STYLE_OPTIONS, kindName, type LinkKey, type PerreoArtistFull, type PerreoArtistPatch } from '@/lib/perreo-types'
 import { cn } from '@/lib/utils'
 
 interface ArtistEditFormProps {
@@ -54,9 +54,20 @@ export function ArtistEditForm({ open, artist, ownSongs, photoUrl, saving, error
   const [year, setYear] = useState(artist.debutYear ? String(artist.debutYear) : '')
   const [styles, setStyles] = useState(artist.styles)
   const [extraStyle, setExtraStyle] = useState('')
-  const [labels, setLabels] = useState(artist.labels.map((l) => l.name).join('\n'))
+  const [labels, setLabels] = useState(labelLines(artist.labels))
   const [bio, setBio] = useState(artist.bio ?? '')
-  const [links, setLinks] = useState({ instagram: artist.links.instagram ?? '', youtubeMusic: artist.links.youtubeMusic ?? '', spotify: artist.links.spotify ?? '' })
+  const [links, setLinks] = useState(Object.fromEntries(LINK_FIELDS.map((f) => [f.key, artist.links[f.key] ?? ''])) as Record<LinkKey, string>)
+  const [fame, setFame] = useState(Math.round(artist.fame))
+  const [street, setStreet] = useState(artist.streetLevel ?? null)
+  const [listeners, setListeners] = useState(artist.listeners != null ? String(artist.listeners) : '')
+  const [realName, setRealName] = useState(artist.realName ?? '')
+  const [birthDate, setBirthDate] = useState(artist.birthDate ?? '')
+  const [status, setStatus] = useState(artist.status ?? '')
+  const [until, setUntil] = useState(artist.activeUntil ? String(artist.activeUntil) : '')
+  const [aliases, setAliases] = useState((artist.aliases ?? []).join('\n'))
+  const [collaborators, setCollaborators] = useState((artist.collaborators ?? []).join('\n'))
+  const [channel, setChannel] = useState(artist.youtubeChannelId ?? '')
+  const [color, setColor] = useState(artist.manualFields?.includes('color') ? (artist.color ?? '') : '')
   const [photoLink, setPhotoLink] = useState('')
   const [photoData, setPhotoData] = useState<string | null>(null)
   const [photoNote, setPhotoNote] = useState<string | null>(null)
@@ -92,16 +103,22 @@ export function ArtistEditForm({ open, artist, ownSongs, photoUrl, saving, error
       city: city.trim() || null,
       debutYear: /^\d{4}$/.test(year.trim()) ? Number(year) : null,
       styles,
-      labels: labels
-        .split('\n')
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .map((n) => {
-          const old = artist.labels.find((l) => l.name === n)
-          return { name: n, start: old?.start ?? null, end: old?.end ?? null }
-        }),
+      labels: parseLabelLines(labels, artist.labels),
       bio: bio.trim() || null,
       hidden,
+      // La popularidad importada lleva decimales: solo se manda si la mueves (si no, quedaría como manual sin querer).
+      fame: fame !== Math.round(artist.fame) ? fame : undefined,
+      streetLevel: street,
+      listeners: /^\d+$/.test(listeners.trim()) ? Number(listeners) : null,
+      realName: realName.trim() || null,
+      birthDate: /^\d{4}(-\d{2}-\d{2})?$/.test(birthDate.trim()) ? birthDate.trim() : null,
+      status: status || null,
+      activeUntil: /^\d{4}$/.test(until.trim()) ? Number(until) : null,
+      aliases: lines(aliases),
+      collaborators: lines(collaborators),
+      youtubeChannelId: channel.trim() || null,
+      // Sin color propio manda el de su foto (calculado): solo se manda si eliges uno o quitas el tuyo.
+      color: color ? color : artist.manualFields?.includes('color') ? null : undefined,
     }
     const editedLinks = changedLinks(artist.links, links)
     if (editedLinks) patch.links = editedLinks
@@ -163,10 +180,51 @@ export function ArtistEditForm({ open, artist, ownSongs, photoUrl, saving, error
           <Field label="País">{(id) => <Input id={id} value={country} onChange={(e) => setCountry(e.target.value)} maxLength={80} />}</Field>
           <Field label="Ciudad">{(id) => <Input id={id} value={city} onChange={(e) => setCity(e.target.value)} maxLength={120} />}</Field>
         </div>
-        <Field label="Año de debut">{(id) => <Input id={id} value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder="2008" />}</Field>
+        <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2">
+          <Field label="Nombre real">{(id) => <Input id={id} value={realName} onChange={(e) => setRealName(e.target.value)} maxLength={120} />}</Field>
+          <Field label="Nacimiento" hint="AAAA-MM-DD o solo el año.">
+            {(id) => <Input id={id} value={birthDate} onChange={(e) => setBirthDate(e.target.value.replace(/[^\d-]/g, '').slice(0, 10))} inputMode="numeric" placeholder="1994-03-10" />}
+          </Field>
+        </div>
+        <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-3">
+          <Field label="Año de debut">{(id) => <Input id={id} value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder="2008" />}</Field>
+          <Field label="Estado">
+            {(id) => (
+              <select id={id} value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass}>
+                <option value="">Sin indicar</option>
+                {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+          <Field label="Hasta (año)" hint="Si lo dejó.">{(id) => <Input id={id} value={until} onChange={(e) => setUntil(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder="2019" />}</Field>
+        </div>
+
+        <fieldset className="flex min-w-0 flex-col gap-3 rounded-lg border-[1.5px] border-border p-3">
+          <legend className="px-1 text-sm font-bold">Números</legend>
+          <Field label={`Popularidad: ${fame}`} hint="0 underground, 100 mainstream. Sin tocar sale de los oyentes de Last.fm.">
+            {(id) => <input id={id} type="range" min={0} max={100} value={fame} onChange={(e) => setFame(Number(e.target.value))} className="min-h-11 w-full accent-[var(--domain)]" />}
+          </Field>
+          <Field label={street == null ? 'Nivel de calle: sin poner' : `Nivel de calle: ${street}`} hint="Lo de barrio y underground que es, a tu criterio.">
+            {(id) => (
+              <div className="flex items-center gap-2">
+                <input id={id} type="range" min={0} max={100} value={street ?? 50} onChange={(e) => setStreet(Number(e.target.value))} className="min-h-11 w-full accent-[var(--domain)]" />
+                {street != null && (
+                  <Button type="button" variant="ghost" size="md" onClick={() => setStreet(null)}>
+                    Quitar
+                  </Button>
+                )}
+              </div>
+            )}
+          </Field>
+          <Field label="Oyentes (Last.fm)">{(id) => <Input id={id} value={listeners} onChange={(e) => setListeners(e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" />}</Field>
+        </fieldset>
 
         <div role="group" aria-label="Estilos" className="flex flex-col gap-1.5">
-          <span className="text-sm font-bold">Estilos</span>
+          <span className="text-sm font-bold">Subgéneros</span>
           <div className="flex flex-wrap gap-1.5">
             {allStyles.map((s) => {
               const on = styles.includes(s)
@@ -187,18 +245,45 @@ export function ArtistEditForm({ open, artist, ownSongs, photoUrl, saving, error
           </div>
         </div>
 
-        <Field label="Sellos" hint="Uno por línea.">
+        <Field label="Sellos" hint="Uno por línea; con años así: Rimas (2016–2020) o WY Records (2004–hoy).">
           {(id) => <textarea id={id} value={labels} onChange={(e) => setLabels(e.target.value)} rows={3} className={cn(inputClass, 'py-2')} />}
         </Field>
+        <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2">
+          <Field label="Alias" hint="Uno por línea. El buscador también los encuentra.">
+            {(id) => <textarea id={id} value={aliases} onChange={(e) => setAliases(e.target.value)} rows={3} className={cn(inputClass, 'py-2')} />}
+          </Field>
+          <Field label="Colaboradores frecuentes" hint="Uno por línea.">
+            {(id) => <textarea id={id} value={collaborators} onChange={(e) => setCollaborators(e.target.value)} rows={3} className={cn(inputClass, 'py-2')} />}
+          </Field>
+        </div>
         <Field label="Biografía corta">
           {(id) => <textarea id={id} value={bio} onChange={(e) => setBio(e.target.value)} rows={5} maxLength={2000} className={cn(inputClass, 'py-2')} />}
         </Field>
 
         <fieldset className="flex min-w-0 flex-col gap-3">
-          <legend className="pb-1 text-sm font-bold">Enlaces</legend>
-          <Field label="Instagram">{(id) => <Input id={id} type="url" inputMode="url" value={links.instagram} onChange={(e) => setLinks({ ...links, instagram: e.target.value })} placeholder="https://instagram.com/…" />}</Field>
-          <Field label="YouTube">{(id) => <Input id={id} type="url" inputMode="url" value={links.youtubeMusic} onChange={(e) => setLinks({ ...links, youtubeMusic: e.target.value })} placeholder="https://music.youtube.com/…" />}</Field>
-          <Field label="Spotify">{(id) => <Input id={id} type="url" inputMode="url" value={links.spotify} onChange={(e) => setLinks({ ...links, spotify: e.target.value })} placeholder="https://open.spotify.com/…" />}</Field>
+          <legend className="pb-1 text-sm font-bold">Redes y plataformas</legend>
+          {LINK_FIELDS.map((f) => (
+            <Field key={f.key} label={f.label}>
+              {(id) => <Input id={id} type="url" inputMode="url" value={links[f.key]} onChange={(e) => setLinks({ ...links, [f.key]: e.target.value })} placeholder={f.placeholder} />}
+            </Field>
+          ))}
+          <Field label="Canal oficial de YouTube" hint="El id que empieza por UC: de ahí salen sus canciones y sus visitas.">
+            {(id) => <Input id={id} value={channel} onChange={(e) => setChannel(e.target.value.trim())} maxLength={24} placeholder="UC…" />}
+          </Field>
+        </fieldset>
+
+        <fieldset className="flex min-w-0 flex-col gap-2">
+          <legend className="pb-1 text-sm font-bold">Su color</legend>
+          <span className="text-xs text-muted-foreground">El que brilla al desbloquear con su frase y en su ficha. Sin elegir, sale de su foto.</span>
+          <div className="flex items-center gap-3">
+            <input type="color" aria-label="Color propio" value={color || artist.color || '#ff4fd0'} onChange={(e) => setColor(e.target.value)} className="size-11 cursor-pointer rounded-md border-[1.5px] border-border bg-transparent" />
+            <span className="text-sm">{color ? color : 'El de su foto'}</span>
+            {color && (
+              <Button type="button" variant="ghost" size="md" onClick={() => setColor('')}>
+                Usar el de su foto
+              </Button>
+            )}
+          </div>
         </fieldset>
 
         <fieldset className="flex min-w-0 flex-col gap-3">

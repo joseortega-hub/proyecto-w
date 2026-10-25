@@ -3,7 +3,7 @@ import { Button, Chip, Heading, Icon, Text } from '@/components/atoms'
 import { ItemRow } from '@/components/molecules'
 import type { Item } from '@/lib/api'
 import { careerYears, fameLabel, flagOf, initials, labelYears, LINK_LABELS, originLabel } from '@/lib/perreo-format'
-import { kindName, type PerreoArtist, type PerreoArtistFull } from '@/lib/perreo-types'
+import { kindName, STATUS_LABELS, type PerreoArtist, type PerreoArtistFull } from '@/lib/perreo-types'
 import { cn } from '@/lib/utils'
 
 interface ArtistProfileProps {
@@ -47,6 +47,7 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
           <Heading size="display" className="break-words">{artist.name}</Heading>
           {artist.nickname && <Text className="font-bold text-domain break-words">«{artist.nickname}»</Text>}
           {artist.realName && <Text tone="muted">{artist.realName}</Text>}
+          {!!artist.aliases?.length && <Text tone="muted" size="sm">También: {artist.aliases.join(' · ')}</Text>}
           <div className="flex flex-wrap gap-1.5">
             {origin && (
               <Chip variant="outline">
@@ -55,7 +56,14 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
             )}
             {artist.kind !== 'artist' && <Chip variant="outline">{kindName(artist.kind)}</Chip>}
             {artist.incomplete && <Chip variant="outline">Por completar</Chip>}
+            {artist.status && artist.status !== 'active' && (
+              <Chip variant="outline">
+                {STATUS_LABELS[artist.status] ?? artist.status}
+                {artist.activeUntil ? ` en ${artist.activeUntil}` : ''}
+              </Chip>
+            )}
             <Chip variant="outline">{fameLabel(artist.fame)}</Chip>
+            {artist.streetLevel != null && <Chip variant="outline">Calle {artist.streetLevel}/100</Chip>}
             {artist.debutYear && (
               <Chip variant="outline">
                 Desde {artist.debutYear}
@@ -111,6 +119,21 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {!!artist.collaborators?.length && (
+        <section aria-labelledby="collabs" className="flex flex-col gap-2">
+          <Heading as="h2" size="section" id="collabs">
+            Colabora con
+          </Heading>
+          <div className="flex flex-wrap gap-1.5">
+            {artist.collaborators.map((c) => (
+              <Chip key={c} variant="outline">
+                {c}
+              </Chip>
+            ))}
+          </div>
         </section>
       )}
 

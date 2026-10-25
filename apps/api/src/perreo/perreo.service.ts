@@ -31,6 +31,10 @@ const summary = (a: Artist): ArtistSummary => ({
   incomplete: a.incomplete,
   nickname: a.nickname,
   photoV: a.photoV,
+  aliases: a.aliases,
+  streetLevel: a.streetLevel,
+  status: a.status,
+  color: a.color,
 });
 
 /** Explorador de artistas del Modo Perreo: fichas, fotos y la primera lista de cada artista. */

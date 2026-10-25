@@ -18,6 +18,11 @@ export interface ArtistSummary {
   nickname?: string | null;
   /** Huella de la foto (null si no tiene): cambia cuando cambia la foto. */
   photoV?: string | null;
+  aliases?: string[];
+  streetLevel?: number | null;
+  status?: string | null;
+  /** Color propio #rrggbb (o el de su foto). */
+  color?: string | null;
 }
 
 export type ArtistSort = 'fame' | 'age' | 'name';
@@ -67,7 +72,7 @@ export const cityParts = (city: string | null): string[] =>
 export function filterArtists(list: ArtistSummary[], query: ArtistQuery): ArtistSummary[] {
   const q = query.q ? fold(query.q) : '';
   const out = list.filter((a) => {
-    if (q && !fold(a.name).includes(q) && !fold(a.nickname ?? '').includes(q)) return false;
+    if (q && ![a.name, a.nickname ?? '', ...(a.aliases ?? [])].some((n) => fold(n).includes(q))) return false;
     if (query.followed && !a.followed) return false;
     if (query.kind && a.kind !== query.kind) return false;
     if (query.fameMin != null && a.fame < query.fameMin) return false;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { changedLinks, compactPhoto, photoUrl } from './perreo-edit'
+import { changedLinks, compactPhoto, labelLines, lines, parseLabelLines, photoUrl } from './perreo-edit'
 
 describe('photoUrl', () => {
   it('cambia de URL cuando cambia la foto (huella del servidor), para saltarse la caché de un día', () => {
@@ -39,5 +39,25 @@ describe('changedLinks', () => {
       instagram: 'https://www.instagram.com/daddyyankee',
       spotify: '',
     })
+  })
+})
+
+describe('sellos con años', () => {
+  it('entiende «Nombre (2016–2020)», «(2018–hoy)» y conserva los años de lo que no toca', () => {
+    const prev = [{ name: 'WY Records', start: 2004, end: null }]
+    expect(parseLabelLines(['Rimas (2016–2020)', 'Hear This (2018-hoy)', 'WY Records', '', ''].join('\n'), prev)).toEqual([
+      { name: 'Rimas', start: 2016, end: 2020 },
+      { name: 'Hear This', start: 2018, end: null },
+      { name: 'WY Records', start: 2004, end: null },
+    ])
+  })
+
+  it('ida y vuelta sin perder nada', () => {
+    const ls = [{ name: 'Rimas', start: 2016, end: 2020 }, { name: 'Sin años', start: null, end: null }]
+    expect(parseLabelLines(labelLines(ls))).toEqual(ls)
+  })
+
+  it('lines quita vacías y repetidas', () => {
+    expect(lines([' El Duro ', 'el duro', '', 'W'].join('\n'))).toEqual(['El Duro', 'W'])
   })
 })

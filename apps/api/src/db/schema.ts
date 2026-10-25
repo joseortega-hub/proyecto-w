@@ -253,6 +253,17 @@ export const perreoArtists = pgTable(
     featuredVideoId: text('featured_video_id'),
     /** Campos editados a mano (name, kind, country, styles…): `perreo:load` y los imports no los pisan. */
     manualFields: text('manual_fields').array().notNull().default(sql`'{}'::text[]`),
+    /** «Nivel de calle» 0–100 (a mano): lo underground y de barrio que es. */
+    streetLevel: integer('street_level'),
+    /** active, hiatus, retired o deceased (a mano). */
+    status: text('status'),
+    /** Último año en activo, si lo dejó. */
+    activeUntil: integer('active_until'),
+    aliases: text('aliases').array().notNull().default(sql`'{}'::text[]`),
+    /** Colaboradores frecuentes (nombres libres). */
+    collaborators: text('collaborators').array().notNull().default(sql`'{}'::text[]`),
+    /** Color propio #rrggbb: a mano o el más vivo de su foto (desbloqueo y ficha). */
+    color: text('color'),
   },
   (t) => [index('perreo_artists_fame_idx').on(t.fame)],
 );

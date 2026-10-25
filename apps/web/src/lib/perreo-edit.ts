@@ -17,14 +17,44 @@ export function compactPhoto(encode: (type: string, quality: number) => string):
   return url.split(',')[1]
 }
 
-type Links = { instagram: string; youtubeMusic: string; spotify: string }
-
 /** Solo los enlaces que la persona ha cambiado: los importados que no toca no se validan ni se reescriben. */
-export function changedLinks(original: Partial<Record<keyof Links, string>>, edited: Links): Partial<Links> | undefined {
-  const out: Partial<Links> = {}
-  for (const k of Object.keys(edited) as (keyof Links)[]) {
+export function changedLinks<K extends string>(original: Partial<Record<K, string>>, edited: Record<K, string>): Partial<Record<K, string>> | undefined {
+  const out: Partial<Record<K, string>> = {}
+  for (const k of Object.keys(edited) as K[]) {
     const v = edited[k].trim()
     if (v !== (original[k] ?? '').trim()) out[k] = v
   }
   return Object.keys(out).length ? out : undefined
+}
+
+type Label = { name: string; start: number | null; end: number | null }
+
+/** «Rimas (2016–2020)» → { name: 'Rimas', start: 2016, end: 2020 }. Sin años, se conservan los que ya tuviera. */
+export function parseLabelLines(text: string, previous: Label[] = []): Label[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const m = line.match(/^(.*?)\s*\((\d{4})?\s*[-–]?\s*(\d{4}|hoy)?\)\s*$/i)
+      if (!m || (!m[2] && !m[3])) {
+        const old = previous.find((l) => l.name === line)
+        return { name: line, start: old?.start ?? null, end: old?.end ?? null }
+      }
+      return { name: m[1].trim(), start: m[2] ? Number(m[2]) : null, end: m[3] && m[3].toLowerCase() !== 'hoy' ? Number(m[3]) : null }
+    })
+    .filter((l) => l.name)
+}
+
+/** Lo contrario: una línea por sello, con sus años si los hay. */
+export const labelLines = (labels: Label[]) =>
+  labels.map((l) => (l.start || l.end ? `${l.name} (${l.start ?? ''}–${l.end ?? 'hoy'})` : l.name)).join('\n')
+
+/** Una por línea, sin repetidas (sin distinguir mayúsculas). */
+export const lines = (text: string) => {
+  const seen = new Set<string>()
+  return text
+    .split('\n')
+    .map((x) => x.trim())
+    .filter((x) => x && !seen.has(x.toLowerCase()) && !!seen.add(x.toLowerCase()))
 }

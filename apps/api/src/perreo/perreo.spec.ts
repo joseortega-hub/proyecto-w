@@ -188,14 +188,15 @@ describe('estilos sin IA', () => {
 });
 
 describe('edición a mano del Modo Perreo', () => {
-  const cur = { name: 'Wisin', nickname: null, kind: 'artist', country: 'Puerto Rico', city: 'Cayey', debutYear: 1998, styles: ['perreo'], labels: [], bio: null, links: { spotify: 'https://s' }, manualFields: [] as string[] };
+  const cur = { name: 'Wisin', nickname: null, kind: 'artist', country: 'Puerto Rico', city: 'Cayey', debutYear: 1998, styles: ['perreo'], labels: [], bio: null, links: { spotify: 'https://s' }, manualFields: [] as string[], activeUntil: null, status: null, realName: null, birthDate: null, fame: 40, streetLevel: null, listeners: 1000, aliases: [] as string[], collaborators: [] as string[], youtubeChannelId: null, color: null };
 
   it('valida el PATCH con Zod: rechaza campos raros, tipos y enlaces que no son http(s)', () => {
     expect(artistPatchSchema.safeParse({ name: 'X', styles: ['trap'] }).success).toBe(true);
     expect(artistPatchSchema.safeParse({ kind: 'dios' }).success).toBe(false);
     expect(artistPatchSchema.safeParse({ photoUrl: 'javascript:alert(1)' }).success).toBe(false);
     expect(artistPatchSchema.safeParse({ links: { spotify: 'ftp://x' } }).success).toBe(false);
-    expect(artistPatchSchema.safeParse({ fame: 100 }).success).toBe(false);
+    expect(artistPatchSchema.safeParse({ fame: 101 }).success).toBe(false);
+    expect(artistPatchSchema.safeParse({ fame: 100, streetLevel: 0 }).success).toBe(true);
     expect(artistPatchSchema.safeParse({ debutYear: 1200 }).success).toBe(false);
   });
 
@@ -230,6 +231,23 @@ describe('edición a mano del Modo Perreo', () => {
     expect(kept).toHaveProperty('styles');
     expect(set.name).toBe('Wisin Y');
     expect(protectManual(fromFile, undefined)).toEqual(fromFile);
+  });
+
+  it('valida los campos nuevos: estado, fechas, color, canal y redes', () => {
+    const ok = { status: 'retired', activeUntil: 2019, birthDate: '1978-12-19', color: '#FF4F5E', youtubeChannelId: 'UC' + 'a'.repeat(22), aliases: ['El Duro'], collaborators: ['Yandel'], links: { tiktok: 'https://tiktok.com/@x', soundcloud: '' } };
+    expect(artistPatchSchema.safeParse(ok).success).toBe(true);
+    for (const bad of [{ status: 'dormido' }, { birthDate: '19/12/1978' }, { color: 'rojo' }, { youtubeChannelId: 'canal' }, { streetLevel: 120 }, { links: { myspace: 'https://m' } }, { aliases: Array(13).fill('x') }])
+      expect(artistPatchSchema.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+  });
+
+  it('popularidad, nivel de calle, alias y colaboradores pasan a ser manuales y la recarga no los pisa', () => {
+    const { set, manual } = planEdit(cur, { fame: 95, streetLevel: 80, aliases: [' El Duro ', 'el duro', 'W'], collaborators: ['Yandel'], color: '#FF00AA', status: 'active', realName: '  ' });
+    expect(set).toMatchObject({ fame: 95, streetLevel: 80, aliases: ['El Duro', 'W'], collaborators: ['Yandel'], color: '#ff00aa', status: 'active' });
+    expect(set).not.toHaveProperty('realName');
+    expect([...manual].sort()).toEqual(['aliases', 'collaborators', 'color', 'fame', 'status', 'streetLevel']);
+    expect(protectManual({ fame: 12, listeners: 5 }, [...manual])).toEqual({ listeners: 5 });
+    // Vaciar un dato sí cuenta: el canal deja de estar y nadie lo vuelve a poner.
+    expect(planEdit({ ...cur, youtubeChannelId: 'UCx' }, { youtubeChannelId: '' }).set).toMatchObject({ youtubeChannelId: null });
   });
 
   it('entiende enlaces de YouTube y bloquea redes privadas', () => {

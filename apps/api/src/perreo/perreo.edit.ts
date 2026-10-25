@@ -9,6 +9,13 @@ const url = z
   .max(300)
   .refine((v) => /^https?:\/\//i.test(v), 'Tiene que ser un enlace http(s)');
 const link = z.union([url, z.literal('')]);
+const year = z.number().int().min(1900).max(2100).nullable();
+const names = (max: number) => z.array(text(80).min(1)).max(max);
+
+/** Redes y plataformas que se pueden poner a mano. */
+export const LINK_KEYS = ['instagram', 'tiktok', 'x', 'youtubeMusic', 'spotify', 'appleMusic', 'soundcloud', 'facebook', 'web'] as const;
+/** Estado del artista. */
+export const STATUSES = ['active', 'hiatus', 'retired', 'deceased'] as const;
 
 /** Cuerpo del PATCH: todo opcional; `null` o '' vacían el campo. */
 export const artistPatchSchema = z
@@ -18,11 +25,30 @@ export const artistPatchSchema = z
     kind: z.enum(KINDS),
     country: text(80).nullable(),
     city: text(120).nullable(),
-    debutYear: z.number().int().min(1900).max(2100).nullable(),
-    styles: z.array(text(30).min(1)).max(12),
+    debutYear: year,
+    /** Último año en activo (retirado o en pausa); vacío si sigue. */
+    activeUntil: year,
+    status: z.enum(STATUSES).nullable(),
+    realName: text(120).nullable(),
+    /** AAAA-MM-DD o solo AAAA. */
+    birthDate: z.union([z.string().regex(/^\d{4}(-\d{2}-\d{2})?$/, 'Fecha AAAA-MM-DD o AAAA'), z.null()]),
+    /** Popularidad 0–100 (la de la ficha; sin tocar sale de los oyentes de Last.fm). */
+    fame: z.number().min(0).max(100),
+    /** «Nivel de calle» 0–100: lo underground y de barrio que es, a ojo de quien lo edita. */
+    streetLevel: z.number().int().min(0).max(100).nullable(),
+    listeners: z.number().int().min(0).max(2_000_000_000).nullable(),
+    /** Subgéneros: dembow, trap latino, reparto, RKT, mambo… */
+    styles: z.array(text(30).min(1)).max(16),
     labels: z.array(z.object({ name: text(80).min(1), start: z.number().int().nullable().optional(), end: z.number().int().nullable().optional() })).max(20),
+    aliases: names(12),
+    /** Colaboradores frecuentes (nombres libres). */
+    collaborators: names(30),
     bio: text(2000).nullable(),
-    links: z.object({ instagram: link, youtubeMusic: link, spotify: link }).partial(),
+    links: z.object(Object.fromEntries(LINK_KEYS.map((k) => [k, link])) as Record<(typeof LINK_KEYS)[number], typeof link>).partial().strict(),
+    /** Canal oficial de YouTube (UC…), para canciones y visitas. */
+    youtubeChannelId: z.union([z.string().trim().regex(/^UC[\w-]{22}$/, 'Id de canal UC… de 24 caracteres'), z.literal(''), z.null()]),
+    /** Color propio (#rrggbb): el del desbloqueo y la ficha. Vacío = el de su foto. */
+    color: z.union([z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Color #rrggbb'), z.literal(''), z.null()]),
     /** Foto por enlace (el servidor la descarga y la pasa a WebP) o archivo ya reducido en base64. */
     photoUrl: url,
     photoData: z.string().max(600_000).regex(/^[A-Za-z0-9+/=]+$/, 'Imagen no válida'),
@@ -46,6 +72,18 @@ export const MANUAL_COLUMNS: Record<string, string[]> = {
   links: ['links'],
   photo: ['photo'],
   nickname: ['nickname'],
+  fame: ['fame'],
+  listeners: ['listeners'],
+  realName: ['realName'],
+  birthDate: ['birthDate'],
+  youtubeChannelId: ['youtubeChannelId'],
+  // Estos no vienen en los ficheros de carga, pero así quedan apuntados como tuyos.
+  streetLevel: ['streetLevel'],
+  status: ['status'],
+  activeUntil: ['activeUntil'],
+  aliases: ['aliases'],
+  collaborators: ['collaborators'],
+  color: ['color'],
 };
 
 /** Quita de `values` lo que se editó a mano. Sin lista, no quita nada. */
@@ -90,6 +128,17 @@ interface CurrentArtist {
   country: string | null;
   city: string | null;
   debutYear: number | null;
+  activeUntil: number | null;
+  status: string | null;
+  realName: string | null;
+  birthDate: string | null;
+  fame: number;
+  streetLevel: number | null;
+  listeners: number | null;
+  aliases: string[];
+  collaborators: string[];
+  youtubeChannelId: string | null;
+  color: string | null;
   styles: string[];
   labels: { name: string; start: number | null; end: number | null }[];
   bio: string | null;
@@ -107,12 +156,25 @@ export function planEdit(cur: CurrentArtist, patch: ArtistPatch): { set: Record<
     manual.add(key);
   };
   if (patch.name !== undefined && patch.name !== cur.name) change('name', { name: patch.name });
-  if (patch.nickname !== undefined && blank(patch.nickname) !== cur.nickname) change('nickname', { nickname: blank(patch.nickname) });
-  if (patch.kind !== undefined && patch.kind !== cur.kind) change('kind', { kind: patch.kind });
+  // Campos sueltos: el texto vacío cuenta como «sin dato».
+  const scalars = ['nickname', 'kind', 'debutYear', 'activeUntil', 'status', 'realName', 'birthDate', 'fame', 'streetLevel', 'listeners', 'youtubeChannelId', 'color'] as const;
+  for (const key of scalars) {
+    const raw = patch[key];
+    if (raw === undefined) continue;
+    const value = typeof raw === 'string' ? (key === 'color' ? blank(raw)?.toLowerCase() ?? null : blank(raw)) : raw;
+    if (key === 'kind' && value === null) continue;
+    if (value !== cur[key]) change(key, { [key]: value });
+  }
   const country = patch.country === undefined ? cur.country : blank(patch.country);
   const city = patch.city === undefined ? cur.city : blank(patch.city);
   if (country !== cur.country || city !== cur.city) change('country', { country, city, ...(country !== cur.country ? { countries: country ? [country] : [] } : {}) });
-  if (patch.debutYear !== undefined && patch.debutYear !== cur.debutYear) change('debutYear', { debutYear: patch.debutYear });
+  for (const key of ['aliases', 'collaborators'] as const) {
+    const list = patch[key];
+    if (!list) continue;
+    const seen = new Set<string>();
+    const clean = list.map((x) => x.trim()).filter((x) => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase()));
+    if (clean.join('|') !== cur[key].join('|')) change(key, { [key]: clean });
+  }
   if (patch.styles) {
     const styles = [...new Set(patch.styles.map((x) => x.toLowerCase()))];
     if (styles.join('|') !== cur.styles.join('|')) change('styles', { styles });

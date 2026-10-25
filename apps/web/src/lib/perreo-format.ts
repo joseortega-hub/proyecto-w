@@ -58,5 +58,7 @@ export const LINK_LABELS: Record<string, string> = {
   instagram: 'Instagram',
   tiktok: 'TikTok',
   x: 'X',
+  soundcloud: 'SoundCloud',
+  facebook: 'Facebook',
   web: 'Web oficial',
 }
