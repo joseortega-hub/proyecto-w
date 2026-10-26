@@ -1,9 +1,10 @@
 import { useRef } from 'react'
 import { Link, NavLink } from 'react-router'
-import { Heading, Icon, type IconName } from '@/components/atoms'
+import { Icon, type IconName } from '@/components/atoms'
 import { useDomain } from '@/lib/domain'
 import { cycleIndex, swipeStep } from '@/lib/layout'
 import { cn } from '@/lib/utils'
+import { BrandLink } from '@/components/molecules'
 import { DomainSwitcher, useDomainTabs } from './DomainSwitcher'
 import { SettingsMenu } from './SettingsMenu'
 
@@ -22,13 +23,7 @@ function useLinks() {
   return LINKS.map((l) => ({ ...l, to: path(l.to), end: l.to === '' }))
 }
 
-const Brand = () => (
-  <Link to="/" aria-label="Sintonía: Hoy para ti" className="inline-flex min-h-11 items-center rounded-sm">
-    <Heading as="span" size="brand">
-      Sintonía
-    </Heading>
-  </Link>
-)
+const Brand = () => <BrandLink />
 
 /** Barra inferior del móvil (< 768 px): las cuatro secciones de la temática. */
 export function BottomNav() {
