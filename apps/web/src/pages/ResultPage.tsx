@@ -400,7 +400,7 @@ export function ResultPage() {
           opensDetail={!domain.playable}
           edit={editing ? { onMove: moveEntry, onRemove: removeEntry } : undefined}
           // Sin reproductor (películas, libros, videojuegos), el toque abre la ficha con el enlace a la fuente.
-          onSelect={domain.playable ? play : (i) => navigate(domain.path(`biblioteca/${data.entries[i].item.id}`))}
+          onSelect={domain.playable ? play : (i) => navigate(domain.path(`biblioteca/${data.entries[i].item.id}?lista=${data.id}`))}
           feedback={taste.data?.feedback}
           seen={seen}
           seenWords={words}

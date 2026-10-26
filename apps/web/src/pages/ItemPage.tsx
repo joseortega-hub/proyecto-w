@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { Button, IconButton, Skeleton } from '@/components/atoms'
-import { EmptyState, SeenControl } from '@/components/molecules'
+import { EmptyState, SeenControl, UpNext } from '@/components/molecules'
 import { ItemDetail } from '@/components/organisms'
 import { api } from '@/lib/api'
+import { upNextInList } from '@/lib/up-next'
 import { useDomain } from '@/lib/domain'
 import { itemEntity, useEntityLinks } from '@/lib/links'
 import { hasSeen, seenMap, seenWords, useSeen, useSeenMutation } from '@/lib/seen'
@@ -16,6 +17,9 @@ export function ItemPage() {
   const navigate = useNavigate()
   const domain = useDomain()
   const player = usePlayer()
+  // Abierta desde una lista (?lista=): «A continuación» con lo que sigue en ella.
+  const listId = useSearchParams()[0].get('lista')
+  const list = useQuery({ queryKey: ['result', listId], queryFn: () => api.getResult(listId!), enabled: !!listId && !domain.playable })
   const item = useQuery({ queryKey: ['item', itemId], queryFn: () => api.getItem(itemId) })
   // En música los créditos se piden a MusicBrainz al abrir la ficha (la API los guarda en caché).
   const details = useQuery({
@@ -86,6 +90,14 @@ export function ItemPage() {
             isCurrent ? player.toggle() : player.playList([{ item: data, reason: '', match: 0 }], { title: data.title, id: `item:${data.id}`, domainId: domain.id })
           }
           onOpenSimilar={(other) => navigate(domain.path(`biblioteca/${other.id}`))}
+        />
+      )}
+      {list.data && data && (
+        <UpNext
+          className="max-w-xl"
+          actionLabel="Ver la ficha de"
+          entries={upNextInList(list.data.entries, data.id, 5)}
+          onSelect={(index) => navigate(domain.path(`biblioteca/${list.data.entries[index].item.id}?lista=${listId}`), { replace: true })}
         />
       )}
     </div>

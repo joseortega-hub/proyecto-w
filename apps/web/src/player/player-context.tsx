@@ -3,7 +3,7 @@ import type { Item } from '@/lib/api'
 import { toast } from 'sonner'
 import { localUrl } from '@/lib/local-files'
 import { VideoDock } from './VideoDock'
-import { nextIndex, previousIndex, reindex, shuffledOrder, type RepeatMode } from './queue-order'
+import { nextIndex, previousIndex, reindex, shuffledOrder, upcomingIndices, type RepeatMode } from './queue-order'
 import { loadYouTubeApi, YT_STATE, type YTPlayer } from './youtube-iframe'
 
 export interface QueueEntry {
@@ -38,6 +38,10 @@ interface PlayerApi extends PlayerState {
   /** Si hay canción siguiente (con repetir toda la lista siempre la hay). */
   hasNext: boolean
   hasPrevious: boolean
+  /** Índices de la cola que suenan después («A continuación»), con el orden aleatorio si está activo. */
+  upcoming: number[]
+  /** Salta a una posición de la cola y la reproduce. */
+  jumpTo: (index: number) => void
   toggle: () => void
   next: () => void
   previous: () => void
@@ -257,6 +261,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const cycleRepeat = useCallback(() => setState((s) => ({ ...s, repeat: s.repeat === 'off' ? 'all' : s.repeat === 'all' ? 'one' : 'off' })), [])
   const hasNext = nextIndex({ index: state.index, length: state.queue.length, order: state.order, repeat: state.repeat, auto: false }) !== null
 
+  const upcoming = useMemo(
+    () => upcomingIndices({ index: state.index, length: state.queue.length, order: state.order, repeat: state.repeat, limit: 5 }),
+    [state.index, state.queue.length, state.order, state.repeat],
+  )
   const hasPrevious = state.order ? state.order.indexOf(state.index) > 0 : state.index > 0
 
   const next = useCallback(() => advance(false), [advance])
@@ -311,8 +319,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [current, state.listTitle, toggle, next, previous])
 
   const value = useMemo<PlayerApi>(
-    () => ({ ...state, current, video, hasNext, hasPrevious, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, stop, setVideoSlot, prepareVideo }),
-    [state, current, video, hasNext, hasPrevious, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, stop, setVideoSlot, prepareVideo],
+    () => ({ ...state, current, video, hasNext, hasPrevious, upcoming, jumpTo: goTo, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, stop, setVideoSlot, prepareVideo }),
+    [state, current, video, hasNext, hasPrevious, upcoming, goTo, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, stop, setVideoSlot, prepareVideo],
   )
   return (
     <PlayerContext.Provider value={value}>

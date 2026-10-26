@@ -41,3 +41,19 @@ export function reindex<T extends { id: string }>(before: T[], index: number, af
   const found = id ? after.findIndex((e) => e.id === id) : -1
   return found >= 0 ? found : Math.min(index, Math.max(0, after.length - 1))
 }
+
+/**
+ * Los próximos índices de la cola, para «A continuación»: con aleatorio, los que siguen en
+ * `order`; sin él, los siguientes de la lista y, con repetir toda la lista, vuelve al principio.
+ * Nunca incluye lo que suena ni repite un índice.
+ */
+export function upcomingIndices(opts: { index: number; length: number; order: number[] | null; repeat: RepeatMode; limit: number }): number[] {
+  const { index, length, order, repeat, limit } = opts
+  if (length <= 1 || limit <= 0) return []
+  const sequence = order ?? Array.from({ length }, (_, i) => i)
+  const at = Math.max(0, sequence.indexOf(index))
+  const after = sequence.slice(at + 1)
+  // Con aleatorio la vuelta se baraja de nuevo, así que no se sabe qué viene: solo lo que queda.
+  const wrapped = repeat === 'all' && !order ? sequence.slice(0, at) : []
+  return [...after, ...wrapped].filter((i) => i !== index).slice(0, limit)
+}

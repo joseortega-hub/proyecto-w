@@ -38,6 +38,11 @@ export function PlayerPage() {
         onNext={player.next}
         onSeek={player.seek}
         videoSlot={player.video ? player.setVideoSlot : undefined}
+        upNext={player.upcoming.map((index) => {
+          const { item } = player.queue[index]
+          return { index, title: item.title, subtitle: item.subtitle, imageUrl: item.imageUrl }
+        })}
+        onJump={player.jumpTo}
       />
     </FocusTemplate>
   )

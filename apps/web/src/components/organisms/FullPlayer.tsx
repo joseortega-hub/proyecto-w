@@ -1,5 +1,5 @@
 import { Cover, Heading, IconButton, MatchBadge, Text } from '@/components/atoms'
-import { Explanation, PlaybackControls, SeekBar } from '@/components/molecules'
+import { Explanation, PlaybackControls, SeekBar, UpNext, type UpNextEntry } from '@/components/molecules'
 import type { QueueEntry } from '@/player/player-context'
 import type { RepeatMode } from '@/player/queue-order'
 
@@ -22,10 +22,13 @@ interface FullPlayerProps {
   onSeek: (s: number) => void
   /** Si suena un vídeo de YouTube: hueco donde se coloca su reproductor en lugar de la portada. */
   videoSlot?: (el: HTMLElement | null) => (() => void) | undefined
+  /** «A continuación»: lo que suena después en la lista. */
+  upNext?: UpNextEntry[]
+  onJump?: (index: number) => void
 }
 
 /** Reproductor a pantalla completa con la explicación de lo que suena. */
-export function FullPlayer({ entry, listTitle, onClose, videoSlot, ...p }: FullPlayerProps) {
+export function FullPlayer({ entry, listTitle, onClose, videoSlot, upNext, onJump, ...p }: FullPlayerProps) {
   const { item } = entry
   const youtube = item.source === 'youtube'
   return (
@@ -53,6 +56,7 @@ export function FullPlayer({ entry, listTitle, onClose, videoSlot, ...p }: FullP
       </div>
       <SeekBar position={p.position} duration={p.duration || item.durationSec || 0} onSeek={p.onSeek} />
       <PlaybackControls playing={p.playing} onToggle={p.onToggle} onPrevious={p.onPrevious} onNext={p.onNext} hasPrevious={p.hasPrevious} hasNext={p.hasNext} shuffle={p.shuffle} repeat={p.repeat} onShuffle={p.onShuffle} onRepeat={p.onRepeat} />
+      {upNext && onJump && <UpNext entries={upNext} onSelect={onJump} shuffle={p.shuffle} />}
       {entry.reason && <Explanation reason={entry.reason} label="Por qué suena" collapsible={false} />}
       {item.source === 'local' && <Text size="xs" tone="muted" className="text-center">Suena desde tu dispositivo · el archivo no sale de aquí</Text>}
       {item.externalUrl && (
