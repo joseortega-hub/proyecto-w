@@ -63,6 +63,8 @@ export interface PerreoArtistList {
 }
 
 export interface PerreoArtistFull extends Omit<PerreoArtist, 'labels'> {
+  /** De dónde sale la ficha: urbanopedia, instagram o youtube (de tu «Mi YouTube»). */
+  source?: string
   realName: string | null
   birthDate: string | null
   listeners: number | null
@@ -101,8 +103,8 @@ export interface PerreoArtistDetail {
 export interface PerreoYouTube {
   /** Por canción de «Mi YouTube» (id del elemento), los artistas del Perreo que salen en ella. */
   links: Record<string, { slug: string; name: string }[]>
-  /** Artistas con más canciones guardadas. */
-  top: { artist: PerreoArtist; count: number }[]
+  /** Artistas que más pesan en tu YouTube (temas guardados y 👍). */
+  top: { artist: PerreoArtist; count: number; likes: number }[]
 }
 
 export type PerreoSort = 'fame' | 'age' | 'name'

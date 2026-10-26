@@ -19,7 +19,7 @@ const meta = {
   ],
   args: {
     top: [
-      { artist: artist('bad-bunny', 'Bad Bunny', '#ffd400'), count: 23 },
+      { artist: artist('bad-bunny', 'Bad Bunny', '#ffd400'), count: 23, likes: 4 },
       { artist: artist('feid', 'Feid', '#7ddc1f'), count: 11 },
       { artist: artist('karol-g', 'Karol G', '#ff4fd0'), count: 1 },
     ],

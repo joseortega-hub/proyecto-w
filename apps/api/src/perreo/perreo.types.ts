@@ -20,7 +20,7 @@ export interface PerreoArtistFile {
   /** La foto está en photos/<slug>.webp. */
   hasPhoto: boolean;
   /** 'urbanopedia' (los 66) o 'instagram'. */
-  source?: 'urbanopedia' | 'instagram';
+  source?: 'urbanopedia' | 'instagram' | 'youtube';
   /** La persona lo sigue en Instagram. */
   followed?: boolean;
   /** Quién es: artista, productor, sello… (por defecto, artista). */
@@ -47,10 +47,11 @@ export interface PerreoOverlay {
 /** Un artista de instagram.json (los que sigue la persona). */
 export interface IgArtist {
   name: string;
+  /** Usuario de Instagram, o `yt:<clave>` si sale de tu «Mi YouTube» (`pnpm perreo:youtube`). */
   instagram: string;
   wikidata?: string | null;
   mbid?: string | null;
-  via: 'wikidata' | 'musicbrainz' | 'lastfm' | 'revisado' | 'sin-resolver';
+  via: 'wikidata' | 'musicbrainz' | 'lastfm' | 'revisado' | 'sin-resolver' | 'youtube';
   /** Tipo según el mejor indicio disponible. */
   kind?: string;
   /** Lote de 300 cuentas al que pertenece (por su posición en la exportación). */

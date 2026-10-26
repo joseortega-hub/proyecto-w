@@ -64,7 +64,7 @@ export function PerreoHomePage() {
           <h2 id="tu-rotacion" className="font-poster text-4xl text-white">
             🎧 Tu más escuchado
           </h2>
-          <p className="-mt-2 text-sm text-white/65">Los que más tienes guardados en tu YouTube.</p>
+          <p className="-mt-2 text-sm text-white/65">Los que más suenan en tu YouTube: temas guardados y 👍.</p>
           <SavedArtistsTop top={saved.data.top} />
         </section>
       )}

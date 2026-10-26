@@ -3,7 +3,7 @@ import type { PerreoArtist } from '@/lib/perreo-types'
 import { ArtistAvatar } from './PerreoPulseBits'
 
 interface SavedArtistsTopProps {
-  top: { artist: PerreoArtist; count: number }[]
+  top: { artist: PerreoArtist; count: number; likes?: number }[]
   limit?: number
 }
 
@@ -11,7 +11,7 @@ interface SavedArtistsTopProps {
 export function SavedArtistsTop({ top, limit = 5 }: SavedArtistsTopProps) {
   return (
     <ol className="flex gap-3 overflow-x-auto pb-1">
-      {top.slice(0, limit).map(({ artist, count }, i) => (
+      {top.slice(0, limit).map(({ artist, count, likes }, i) => (
         <li key={artist.slug} className="flex-none">
           <Link to={`/perreo/artistas/${artist.slug}`} className="flex w-24 flex-col items-center gap-1.5 text-center">
             <span className="relative">
@@ -19,7 +19,10 @@ export function SavedArtistsTop({ top, limit = 5 }: SavedArtistsTopProps) {
               <span className="absolute -top-1 -left-1 grid size-7 place-items-center rounded-full bg-[var(--artist)] font-poster text-base text-black">{i + 1}</span>
             </span>
             <span className="w-full truncate text-sm font-bold text-white">{artist.name}</span>
-            <span className="text-xs text-white/65">{count === 1 ? '1 tema' : `${count} temas`}</span>
+            <span className="text-xs text-white/65">
+              {count === 1 ? '1 tema' : `${count} temas`}
+              {likes ? ` · ${likes} 👍` : ''}
+            </span>
           </Link>
         </li>
       ))}

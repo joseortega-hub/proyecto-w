@@ -17,7 +17,13 @@ export function ReviewCandidate({ item, onDecide, busy, className }: ReviewCandi
       <div className="flex min-w-0 flex-col gap-1 [overflow-wrap:anywhere]">
         <strong className="font-display text-lg">{item.name}</strong>
         <Text tone="muted" size="sm">
-          Tu cuenta: <a className="inline-flex min-h-11 items-center underline" href={`https://www.instagram.com/${item.id}`} target="_blank" rel="noreferrer noopener">@{item.id} ↗</a>
+          {item.id.startsWith('yt:') ? (
+            <>▶ Sale en tu YouTube</>
+          ) : (
+            <>
+              Tu cuenta: <a className="inline-flex min-h-11 items-center underline" href={`https://www.instagram.com/${item.id}`} target="_blank" rel="noreferrer noopener">@{item.id} ↗</a>
+            </>
+          )}
           {listeners ? ` · ${listeners} oyentes en Last.fm` : ''}
         </Text>
         <Text size="sm">Dudo porque: {item.reason}.</Text>

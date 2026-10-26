@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { artistKey, buildArtistIndex, linkSongs, matchSong, songArtistNames } from './perreo.youtube.js';
+import { artistKey, buildArtistIndex, linkSongs, matchSong, rankSaved, savedSongFiles, songArtistNames, unmatchedArtists } from './perreo.youtube.js';
 
 const index = buildArtistIndex([
   { slug: 'bad-bunny', name: 'Bad Bunny', aliases: ['Benito'] },
@@ -65,5 +65,54 @@ describe('linkSongs', () => {
     expect(bySlug.get('bad-bunny')?.map((s) => s.id)).toEqual(['a', 'c']);
     expect(bySlug.get('feid')?.map((s) => s.id)).toEqual(['c']);
     expect(bySong.has('d')).toBe(false);
+  });
+});
+
+describe('rankSaved', () => {
+  it('pesa más lo que tiene 👍 y no cuenta lo que tiene 👎', () => {
+    const bySlug = new Map([
+      ['feid', [{ id: 'a' }, { id: 'b' }]],
+      ['bad-bunny', [{ id: 'c' }]],
+      ['wisin', [{ id: 'd' }]],
+    ]);
+    expect(rankSaved(bySlug, { c: 'up', d: 'down' })).toEqual([
+      { slug: 'bad-bunny', count: 1, likes: 1, score: 3 },
+      { slug: 'feid', count: 2, likes: 0, score: 2 },
+    ]);
+  });
+});
+
+describe('unmatchedArtists', () => {
+  it('cada colaborador sin ficha por separado, con el nombre más repetido', () => {
+    const songs = [
+      { id: 'a', title: 'Uno', subtitle: 'Young Miko x Feid' },
+      { id: 'b', title: 'Dos', subtitle: 'YOUNG MIKO' },
+      { id: 'c', title: 'Tres', subtitle: 'Young Miko' },
+      { id: 'd', title: 'Cuatro (feat. Jhayco)', subtitle: 'Bad Bunny' },
+      { id: 'e', title: 'Cinco', subtitle: 'Odiado' },
+    ];
+    expect(unmatchedArtists(songs, index, { c: 'up', e: 'down' })).toEqual([
+      { key: 'youngmiko', name: 'Young Miko', songs: 3, score: 5 },
+      { key: 'jhayco', name: 'Jhayco', songs: 1, score: 1 },
+    ]);
+  });
+});
+
+describe('savedSongFiles', () => {
+  const song = (id: string, externalId: string, subtitle: string, title = 'Tema') => ({ id, externalId, title, subtitle, durationSec: 200, attributes: { energy: 0.8 }, tags: ['reggaeton'], facets: { language: 'es' } });
+  it('suma tus temas al primer artista, sin duplicar ni pisar el catálogo', () => {
+    const names = new Map([['feid', 'Feid'], ['bad-bunny', 'Bad Bunny']]);
+    const files = savedSongFiles(
+      [song('a', 'v1', 'Feid x Bad Bunny'), song('b', 'v1', 'Feid'), song('c', 'v2', 'Bad Bunny'), song('d', 'v3', 'Bad Bunny'), song('e', 'v4', 'Otro'), song('f', 'v5', 'Feid')],
+      index,
+      names,
+      { f: 'up', d: 'down' },
+      new Set(['v2']),
+    );
+    expect(files.map((f) => [f.videoId, f.artistSlug, f.popularity])).toEqual([
+      ['v1', 'feid', 0.35],
+      ['v5', 'feid', 0.5],
+    ]);
+    expect(files[0]).toMatchObject({ durationSec: 200, attributes: { energy: 0.8 }, language: 'es' });
   });
 });

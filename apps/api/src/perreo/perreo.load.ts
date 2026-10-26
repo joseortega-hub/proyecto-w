@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { and, eq, notInArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { config } from '../config.js';
 import { createDb } from '../db/client.js';
@@ -15,6 +15,8 @@ import { protectManual } from './perreo.edit.js';
 import { upsertItems } from '../catalog/upsert.js';
 import { applyProfile, favoriteRanks, readFavorites } from './perreo.favorites.js';
 import { mergePerreo } from './perreo.resolve.js';
+import { buildArtistIndex, savedSongFiles } from './perreo.youtube.js';
+import { savedYouTube } from './perreo.youtube.data.js';
 import type { IgReview, PerreoArtistFile, PerreoOverlay, PerreoProfile, PerreoSongFile } from './perreo.types.js';
 
 const prod = process.argv.includes('--prod');
@@ -73,15 +75,22 @@ try {
     const values = { ...fields, photo, ...(photo ? { color: null } : {}) };
     await db.insert(perreoArtists).values(values).onConflictDoUpdate({ target: perreoArtists.slug, set: protectManual(values, manual) });
   }
-  // Solo los lotes ya procesados: lo de Instagram que ya no esté en los ficheros se quita.
+  // Solo los lotes ya procesados: lo de Instagram (o de tu YouTube) que ya no esté en los ficheros se quita.
   // (los editados a mano se quedan aunque salgan de los ficheros)
-  await db.delete(perreoArtists).where(and(eq(perreoArtists.source, 'instagram'), notInArray(perreoArtists.slug, artists.map((a) => a.slug)), sql`cardinality(${perreoArtists.manualFields}) = 0`));
+  await db.delete(perreoArtists).where(and(inArray(perreoArtists.source, ['instagram', 'youtube']), notInArray(perreoArtists.slug, artists.map((a) => a.slug)), sql`cardinality(${perreoArtists.manualFields}) = 0`));
   console.log(`Artistas: ${artists.length} (${artists.filter((a) => a.followed).length} que sigues en Instagram)`);
 
   // Dudosas de la segunda pasada: la decisión que ya tomaste en la pantalla se conserva.
   const pending = reviewFile.filter((r) => !artists.some((a) => a.links.instagram?.toLowerCase().endsWith('/' + r.id)));
   if (pending.length) await db.insert(perreoReview).values(pending).onConflictDoNothing();
   console.log(`Por revisar: ${pending.length} cuentas`);
+
+  // Tus canciones de «Mi YouTube» (en esta BD) suman a las de cada artista, sin pisar ni duplicar las que ya están.
+  const visible = await db.select({ slug: perreoArtists.slug, name: perreoArtists.name, aliases: perreoArtists.aliases }).from(perreoArtists).where(eq(perreoArtists.hidden, false));
+  const saved = await savedYouTube(db);
+  const fromYouTube = savedSongFiles(saved.songs, buildArtistIndex(visible), new Map(visible.map((a) => [a.slug, a.name])), saved.likes, new Set(songs.map((s) => s.videoId)));
+  songs.push(...fromYouTube);
+  console.log(`De tu YouTube: ${fromYouTube.length} canciones más (de ${saved.songs.length} guardadas)`);
 
   // Un mismo vídeo puede salir en dos artistas (colaboraciones): se queda con el más popular.
   const unique = [...new Map(songs.sort((a, b) => a.popularity - b.popularity).map((s) => [s.videoId, s])).values()];

@@ -16,3 +16,6 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
 export const Busy: Story = { args: { busy: true } }
+export const DeTuYouTube: Story = {
+  args: { item: { id: 'yt:youngmiko', name: 'Young Miko', reason: 'De tu YouTube (6 temas): nombre exacto pero pocos oyentes', listeners: 1800, tags: ['trap latino'], mbid: null, qid: null } },
+}

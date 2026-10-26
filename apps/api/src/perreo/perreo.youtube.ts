@@ -88,3 +88,83 @@ export function linkSongs<T extends SongRef & { id: string; videoId: string }>(s
   }
   return { bySlug, bySong };
 }
+
+/** 👍/👎 de la persona en «Mi YouTube» (`taste_profiles.feedback`, itemId → up | down). */
+export type Likes = Record<string, 'up' | 'down'>;
+
+/** Peso de una canción guardada: 1; con 👍, 3; con 👎, 0 (no cuenta). */
+export const songWeight = (id: string, likes: Likes) => (likes[id] === 'down' ? 0 : likes[id] === 'up' ? 3 : 1);
+
+/** Artistas por lo que pesan en tu YouTube (temas guardados y 👍), de más a menos. */
+export function rankSaved<T extends { id: string }>(bySlug: Map<string, T[]>, likes: Likes) {
+  return [...bySlug]
+    .map(([slug, songs]) => ({
+      slug,
+      count: songs.length,
+      likes: songs.filter((s) => likes[s.id] === 'up').length,
+      score: songs.reduce((sum, s) => sum + songWeight(s.id, likes), 0),
+    }))
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score || b.count - a.count);
+}
+
+/**
+ * Artistas de tus canciones que aún no tienen ficha en el Perreo: cada colaborador por separado
+ * (no "A x B" entero), agrupados por clave y con el nombre que más se repite. Los de más peso, primero.
+ */
+export function unmatchedArtists(songs: (SongRef & { id: string })[], index: Map<string, string[]>, likes: Likes = {}) {
+  const found = new Map<string, { names: Map<string, number>; songs: number; score: number }>();
+  for (const song of songs) {
+    const keys = new Set<string>();
+    for (const name of songArtistNames(song)) {
+      const key = artistKey(name);
+      if (key.length < 2 || index.has(key) || name.split(COLLAB).length > 1 || keys.has(key)) continue;
+      keys.add(key);
+      const entry = found.get(key) ?? { names: new Map(), songs: 0, score: 0 };
+      entry.names.set(name, (entry.names.get(name) ?? 0) + 1);
+      entry.songs++;
+      entry.score += songWeight(song.id, likes);
+      found.set(key, entry);
+    }
+  }
+  return [...found]
+    .filter(([, e]) => e.score > 0)
+    .map(([key, e]) => ({ key, name: [...e.names].sort((a, b) => b[1] - a[1])[0][0], songs: e.songs, score: e.score }))
+    .sort((a, b) => b.score - a.score || b.songs - a.songs);
+}
+
+interface SavedSong extends SongRef {
+  id: string;
+  externalId: string;
+  durationSec: number | null;
+  attributes: Record<string, number>;
+  tags: string[];
+  facets: Record<string, string | string[]>;
+}
+
+/**
+ * Tus canciones de YouTube como canciones del Perreo (a nombre del primer artista que sale en ellas).
+ * Las que el catálogo ya tiene (`known`, por vídeo) no se tocan; con 👎, fuera. Lo que tiene 👍 o
+ * sale en varias listas sube un poco, sin pasar por delante de las más escuchadas de Last.fm.
+ */
+export function savedSongFiles(songs: SavedSong[], index: Map<string, string[]>, names: Map<string, string>, likes: Likes, known: Set<string>) {
+  const out = new Map<string, { videoId: string; title: string; artistSlug: string; artistName: string; popularity: number; durationSec?: number; attributes?: Record<string, number>; tags?: string[]; language?: string }>();
+  for (const s of songs) {
+    if (known.has(s.externalId) || out.has(s.externalId) || likes[s.id] === 'down') continue;
+    const slug = matchSong(s, index).find((x) => names.has(x));
+    if (!slug) continue;
+    const language = typeof s.facets.language === 'string' ? s.facets.language : undefined;
+    out.set(s.externalId, {
+      videoId: s.externalId,
+      title: s.title,
+      artistSlug: slug,
+      artistName: names.get(slug)!,
+      popularity: likes[s.id] === 'up' ? 0.5 : 0.35,
+      ...(s.durationSec ? { durationSec: s.durationSec } : {}),
+      // Sin atributos todavía (la IA no los dedujo): que los complete el análisis de siempre.
+      ...(Object.keys(s.attributes).length ? { attributes: s.attributes, tags: s.tags } : {}),
+      ...(language ? { language } : {}),
+    });
+  }
+  return [...out.values()];
+}

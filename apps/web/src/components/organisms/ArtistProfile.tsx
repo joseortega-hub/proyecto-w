@@ -54,6 +54,7 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], members = [], 
           {!!artist.aliases?.length && <Text tone="muted" size="sm">También: {artist.aliases.join(' · ')}</Text>}
           <div className="flex flex-wrap gap-1.5">
             {artist.favoriteRank != null && <Chip title={`Tu favorito n.º ${artist.favoriteRank}`}>★ De tus favs</Chip>}
+            {artist.source === 'youtube' && <Chip variant="outline" title="Ficha nueva sacada de tu «Mi YouTube»">▶ De tu YouTube</Chip>}
             {origin && (
               <Chip variant="outline">
                 {flagOf(artist.countries[0] ?? '')} {origin}

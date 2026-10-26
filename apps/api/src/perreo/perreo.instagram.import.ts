@@ -1,4 +1,4 @@
-// Fichas completas de los artistas que sigues en Instagram: pnpm perreo:instagram:import [--no-songs]
+// Fichas completas de los artistas que sigues en Instagram (y de los de tu YouTube): pnpm perreo:instagram:import [--no-songs]
 // Parte de data/privado/perreo/instagram.json (lo deja pnpm perreo:instagram) y, para cada artista que no esté ya entre
 // los 66, reúne: Wikidata (foto, país, ciudad, géneros, sello, debut, canal de YouTube, Spotify), biografía de Wikipedia
 // (español o inglés), Last.fm (oyentes, parecidos, más escuchadas) y canciones del canal de YouTube. Los que sí están
@@ -22,6 +22,8 @@ import { channelFeed, channelUploads, cleanTitle, lastfmArtist, matchSimilar, so
 import type { IgArtist, PerreoArtistFile, PerreoOverlay, PerreoSongFile } from './perreo.types.js';
 
 const noSongs = process.argv.includes('--no-songs');
+/** Artista que sale de tu «Mi YouTube» (pnpm perreo:youtube), no de Instagram. */
+const fromYouTube = (entry: IgArtist) => entry.instagram.startsWith('yt:');
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../');
 const out = join(root, 'data', 'privado', 'perreo');
 const youtubeKey = process.env.YOUTUBE_API_KEY?.trim() ?? '';
@@ -60,7 +62,8 @@ for (const entry of follows) {
   const dup = findDuplicate({ name: entry.name, qid: entry.wikidata, mbid: entry.mbid }, known);
   const link = `https://www.instagram.com/${entry.instagram}`;
   if (dup && base.some((b) => b.slug === dup.slug)) {
-    overlay[dup.slug] = { followed: true, instagram: link, similar: [] };
+    // Los que vienen de tu YouTube y ya tienen ficha no se marcan como «los sigues».
+    if (!fromYouTube(entry)) overlay[dup.slug] = { followed: true, instagram: link, similar: [] };
   } else if (!dup) {
     const slug = freeSlug(entry.name, taken);
     taken.add(slug);
@@ -140,7 +143,7 @@ for (const { entry, slug } of favoritesFirst(mine, (m) => m.slug, favRanks)) {
     labels: (card?.labels ?? []).map((name) => ({ name, start: null, end: null })),
     links: Object.fromEntries(
       Object.entries({
-        instagram: `https://www.instagram.com/${entry.instagram}`,
+        instagram: fromYouTube(entry) ? null : `https://www.instagram.com/${entry.instagram}`,
         spotify: card?.spotifyId ? `https://open.spotify.com/artist/${card.spotifyId}` : null,
         youtubeMusic: card?.channelId ? `https://music.youtube.com/channel/${card.channelId}` : null,
       }).filter(([, v]) => v),
@@ -150,8 +153,8 @@ for (const { entry, slug } of favoritesFirst(mine, (m) => m.slug, favRanks)) {
     youtubeChannelId: card?.channelId ?? null,
     similar: [],
     hasPhoto: !!c.photo,
-    source: 'instagram',
-    followed: true,
+    source: fromYouTube(entry) ? 'youtube' : 'instagram',
+    followed: !fromYouTube(entry),
     kind,
     incomplete,
   });

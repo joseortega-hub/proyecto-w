@@ -7,7 +7,8 @@ import { DB } from '../db/db.module.js';
 import { items, perreoArtists, perreoReview } from '../db/schema.js';
 import { itemColumns, publicItem } from '../items/items.service.js';
 import { youtubeDomain } from '../domains/youtube.domain.js';
-import { buildArtistIndex, linkSongs } from './perreo.youtube.js';
+import { buildArtistIndex, linkSongs, rankSaved } from './perreo.youtube.js';
+import { youtubeLikes } from './perreo.youtube.data.js';
 import { upsertItems } from '../catalog/upsert.js';
 import { isPrivateHost, planEdit, youtubeId, type ArtistPatch } from './perreo.edit.js';
 import { artistColor } from './perreo.color.js';
@@ -96,12 +97,17 @@ export class PerreoService {
     if (this.youtubeIndex?.rows.length !== rows.length || this.youtubeIndex.rows.some((r, i) => r !== rows[i])) {
       this.youtubeIndex = { rows, index: buildArtistIndex(rows) };
     }
-    const songs = await this.db
-      .select(itemColumns)
-      .from(items)
-      .where(and(eq(items.domainId, youtubeDomain.id), eq(items.ownerId, userId)))
-      .orderBy(desc(items.popularity), desc(items.createdAt));
-    return { rows, ...linkSongs(songs.map((s) => ({ ...s, videoId: s.externalId })), this.youtubeIndex.index) };
+    const [songs, likes] = await Promise.all([
+      this.db
+        .select(itemColumns)
+        .from(items)
+        .where(and(eq(items.domainId, youtubeDomain.id), eq(items.ownerId, userId)))
+        .orderBy(desc(items.popularity), desc(items.createdAt)),
+      youtubeLikes(this.db, [userId]),
+    ]);
+    // Lo que tiene 👍 va primero en «En tu YouTube».
+    songs.sort((a, b) => Number(likes[b.id] === 'up') - Number(likes[a.id] === 'up'));
+    return { rows, likes, ...linkSongs(songs.map((s) => ({ ...s, videoId: s.externalId })), this.youtubeIndex.index) };
   }
 
   /** «En tu YouTube» de la ficha: las canciones guardadas de la persona en las que sale el artista. */
@@ -115,14 +121,14 @@ export class PerreoService {
    * los artistas con más canciones guardadas («Tu más escuchado»).
    */
   async youtubeLinks(userId: string) {
-    const { rows, bySlug, bySong } = await this.yourYoutube(userId);
+    const { rows, likes, bySlug, bySong } = await this.yourYoutube(userId);
     const bySlugRow = new Map(rows.map((r) => [r.slug, r]));
     const links: Record<string, { slug: string; name: string }[]> = {};
     for (const [id, slugs] of bySong) links[id] = slugs.flatMap((s) => (bySlugRow.has(s) ? [{ slug: s, name: bySlugRow.get(s)!.name }] : []));
-    const top = [...bySlug]
-      .map(([slug, songs]) => ({ artist: summary(bySlugRow.get(slug)!), count: songs.length }))
-      .sort((a, b) => b.count - a.count || b.artist.fame - a.artist.fame)
-      .slice(0, 10);
+    // Temas guardados y 👍: «Tu más escuchado».
+    const top = rankSaved(bySlug, likes)
+      .slice(0, 10)
+      .map(({ slug, count, likes: liked }) => ({ artist: summary(bySlugRow.get(slug)!), count, likes: liked }));
     return { links, top };
   }
 
