@@ -14,6 +14,8 @@ const playlistSchema = z.object({
   privacy: z.enum(['private', 'unlisted', 'public']).default('private'),
 });
 
+const importSchema = z.object({ playlistIds: z.array(z.string().regex(/^[\w-]{2,64}$/)).min(1).max(40).optional() });
+
 function readCookie(req: Request, name: string): string | undefined {
   for (const part of (req.headers.cookie ?? '').split(';')) {
     const [key, ...rest] = part.trim().split('=');
@@ -69,10 +71,21 @@ export class YouTubeController {
     return this.youtube.status(requireUserId(user));
   }
 
-  /** Vuelve a leer la biblioteca: añade lo nuevo y termina lo que quedó pendiente. */
+  /**
+   * Vuelve a leer la biblioteca: añade lo nuevo y termina lo que quedó pendiente.
+   * Con `playlistIds`, solo esas listas.
+   */
   @Post('import')
-  import(@Headers(USER_HEADER) user?: string) {
-    return this.youtube.startImport(requireUserId(user));
+  import(@Body() body: unknown, @Headers(USER_HEADER) user?: string) {
+    const parsed = importSchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException(z.prettifyError(parsed.error));
+    return this.youtube.startImport(requireUserId(user), parsed.data.playlistIds);
+  }
+
+  /** Listas propias, las más recientes primero, para elegir cuáles importar. */
+  @Get('playlists')
+  playlists(@Headers(USER_HEADER) user?: string) {
+    return this.youtube.playlists(requireUserId(user));
   }
 
   @Delete()

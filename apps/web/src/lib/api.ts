@@ -266,6 +266,18 @@ export interface YouTubeImport {
   finishedAt?: string
 }
 
+/** Una lista propia de YouTube, para elegir cuáles importar (las más recientes primero). */
+export interface YouTubePlaylistInfo {
+  id: string
+  title: string
+  itemCount: number
+  publishedAt: string | null
+  thumbnail: string | null
+  /** Cuándo se importó por última vez (null: nunca) y cuántas canciones trajo. */
+  importedAt: string | null
+  songs: number | null
+}
+
 export interface YouTubeStatus {
   /** Si el servidor tiene cliente OAuth de Google. */
   configured: boolean
@@ -528,7 +540,9 @@ export const api = {
   youtubeStatus: () => request<YouTubeStatus>('/youtube/status'),
   /** URL de consentimiento de Google; el `state` queda ligado a este navegador con una cookie. */
   youtubeAuth: () => request<{ url: string }>('/youtube/auth', { method: 'POST' }),
-  youtubeImport: () => request<YouTubeStatus>('/youtube/import', { method: 'POST' }),
+  youtubeImport: (playlistIds?: string[]) =>
+    request<YouTubeStatus>('/youtube/import', { method: 'POST', body: JSON.stringify(playlistIds ? { playlistIds } : {}) }),
+  youtubePlaylists: () => request<{ playlists: YouTubePlaylistInfo[] }>('/youtube/playlists'),
   youtubeDisconnect: () => request<{ disconnected: boolean; removed: number }>('/youtube', { method: 'DELETE' }),
   /** Crea la lista del resultado en la cuenta de YouTube (privada por defecto). */
   saveToYouTube: (sessionId: string, privacy: 'private' | 'unlisted' | 'public' = 'private') =>

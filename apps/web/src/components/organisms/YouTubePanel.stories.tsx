@@ -32,3 +32,14 @@ export const DoneWithPending: Story = {
 }
 export const Expired: Story = { args: { status: { ...base, status: 'expired' } } }
 export const Loading: Story = { args: { status: undefined } }
+export const EligiendoListas: Story = {
+  args: {
+    picking: true,
+    onPicking: fn(),
+    onImportPlaylists: fn(),
+    playlists: [
+      { id: 'p1', title: 'Demasiado música 20', itemCount: 34, publishedAt: '2026-10-20T10:00:00Z', thumbnail: null, importedAt: null, songs: null },
+      { id: 'p2', title: 'Perreo del finde', itemCount: 58, publishedAt: '2026-06-02T10:00:00Z', thumbnail: null, importedAt: '2026-10-24T18:00:00Z', songs: 51 },
+    ],
+  },
+}

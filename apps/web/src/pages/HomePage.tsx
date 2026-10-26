@@ -14,7 +14,7 @@ import { timeAgo } from '@/lib/format'
 import { usePreferences } from '@/lib/preferences'
 import { useSavedLists } from '@/lib/saved-lists'
 import { useSaveTaste, useTaste } from '@/lib/taste'
-import { useConnectYouTube, useDisconnectYouTube, useImportYouTube, useYouTubeStatus } from '@/lib/youtube'
+import { useConnectYouTube, useDisconnectYouTube, useImportYouTube, useYouTubePlaylists, useYouTubeStatus } from '@/lib/youtube'
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -95,6 +95,15 @@ export function HomePage() {
               if (!window.confirm('¿Desconectar YouTube? Borro de Sintonía tu música importada y retiro el permiso de Google.')) return
               youtube.disconnect.mutate(undefined, { onSuccess: () => toast.success('YouTube desconectado y tu música borrada de Sintonía') })
             }}
+            picking={youtube.picking}
+            playlists={youtube.playlists.data?.playlists}
+            onPicking={youtube.setPicking}
+            onImportPlaylists={(ids) =>
+              youtube.importNow.mutate(ids, {
+                onSuccess: () => youtube.setPicking(false),
+                onError: (e) => toast.error('No hemos podido importar tus listas', { description: e.message }),
+              })
+            }
           />
         )}
         {ready && taste.data && !taste.data.onboarded && (
@@ -181,6 +190,8 @@ function useYouTubeSection(enabled: boolean) {
   const connect = useConnectYouTube()
   const importNow = useImportYouTube()
   const disconnect = useDisconnectYouTube()
+  const [picking, setPicking] = useState(false)
+  const playlists = useYouTubePlaylists(enabled && picking)
   const job = status.data?.import?.status
   const previous = useRef(job)
 
@@ -203,7 +214,7 @@ function useYouTubeSection(enabled: boolean) {
     previous.current = job
   }, [job, queryClient])
 
-  return { status, connect, importNow, disconnect, busy: connect.isPending || importNow.isPending || disconnect.isPending }
+  return { status, connect, importNow, disconnect, picking, setPicking, playlists, busy: connect.isPending || importNow.isPending || disconnect.isPending }
 }
 
 /** Estado de "Mi carpeta" en Inicio: recupera la carpeta recordada y lanza la identificación. */

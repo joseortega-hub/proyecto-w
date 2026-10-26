@@ -88,9 +88,16 @@ describe('YouTubeAdapter', () => {
         calls.push(`${path}:${params.playlistId ?? params.myRating ?? params.mine ?? params.id}`);
         if (path === 'videos' && params.myRating === 'like') return { items: [v('l1'), v('vlog', '22')] };
         if (path === 'playlistItems' && params.playlistId === 'LM') throw new YouTubeApiError(404, 'playlistNotFound', 'no existe');
-        if (path === 'playlists') return { items: [{ id: 'p1', snippet: { title: 'Perreo' }, contentDetails: { itemCount: 3 } }] };
+        if (path === 'playlists')
+          return {
+            items: [
+              { id: 'old', snippet: { title: 'Antigua', publishedAt: '2019-01-01T00:00:00Z' }, contentDetails: { itemCount: 1 } },
+              { id: 'p1', snippet: { title: 'Perreo', publishedAt: '2026-10-01T00:00:00Z' }, contentDetails: { itemCount: 3 } },
+            ],
+          };
+        if (path === 'playlistItems' && params.playlistId === 'old') return { items: [{ contentDetails: { videoId: 'o1' } }] };
         if (path === 'playlistItems') return { items: ['l1', 'p2', 'mix'].map((videoId) => ({ contentDetails: { videoId } })) };
-        if (path === 'videos') return { items: [v('p2'), v('mix', '10', 'PT1H')] };
+        if (path === 'videos') return { items: String(params.id).split(',').map((id) => (id === 'mix' ? v(id, '10', 'PT1H') : v(id))) };
         throw new Error(`ruta inesperada ${path}`);
       },
     } as unknown as YouTubeApi & { calls: string[] };
@@ -100,12 +107,31 @@ describe('YouTubeAdapter', () => {
     const api = fakeApi();
     const adapter = new YouTubeAdapter(api);
     const videos = await adapter.fetchVideos(100);
-    expect(videos.map((x) => x.id).sort()).toEqual(['l1', 'p2']);
-    expect(videos.find((x) => x.id === 'l1')?.from).toEqual(['Me gusta', 'Perreo']);
+    expect(videos.map((x) => x.id).sort()).toEqual(['l1', 'o1', 'p2']);
+    expect(videos.find((x) => x.id === 'l1')?.from).toEqual(['Perreo', 'Me gusta']);
     expect(adapter.likedMusicPlaylist).toBe('unavailable');
     expect(api.calls.some((c) => c.startsWith('search'))).toBe(false);
-    // Solo se piden los detalles de los vídeos de las listas que no venían ya de "Me gusta".
-    expect(api.calls).toContain('videos:p2,mix');
+    // La lista más reciente se lee antes que «Me gusta» y que las antiguas.
+    expect(api.calls.indexOf('playlistItems:p1')).toBeLessThan(api.calls.indexOf('videos:like'));
+    expect(api.calls.indexOf('playlistItems:p1')).toBeLessThan(api.calls.indexOf('playlistItems:old'));
+    expect(adapter.playlistsRead.get('p1')).toEqual({ title: 'Perreo', songs: 2 });
+  });
+
+  it('con el tope lleno por las listas recientes, no lee de más', async () => {
+    const api = fakeApi();
+    const videos = await new YouTubeAdapter(api).fetchVideos(2);
+    expect(videos.map((x) => x.id)).toEqual(['l1', 'p2']);
+    expect(api.calls).not.toContain('playlistItems:old');
+  });
+
+  it('con listas elegidas, solo lee esas (sin «Me gusta»)', async () => {
+    const api = fakeApi();
+    const adapter = new YouTubeAdapter(api);
+    const videos = await adapter.fetchVideos(100, undefined, ['old']);
+    expect(videos.map((x) => x.id)).toEqual(['o1']);
+    expect(api.calls).not.toContain('videos:like');
+    expect(api.calls).not.toContain('playlistItems:p1');
+    expect([...adapter.playlistsRead.keys()]).toEqual(['old']);
   });
 });
 

@@ -132,16 +132,30 @@ export class YouTubeService {
     };
   }
 
-  /** Lanza la importación en segundo plano; la web sigue el progreso con `status`. */
-  async startImport(userId: string) {
+  /**
+   * Lanza la importación en segundo plano; la web sigue el progreso con `status`.
+   * Con `playlistIds`, solo esas listas (importar o reimportar las que elija la persona).
+   */
+  async startImport(userId: string, playlistIds?: string[]) {
     const account = await this.account(userId);
     if (!account) throw new BadRequestException('Conecta antes tu cuenta de YouTube');
     if (account.status === 'expired') throw reconnect();
     if (!this.running.has(userId)) {
       this.running.add(userId);
-      void this.runImport(userId).finally(() => this.running.delete(userId));
+      void this.runImport(userId, account.importState?.playlists ?? {}, playlistIds).finally(() => this.running.delete(userId));
     }
     return this.status(userId);
+  }
+
+  /** Listas propias de la persona, las más recientes primero, con cuándo se importó cada una (1-2 unidades de cuota). */
+  async playlists(userId: string) {
+    const account = await this.account(userId);
+    if (!account) throw new BadRequestException('Conecta antes tu cuenta de YouTube');
+    const imported = account.importState?.playlists ?? {};
+    const lists = await this.guard(new YouTubeAdapter(this.api(userId)).listPlaylists(), userId);
+    return {
+      playlists: lists.map((p) => ({ ...p, importedAt: imported[p.id]?.importedAt ?? null, songs: imported[p.id]?.songs ?? null })),
+    };
   }
 
   /** Revoca el permiso en Google y borra los tokens y la música importada de esta persona. */
@@ -217,7 +231,7 @@ export class YouTubeService {
 
   // ——— Importación ———
 
-  private async runImport(userId: string) {
+  private async runImport(userId: string, previousPlaylists: NonNullable<YouTubeImportState['playlists']>, playlistIds?: string[]) {
     const state: YouTubeImportState = {
       status: 'running',
       step: 'Conectando con YouTube',
@@ -227,6 +241,7 @@ export class YouTubeService {
       embedded: 0,
       pending: 0,
       quotaUnits: 0,
+      playlists: previousPlaylists,
       startedAt: new Date().toISOString(),
     };
     const api = this.api(userId);
@@ -237,8 +252,11 @@ export class YouTubeService {
     try {
       await save();
       const adapter = new YouTubeAdapter(api);
-      const imported = await adapter.fetchItems({ limit: config.youtubeImportLimit, onProgress: (step) => void save({ step }) });
-      await save({ found: imported.length, likedMusicPlaylist: adapter.likedMusicPlaylist, step: 'Guardando tus canciones' });
+      const imported = await adapter.fetchItems({ limit: config.youtubeImportLimit, playlistIds, onProgress: (step) => void save({ step }) });
+      const now = new Date().toISOString();
+      const playlists = { ...previousPlaylists };
+      for (const [id, { title, songs }] of adapter.playlistsRead) playlists[id] = { title, songs, importedAt: now };
+      await save({ found: imported.length, likedMusicPlaylist: playlistIds ? undefined : adapter.likedMusicPlaylist, playlists, step: 'Guardando tus canciones' });
       this.logger.log(`${imported.length} canciones encontradas (LM: ${adapter.likedMusicPlaylist}, ${api.quotaUnits} unidades)`);
 
       let added = 0;

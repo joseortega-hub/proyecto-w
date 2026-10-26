@@ -15,6 +15,8 @@ export interface YouTubeImportState {
   quotaUnits: number;
   /** Si la lista "LM" (Me gusta de YouTube Music) se pudo leer con la API oficial. */
   likedMusicPlaylist?: 'ok' | 'unavailable';
+  /** Listas importadas alguna vez (id → nombre, canciones y fecha), para poder elegir cuáles reimportar. */
+  playlists?: Record<string, { title: string; songs: number; importedAt: string }>;
   error?: string;
   startedAt: string;
   finishedAt?: string;
@@ -32,4 +34,14 @@ export interface YouTubeVideo {
   thumbnail: string | null;
   /** De dónde viene: "Me gusta" o el nombre de la lista. */
   from: string[];
+}
+
+/** Una lista propia de la persona en YouTube. */
+export interface YouTubePlaylist {
+  id: string;
+  title: string;
+  itemCount: number;
+  /** Fecha de creación (la API no da la de la última modificación). */
+  publishedAt: string | null;
+  thumbnail: string | null;
 }

@@ -1,6 +1,6 @@
-import { Skeleton, Text } from '@/components/atoms'
-import { ImportProgress, YouTubeConnectCard } from '@/components/molecules'
-import type { YouTubeStatus } from '@/lib/api'
+import { Button, Icon, Skeleton, Text } from '@/components/atoms'
+import { ImportProgress, PlaylistPicker, YouTubeConnectCard } from '@/components/molecules'
+import type { YouTubePlaylistInfo, YouTubeStatus } from '@/lib/api'
 
 interface YouTubePanelProps {
   status?: YouTubeStatus
@@ -8,10 +8,15 @@ interface YouTubePanelProps {
   onConnect: () => void
   onImport: () => void
   onDisconnect: () => void
+  /** Selector de listas: abierto o no, sus listas (las más recientes primero) e importar las elegidas. */
+  picking?: boolean
+  playlists?: YouTubePlaylistInfo[]
+  onPicking?: (open: boolean) => void
+  onImportPlaylists?: (ids: string[]) => void
 }
 
 /** "Mi YouTube" en Inicio: conexión con Google, progreso de la importación y avisos. */
-export function YouTubePanel({ status, busy, onConnect, onImport, onDisconnect }: YouTubePanelProps) {
+export function YouTubePanel({ status, busy, onConnect, onImport, onDisconnect, picking, playlists, onPicking, onImportPlaylists }: YouTubePanelProps) {
   if (!status) return <Skeleton className="h-28 w-full rounded-[14px]" />
   const job = status.import
   const running = job?.status === 'running'
@@ -28,6 +33,15 @@ export function YouTubePanel({ status, busy, onConnect, onImport, onDisconnect }
         onImport={onImport}
         onDisconnect={onDisconnect}
       />
+      {status.status === 'connected' && !running && onPicking && onImportPlaylists && (
+        picking ? (
+          <PlaylistPicker playlists={playlists} busy={busy} onImport={onImportPlaylists} onCancel={() => onPicking(false)} />
+        ) : (
+          <Button size="md" variant="ghost" className="self-start" disabled={busy} onClick={() => onPicking(true)}>
+            <Icon name="lists" /> Elegir qué listas importar
+          </Button>
+        )
+      )}
       {job && running && <ImportProgress running step={job.step} found={job.found} analyzed={job.analyzed} embedded={job.embedded} />}
       {job?.status === 'error' && (
         <Text size="sm" role="alert">

@@ -1,6 +1,6 @@
 import type { CatalogAdapter, ImportedItem } from '../catalog/catalog-adapter.js';
 import { YouTubeApiError, type YouTubeApi } from './youtube.client.js';
-import type { YouTubeVideo } from './youtube.types.js';
+import type { YouTubePlaylist, YouTubeVideo } from './youtube.types.js';
 
 /** Categoría "Música" de YouTube: lo demás (vlogs, tutoriales…) no entra en el catálogo. */
 export const MUSIC_CATEGORY = '10';
@@ -11,6 +11,8 @@ const PAGE = 50;
 const MAX_LIKED_PAGES = 20;
 const MAX_PLAYLISTS = 40;
 const MAX_PLAYLIST_PAGES = 4;
+/** Parte del tope que se reserva a las listas más recientes antes de los «Me gusta». */
+const PLAYLIST_SHARE = 0.6;
 
 interface Page<T> {
   items?: T[];
@@ -30,7 +32,7 @@ interface VideoResource {
 }
 interface PlaylistResource {
   id: string;
-  snippet?: { title?: string };
+  snippet?: { title?: string; publishedAt?: string; thumbnails?: Record<string, { url: string; width?: number }> };
   contentDetails?: { itemCount?: number };
 }
 interface PlaylistItemResource {
@@ -149,20 +151,101 @@ export class YouTubeAdapter implements CatalogAdapter {
 
   constructor(private readonly api: YouTubeApi) {}
 
-  async fetchItems({ limit, onProgress }: { limit: number; onProgress?: (message: string) => void }): Promise<ImportedItem[]> {
-    const videos = await this.fetchVideos(limit, onProgress);
+  /** Listas leídas en la última importación (id → nombre y número de canciones). */
+  playlistsRead = new Map<string, { title: string; songs: number }>();
+
+  async fetchItems({ limit, onProgress, playlistIds }: { limit: number; onProgress?: (message: string) => void; playlistIds?: string[] }): Promise<ImportedItem[]> {
+    const videos = await this.fetchVideos(limit, onProgress, playlistIds);
     return videos.map(toImportedItem);
   }
 
-  async fetchVideos(limit: number, onProgress: (message: string) => void = () => undefined): Promise<YouTubeVideo[]> {
+  /**
+   * Listas propias de la persona, las más recientes primero (`publishedAt`, la fecha de
+   * creación: la API no da la de la última modificación). 1 unidad por página.
+   */
+  async listPlaylists(): Promise<YouTubePlaylist[]> {
+    const playlists: PlaylistResource[] = [];
+    let pageToken: string | undefined;
+    for (let page = 0; page < 2 && playlists.length < MAX_PLAYLISTS; page++) {
+      const res: Page<PlaylistResource> = await this.api.get<Page<PlaylistResource>>('playlists', { part: 'snippet,contentDetails', mine: true, maxResults: PAGE, pageToken });
+      playlists.push(...(res.items ?? []));
+      pageToken = res.nextPageToken;
+      if (!pageToken) break;
+    }
+    return playlists
+      .map((p) => ({
+        id: p.id,
+        title: p.snippet?.title ?? 'Lista',
+        itemCount: p.contentDetails?.itemCount ?? 0,
+        publishedAt: p.snippet?.publishedAt ?? null,
+        thumbnail: thumbnail(p.snippet as VideoResource['snippet']),
+      }))
+      .sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''))
+      .slice(0, MAX_PLAYLISTS);
+  }
+
+  /**
+   * Primero las listas más recientes (hasta el 60 % del tope), después «Me gusta» y la lista
+   * `LM` de YouTube Music, y si aún queda sitio, el resto de listas. Con `playlistIds`, solo
+   * esas listas (para importar o reimportar las que elija la persona), sin «Me gusta».
+   */
+  async fetchVideos(limit: number, onProgress: (message: string) => void = () => undefined, playlistIds?: string[]): Promise<YouTubeVideo[]> {
     const found = new Map<string, YouTubeVideo>();
     const add = (video: YouTubeVideo) => {
       const known = found.get(video.id);
       if (known) known.from = [...new Set([...known.from, ...video.from])];
       else found.set(video.id, video);
     };
+    const pending = new Map<string, string[]>();
+    const queue = (videoId: string, from: string) => {
+      const known = found.get(videoId);
+      if (known) known.from = [...new Set([...known.from, from])];
+      else pending.set(videoId, [...(pending.get(videoId) ?? []), from]);
+    };
+    /** Comprueba de 50 en 50 lo pendiente (categoría y duración) hasta llegar a `target`. */
+    const flush = async (target: number) => {
+      while (pending.size && found.size < target) {
+        const ids = [...pending.keys()].slice(0, PAGE);
+        onProgress(`Comprobando qué es música (${found.size} canciones)`);
+        const res = await this.api.get<Page<VideoResource>>('videos', { part: 'snippet,contentDetails', id: ids.join(','), maxResults: PAGE });
+        for (const r of res.items ?? []) {
+          const video = toVideo(r, '');
+          video.from = pending.get(r.id) ?? [];
+          if (isSong(video)) add(video);
+        }
+        for (const id of ids) pending.delete(id);
+      }
+    };
+    const readPlaylists = async (lists: YouTubePlaylist[], target: number) => {
+      for (const [i, playlist] of lists.entries()) {
+        if (found.size >= target) break;
+        if (!playlist.itemCount || this.playlistsRead.has(playlist.id)) continue;
+        onProgress(`Leyendo tus listas (${i + 1}/${lists.length}): ${playlist.title}`);
+        const ids = await this.playlistVideoIds(playlist.id).catch((error: Error) => {
+          if (error instanceof YouTubeApiError) return [];
+          throw error;
+        });
+        for (const id of ids) queue(id, playlist.title);
+        await flush(limit);
+        this.playlistsRead.set(playlist.id, { title: playlist.title, songs: [...found.values()].filter((v) => v.from.includes(playlist.title)).length });
+      }
+    };
 
-    // 1. "Me gusta": videos.list ya trae la categoría, así que no hace falta otra llamada.
+    onProgress('Leyendo tus listas');
+    const all = await this.listPlaylists();
+    if (playlistIds) {
+      const wanted = new Set(playlistIds);
+      await readPlaylists(
+        all.filter((p) => wanted.has(p.id)),
+        limit,
+      );
+      return [...found.values()].slice(0, limit);
+    }
+
+    // 1. Las listas más recientes («demasiado música 20» antes que una de hace años).
+    await readPlaylists(all, Math.ceil(limit * PLAYLIST_SHARE));
+
+    // 2. "Me gusta": videos.list ya trae la categoría, así que no hace falta otra llamada.
     onProgress('Leyendo tus "Me gusta"');
     let pageToken: string | undefined;
     for (let page = 0; page < MAX_LIKED_PAGES && found.size < limit; page++) {
@@ -180,55 +263,17 @@ export class YouTubeAdapter implements CatalogAdapter {
       if (!pageToken) break;
     }
 
-    // 2. Listas: la "LM" de YouTube Music (si la API la deja leer) y las propias.
-    const pending = new Map<string, string[]>();
-    const queue = (videoId: string, from: string) => {
-      if (found.has(videoId)) found.get(videoId)!.from.push(from);
-      else pending.set(videoId, [...(pending.get(videoId) ?? []), from]);
-    };
+    // 3. La "LM" de YouTube Music (si la API la deja leer).
     const lm = await this.playlistVideoIds('LM').catch((error: Error) => {
       if (error instanceof YouTubeApiError) return null;
       throw error;
     });
     this.likedMusicPlaylist = lm ? 'ok' : 'unavailable';
     for (const id of lm ?? []) queue(id, 'Me gusta de YouTube Music');
+    await flush(limit);
 
-    onProgress('Leyendo tus listas');
-    const playlists: PlaylistResource[] = [];
-    pageToken = undefined;
-    for (let page = 0; page < 2 && playlists.length < MAX_PLAYLISTS; page++) {
-      const res: Page<PlaylistResource> = await this.api.get<Page<PlaylistResource>>('playlists', { part: 'snippet,contentDetails', mine: true, maxResults: PAGE, pageToken });
-      playlists.push(...(res.items ?? []));
-      pageToken = res.nextPageToken;
-      if (!pageToken) break;
-    }
-    for (const [i, playlist] of playlists.slice(0, MAX_PLAYLISTS).entries()) {
-      if (found.size + pending.size >= limit * 1.5) break;
-      if (!playlist.contentDetails?.itemCount) continue;
-      const name = playlist.snippet?.title ?? 'Lista';
-      onProgress(`Leyendo tus listas (${i + 1}/${Math.min(playlists.length, MAX_PLAYLISTS)}): ${name}`);
-      const ids = await this.playlistVideoIds(playlist.id).catch((error: Error) => {
-        if (error instanceof YouTubeApiError) return [];
-        throw error;
-      });
-      for (const id of ids) queue(id, name);
-    }
-
-    // 3. Los vídeos de las listas, de 50 en 50, para saber su categoría y duración.
-    const ids = [...pending.keys()];
-    for (let i = 0; i < ids.length && found.size < limit; i += PAGE) {
-      onProgress(`Comprobando qué es música (${Math.min(i + PAGE, ids.length)}/${ids.length})`);
-      const res = await this.api.get<Page<VideoResource>>('videos', {
-        part: 'snippet,contentDetails',
-        id: ids.slice(i, i + PAGE).join(','),
-        maxResults: PAGE,
-      });
-      for (const r of res.items ?? []) {
-        const video = toVideo(r, '');
-        video.from = pending.get(r.id) ?? [];
-        if (isSong(video)) add(video);
-      }
-    }
+    // 4. Si aún queda sitio, las listas que no cupieron en el primer paso.
+    await readPlaylists(all, limit);
     return [...found.values()].slice(0, limit);
   }
 

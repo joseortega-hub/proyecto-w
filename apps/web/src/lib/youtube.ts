@@ -23,12 +23,21 @@ export function useConnectYouTube() {
   })
 }
 
+/** Importa (o reimporta): todo, o solo las listas elegidas. */
 export function useImportYouTube() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: api.youtubeImport,
-    onSuccess: (status) => queryClient.setQueryData(key, status),
+    mutationFn: (playlistIds?: string[]) => api.youtubeImport(playlistIds),
+    onSuccess: (status) => {
+      queryClient.setQueryData(key, status)
+      void queryClient.invalidateQueries({ queryKey: ['youtube', 'playlists'] })
+    },
   })
+}
+
+/** Listas propias de YouTube (1-2 unidades de cuota): solo se piden al abrir el selector. */
+export function useYouTubePlaylists(enabled: boolean) {
+  return useQuery({ queryKey: ['youtube', 'playlists'], queryFn: api.youtubePlaylists, enabled, staleTime: 5 * 60_000 })
 }
 
 export function useDisconnectYouTube() {
