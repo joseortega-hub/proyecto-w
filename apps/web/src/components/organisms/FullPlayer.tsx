@@ -1,5 +1,7 @@
 import { Cover, Heading, IconButton, MatchBadge, Text } from '@/components/atoms'
-import { Explanation, PlaybackControls, SeekBar, UpNext, type UpNextEntry } from '@/components/molecules'
+import { Explanation, FeedbackButtons, PlaybackControls, SeekBar, SeenControl, UpNext, type UpNextEntry } from '@/components/molecules'
+import type { Feedback, SeenRating } from '@/lib/api'
+import type { SeenWords } from '@/lib/seen'
 import type { QueueEntry } from '@/player/player-context'
 import type { RepeatMode } from '@/player/queue-order'
 
@@ -24,11 +26,17 @@ interface FullPlayerProps {
   videoSlot?: (el: HTMLElement | null) => (() => void) | undefined
   /** «A continuación»: lo que suena después en la lista. */
   upNext?: UpNextEntry[]
+  /** «Sonó antes»: lo anterior en la lista. */
+  previousEntry?: UpNextEntry | null
   onJump?: (index: number) => void
+  /** 👍/👎 de lo que suena (perfil de gustos de la temática). */
+  feedback?: { value: Feedback | null; onChange: (value: Feedback | null) => void }
+  /** «Ya la escuché», en las temáticas que lo tienen. */
+  seen?: { words: SeenWords; rating: SeenRating | null | undefined; onChange: (next: { seen: boolean; rating: SeenRating | null }) => void }
 }
 
 /** Reproductor a pantalla completa con la explicación de lo que suena. */
-export function FullPlayer({ entry, listTitle, onClose, videoSlot, upNext, onJump, ...p }: FullPlayerProps) {
+export function FullPlayer({ entry, listTitle, onClose, videoSlot, upNext, previousEntry, onJump, feedback, seen, ...p }: FullPlayerProps) {
   const { item } = entry
   const youtube = item.source === 'youtube'
   return (
@@ -54,9 +62,15 @@ export function FullPlayer({ entry, listTitle, onClose, videoSlot, upNext, onJum
         </div>
         {entry.match > 0 && <MatchBadge value={entry.match} />}
       </div>
+      {(feedback || seen) && (
+        <div className="-mt-2 flex flex-wrap items-center gap-2">
+          {feedback && <FeedbackButtons title={item.title} value={feedback.value} onChange={feedback.onChange} />}
+          {seen && <SeenControl title={item.title} words={seen.words} rating={seen.rating} onChange={seen.onChange} />}
+        </div>
+      )}
       <SeekBar position={p.position} duration={p.duration || item.durationSec || 0} onSeek={p.onSeek} />
       <PlaybackControls playing={p.playing} onToggle={p.onToggle} onPrevious={p.onPrevious} onNext={p.onNext} hasPrevious={p.hasPrevious} hasNext={p.hasNext} shuffle={p.shuffle} repeat={p.repeat} onShuffle={p.onShuffle} onRepeat={p.onRepeat} />
-      {upNext && onJump && <UpNext entries={upNext} onSelect={onJump} shuffle={p.shuffle} />}
+      {onJump && <UpNext entries={upNext ?? []} previous={previousEntry} onSelect={onJump} shuffle={p.shuffle} />}
       {entry.reason && <Explanation reason={entry.reason} label="Por qué suena" collapsible={false} />}
       {item.source === 'local' && <Text size="xs" tone="muted" className="text-center">Suena desde tu dispositivo · el archivo no sale de aquí</Text>}
       {item.externalUrl && (

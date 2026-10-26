@@ -19,3 +19,5 @@ type Story = StoryObj<typeof meta>
 export const Default: Story = {}
 export const Shuffle: Story = { args: { shuffle: true } }
 export const Fichas: Story = { args: { actionLabel: 'Ver la ficha de', entries: entries.map((e) => ({ ...e, subtitle: '2019 · Aventura' })) } }
+export const ConAnterior: Story = { args: { previous: { index: 2, title: 'Noche en la azotea', subtitle: 'Marta Sol', imageUrl: 'https://picsum.photos/seed/up0/96' } } }
+export const SoloAnterior: Story = { args: { entries: [], previous: { index: 2, title: 'Noche en la azotea', subtitle: 'Marta Sol', imageUrl: null } } }

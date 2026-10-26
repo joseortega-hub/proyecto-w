@@ -40,6 +40,8 @@ interface PlayerApi extends PlayerState {
   hasPrevious: boolean
   /** Índices de la cola que suenan después («A continuación»), con el orden aleatorio si está activo. */
   upcoming: number[]
+  /** Índice de lo que sonó antes («Sonó antes»), con el orden aleatorio si está activo; null al principio. */
+  previousTrack: number | null
   /** Salta a una posición de la cola y la reproduce. */
   jumpTo: (index: number) => void
   toggle: () => void
@@ -266,6 +268,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [state.index, state.queue.length, state.order, state.repeat],
   )
   const hasPrevious = state.order ? state.order.indexOf(state.index) > 0 : state.index > 0
+  const previousTrack = hasPrevious ? previousIndex(state.index, state.order) : null
 
   const next = useCallback(() => advance(false), [advance])
   const previous = useCallback(() => {
@@ -319,8 +322,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [current, state.listTitle, toggle, next, previous])
 
   const value = useMemo<PlayerApi>(
-    () => ({ ...state, current, video, hasNext, hasPrevious, upcoming, jumpTo: goTo, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, stop, setVideoSlot, prepareVideo }),
-    [state, current, video, hasNext, hasPrevious, upcoming, goTo, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, stop, setVideoSlot, prepareVideo],
+    () => ({ ...state, current, video, hasNext, hasPrevious, upcoming, previousTrack, jumpTo: goTo, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, stop, setVideoSlot, prepareVideo }),
+    [state, current, video, hasNext, hasPrevious, upcoming, previousTrack, goTo, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, stop, setVideoSlot, prepareVideo],
   )
   return (
     <PlayerContext.Provider value={value}>
