@@ -72,7 +72,12 @@ export function FullPlayer({ entry, listTitle, onClose, videoSlot, upNext, previ
       <PlaybackControls playing={p.playing} onToggle={p.onToggle} onPrevious={p.onPrevious} onNext={p.onNext} hasPrevious={p.hasPrevious} hasNext={p.hasNext} shuffle={p.shuffle} repeat={p.repeat} onShuffle={p.onShuffle} onRepeat={p.onRepeat} />
       {onJump && <UpNext entries={upNext ?? []} previous={previousEntry} onSelect={onJump} shuffle={p.shuffle} />}
       {entry.reason && <Explanation reason={entry.reason} label="Por qué suena" collapsible={false} />}
-      {item.source === 'local' && <Text size="xs" tone="muted" className="text-center">Suena desde tu dispositivo · el archivo no sale de aquí</Text>}
+      {item.source === 'local' && <Text size="xs" tone="muted" className="text-center">Suena desde tu dispositivo, también con la app en segundo plano · el archivo no sale de aquí</Text>}
+      {youtube && (
+        <Text size="xs" tone="muted" className="text-center">
+          Al salir de la app, YouTube pausa la música (son sus condiciones). Al volver, sigue donde la dejaste.
+        </Text>
+      )}
       {item.externalUrl && (
         <a href={item.externalUrl} target="_blank" rel="noreferrer" className="text-center text-xs text-muted-foreground underline-offset-2 hover:underline">
           {youtube ? 'Reproducido con YouTube · abrir en YouTube Music' : 'Música con licencia Creative Commons · escuchar en Jamendo'}

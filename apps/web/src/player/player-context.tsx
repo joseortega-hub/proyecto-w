@@ -306,20 +306,76 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const prepareVideo = useCallback(() => void ensureYouTube().catch(() => undefined), [ensureYouTube])
 
-  // Controles en la pantalla de bloqueo del móvil (Media Session API).
+  /** Si al volver a la app hay que reanudar el vídeo de YouTube (sonaba al salir y no se pausó a mano). */
+  const resumeOnReturn = useRef(false)
+  // Controles en la notificación y la pantalla de bloqueo del móvil (Media Session API).
+  const play = useCallback(() => {
+    if (isVideo(stateRef.current.queue[stateRef.current.index])) yt.current?.playVideo()
+    else if (audio.current?.src) audio.current.play().catch(() => undefined)
+  }, [])
+  const pause = useCallback(() => {
+    if (isVideo(stateRef.current.queue[stateRef.current.index])) yt.current?.pauseVideo()
+    else audio.current?.pause()
+  }, [])
   useEffect(() => {
     if (!('mediaSession' in navigator) || !current) return
+    const { imageUrl } = current.item
     navigator.mediaSession.metadata = new MediaMetadata({
       title: current.item.title,
       artist: current.item.subtitle ?? '',
       album: state.listTitle,
-      artwork: current.item.imageUrl ? [{ src: current.item.imageUrl, sizes: '300x300' }] : [],
+      artwork: imageUrl ? ['96x96', '192x192', '512x512'].map((sizes) => ({ src: imageUrl, sizes })) : [],
     })
-    navigator.mediaSession.setActionHandler('play', toggle)
-    navigator.mediaSession.setActionHandler('pause', toggle)
-    navigator.mediaSession.setActionHandler('nexttrack', next)
-    navigator.mediaSession.setActionHandler('previoustrack', previous)
-  }, [current, state.listTitle, toggle, next, previous])
+    const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
+      ['play', play],
+      ['pause', () => {
+        resumeOnReturn.current = false
+        pause()
+      }],
+      ['nexttrack', next],
+      ['previoustrack', previous],
+      ['seekto', (d) => d.seekTime !== undefined && seek(d.seekTime)],
+      ['seekbackward', (d) => seek(Math.max(0, stateRef.current.position - (d.seekOffset ?? 10)))],
+      ['seekforward', (d) => seek(stateRef.current.position + (d.seekOffset ?? 10))],
+      ['stop', stop],
+    ]
+    for (const [action, handler] of handlers) {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler)
+      } catch {
+        // Acción no admitida en este navegador.
+      }
+    }
+  }, [current, state.listTitle, play, pause, next, previous, seek, stop])
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !current) return
+    navigator.mediaSession.playbackState = state.playing ? 'playing' : 'paused'
+    const duration = state.duration || current.item.durationSec || 0
+    if (duration > 0 && 'setPositionState' in navigator.mediaSession) {
+      try {
+        navigator.mediaSession.setPositionState({ duration, position: Math.min(state.position, duration), playbackRate: 1 })
+      } catch {
+        // Posición fuera de rango mientras carga.
+      }
+    }
+  }, [current, state.playing, state.position, state.duration])
+
+  // El reproductor de YouTube se pausa cuando la app pasa a segundo plano (lo exige YouTube y no
+  // se fuerza). Al volver, sigue donde estaba si sonaba al salir. El audio (Jamendo y Mi carpeta) no se para.
+  useEffect(() => {
+    const onVisibility = () => {
+      const { queue, index, playing } = stateRef.current
+      if (document.visibilityState === 'hidden') {
+        resumeOnReturn.current = isVideo(queue[index]) && playing
+        return
+      }
+      if (resumeOnReturn.current && isVideo(queue[index]) && yt.current && yt.current.getPlayerState() !== YT_STATE.PLAYING) yt.current.playVideo()
+      resumeOnReturn.current = false
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
 
   const value = useMemo<PlayerApi>(
     () => ({ ...state, current, video, hasNext, hasPrevious, upcoming, previousTrack, jumpTo: goTo, syncQueue, toggleShuffle, cycleRepeat, playList, toggle, next, previous, seek, stop, setVideoSlot, prepareVideo }),
