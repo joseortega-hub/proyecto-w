@@ -355,7 +355,28 @@ export interface GeneratedTheme {
   notices: string[]
 }
 
+/** Valoración de algo ya visto, leído, jugado o escuchado. */
+export type SeenRating = 'loved' | 'liked' | 'meh'
+
+export interface SeenEntry {
+  item: Item
+  rating: SeenRating | null
+  source: string
+  seenAt: string
+}
+
+export interface SeenList {
+  domainId: string
+  total: number
+  entries: SeenEntry[]
+}
+
 export const api = {
+  /** «Ya visto» de una temática. */
+  getSeen: (domainId: string) => request<SeenList>(`/seen/${domainId}`),
+  markSeen: (domainId: string, itemId: string, rating: SeenRating | null) =>
+    request<{ itemId: string; rating: SeenRating | null }>(`/seen/${domainId}/${itemId}`, { method: 'PUT', body: JSON.stringify({ rating }) }),
+  unmarkSeen: (domainId: string, itemId: string) => request<{ itemId: string }>(`/seen/${domainId}/${itemId}`, { method: 'DELETE' }),
   /** "Para saber más" sobre una franquicia, saga, autor, estudio o artista. */
   getLinks: (domainId: string, entity: string) => request<EntityLinks>(`/links?${new URLSearchParams({ domain: domainId, entity })}`),
   /** "Para saber más" de una lista: sobre lo concreto que se pidió en su entrevista ("Marvel"). */

@@ -8,6 +8,7 @@ import { api } from '@/lib/api'
 import { useDomain } from '@/lib/domain'
 import { usePreferences } from '@/lib/preferences'
 import { useDeleteTaste, useSaveTaste, useTaste } from '@/lib/taste'
+import { hasSeen, seenWords, useSeen } from '@/lib/seen'
 
 /**
  * /:domain/gustos — "Mis gustos" de la temática. Con `?bienvenida` es el onboarding de la
@@ -19,6 +20,7 @@ export function TastePage() {
   const [params] = useSearchParams()
   const welcome = params.has('bienvenida')
   const taste = useTaste(domain.id)
+  const seenCount = useSeen(domain.id).data?.total ?? 0
   const save = useSaveTaste(domain.id)
   const remove = useDeleteTaste(domain.id)
   const { chosen, choose } = usePreferences(domain.id)
@@ -63,6 +65,12 @@ export function TastePage() {
         <Text tone="muted">
           Esto es lo de siempre, no lo de hoy: la entrevista seguirá preguntando por tu ánimo. Va ligado a este navegador, sin registro.
         </Text>
+        {!welcome && hasSeen(domain.id) && (
+          <Button variant="secondary" size="md" className="self-start" onClick={() => navigate(domain.path('ya-visto'))}>
+            <Icon name="eye" /> {seenWords(domain.id).section}
+            {!!seenCount && ` · ${seenCount}`}
+          </Button>
+        )}
       </header>
 
       {!data ? (

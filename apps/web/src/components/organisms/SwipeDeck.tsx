@@ -18,6 +18,8 @@ interface SwipeDeckProps {
   detail?: (entry: ResultEntry) => string | null
   /** Reproducir o abrir en la fuente, según la temática. */
   actions?: (entry: ResultEntry) => ReactNode
+  /** Debajo de las acciones («Ya la vi»). */
+  footer?: (entry: ResultEntry) => ReactNode
   /** Pidiendo más parecidas. */
   loading?: boolean
   /** Qué mostrar cuando no quedan tarjetas. */
@@ -41,7 +43,7 @@ interface Drag {
  * Gestos con Pointer Events (ratón, dedo o lápiz), con los mismos gestos en botones y flechas
  * del teclado, y animación con View Transitions cuando el navegador la tiene.
  */
-export function SwipeDeck({ cards, onGesture, onUndo, lastVerdict, inList = () => true, detail, actions, loading, empty, className }: SwipeDeckProps) {
+export function SwipeDeck({ cards, onGesture, onUndo, lastVerdict, inList = () => true, detail, actions, footer, loading, empty, className }: SwipeDeckProps) {
   const cardRef = useRef<HTMLElement>(null)
   const drag = useRef<Drag | null>(null)
   const [announce, setAnnounce] = useState('')
@@ -148,6 +150,7 @@ export function SwipeDeck({ cards, onGesture, onUndo, lastVerdict, inList = () =
               detail={detail?.(top)}
               inList={inList(top.item.id)}
               actions={actions?.(top)}
+              footer={footer?.(top)}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}

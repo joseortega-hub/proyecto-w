@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router'
 import { Button, IconButton, Skeleton } from '@/components/atoms'
-import { EmptyState } from '@/components/molecules'
+import { EmptyState, SeenControl } from '@/components/molecules'
 import { ItemDetail } from '@/components/organisms'
 import { api } from '@/lib/api'
 import { useDomain } from '@/lib/domain'
 import { itemEntity, useEntityLinks } from '@/lib/links'
+import { hasSeen, seenMap, seenWords, useSeen, useSeenMutation } from '@/lib/seen'
 import { usePlayer } from '@/player/player-context'
+import { toast } from 'sonner'
 
 /** /:domain/biblioteca/:itemId: la ficha, con los parecidos por embedding. */
 export function ItemPage() {
@@ -23,6 +25,10 @@ export function ItemPage() {
     staleTime: Infinity,
   })
   const similar = useQuery({ queryKey: ['similar', itemId], queryFn: () => api.getSimilar(itemId, 6) })
+  // «Ya la vi / Ya lo leí…» desde la ficha.
+  const seenList = useSeen(domain.id)
+  const seenMutation = useSeenMutation(domain.id)
+  const seen = seenMap(seenList.data)
   const linksName = item.data ? itemEntity(item.data, details.data) : null
   const links = useEntityLinks(domain.id, linksName)
 
@@ -44,7 +50,18 @@ export function ItemPage() {
   const isCurrent = !!data && player.current?.item.id === data.id
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-5 py-5 md:px-10 md:py-8">
-      <header>{back}</header>
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        {back}
+        {data && hasSeen(domain.id) && (
+          <SeenControl
+            title={data.title}
+            words={seenWords(domain.id)}
+            rating={seen.has(data.id) ? seen.get(data.id) : undefined}
+            disabled={seenList.isPending}
+            onChange={(n) => seenMutation.mutate({ item: data, ...n }, { onError: (e) => toast.error('No he podido guardarlo', { description: e.message }) })}
+          />
+        )}
+      </header>
       {!data || !domain.info ? (
         <div className="flex flex-col gap-4 md:flex-row" aria-busy>
           <Skeleton className="aspect-square w-full max-w-72 rounded-[14px]" />

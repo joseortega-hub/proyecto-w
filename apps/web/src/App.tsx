@@ -21,6 +21,7 @@ import { PlayerPage } from '@/pages/PlayerPage'
 import { ResultPage } from '@/pages/ResultPage'
 import { StoryPage } from '@/pages/StoryPage'
 import { TastePage } from '@/pages/TastePage'
+import { SeenPage } from '@/pages/SeenPage'
 import { TodayPage } from '@/pages/TodayPage'
 import { PlayerProvider } from '@/player/player-context'
 
@@ -45,6 +46,7 @@ export function App() {
                 <Route path="resultado/:id" element={<ResultPage />} />
                 <Route path="listas" element={<ListsPage />} />
                 <Route path="gustos" element={<TastePage />} />
+                <Route path="ya-visto" element={<SeenPage />} />
                 <Route path="revisar" element={<FolderReviewPage />} />
                 <Route path="artistas" element={<PerreoArtistsPage />} />
                 <Route path="por-revisar" element={<PerreoReviewPage />} />

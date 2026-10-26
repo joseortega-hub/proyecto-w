@@ -18,13 +18,15 @@ interface SwipeCardProps extends Omit<ComponentProps<'article'>, 'title'> {
   inList?: boolean
   /** Reproducir o abrir en la fuente, según la temática. */
   actions?: ReactNode
+  /** Debajo de las acciones («Ya la vi»). */
+  footer?: ReactNode
 }
 
 /**
  * Tarjeta grande de «Desliza». Las marcas «Me gusta», «No» y «Ficha» se encienden con las
  * variables CSS `--like`, `--nope` y `--up` (0–1) que pone el gesto, sin volver a pintar React.
  */
-export function SwipeCard({ title, subtitle, imageUrl, reason, likes, match, detail, inList = true, actions, className, style, ...props }: SwipeCardProps) {
+export function SwipeCard({ title, subtitle, imageUrl, reason, likes, match, detail, inList = true, actions, footer, className, style, ...props }: SwipeCardProps) {
   const stamp = 'pointer-events-none absolute top-4 rounded-lg border-[3px] px-3 py-1 text-lg font-black uppercase tracking-wide bg-card/85'
   return (
     <article
@@ -56,6 +58,7 @@ export function SwipeCard({ title, subtitle, imageUrl, reason, likes, match, det
       {reason && <Explanation reason={reason} collapsible={false} />}
       {!!likes?.length && <p className="text-[13px] text-muted-foreground">❤️ Va con lo que te gusta: {likes.join(', ')}</p>}
       {actions && <div className="flex gap-2">{actions}</div>}
+      {footer}
     </article>
   )
 }

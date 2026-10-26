@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react'
 import { DragHandle, Icon, IconButton } from '@/components/atoms'
-import { Explanation, FeedbackButtons, ItemRow } from '@/components/molecules'
+import { Explanation, FeedbackButtons, ItemRow, SeenControl } from '@/components/molecules'
 import { geekLine } from '@/lib/details'
-import type { Feedback, ResultEntry } from '@/lib/api'
+import type { Feedback, Item, ResultEntry, SeenRating } from '@/lib/api'
+import type { SeenWords } from '@/lib/seen'
 import { useDragReorder } from '@/lib/drag-reorder'
 import { cn } from '@/lib/utils'
 
@@ -16,12 +17,16 @@ interface ResultListProps {
   /** 👍/👎 de la persona por elemento; sin `onFeedback` no se muestran. */
   feedback?: Record<string, Feedback>
   onFeedback?: (itemId: string, value: Feedback | null) => void
+  /** «Ya la vi»: valoración por elemento ya visto; sin `onSeen` no se muestra. */
+  seen?: ReadonlyMap<string, SeenRating | null>
+  seenWords?: SeenWords
+  onSeen?: (item: Item, next: { seen: boolean; rating: SeenRating | null }) => void
   /** Modo edición: asa para reordenar y botón para quitar. */
   edit?: { onMove: (from: number, to: number) => void; onRemove: (index: number) => void }
 }
 
 /** La lista personalizada. La primera (o la que suena) se destaca con su explicación abierta. */
-export function ResultList({ entries, currentId, playing, onSelect, opensDetail, feedback = {}, onFeedback, edit }: ResultListProps) {
+export function ResultList({ entries, currentId, playing, onSelect, opensDetail, feedback = {}, onFeedback, seen, seenWords, onSeen, edit }: ResultListProps) {
   const listRef = useRef<HTMLOListElement>(null)
   const [announce, setAnnounce] = useState('')
   const { dragging, handleProps, listProps } = useDragReorder({
@@ -57,7 +62,7 @@ export function ResultList({ entries, currentId, playing, onSelect, opensDetail,
               actionLabel={opensDetail ? 'Ver la ficha de' : undefined}
               className={cn('min-w-0 flex-1 rounded-[14px] px-3 py-2', active && 'border border-border bg-card py-3')}
             >
-              {(e.reason || onFeedback || e.likes?.length) && (
+              {(e.reason || onFeedback || onSeen || e.likes?.length) && (
                 <div className="flex flex-col gap-1.5">
                   {e.likes && e.likes.length > 0 && (
                     <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
@@ -67,10 +72,18 @@ export function ResultList({ entries, currentId, playing, onSelect, opensDetail,
                   )}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">{e.reason && <Explanation key={String(active)} reason={e.reason} defaultOpen={active} />}</div>
-                    {onFeedback && (
-                      <FeedbackButtons title={e.item.title} value={feedback[e.item.id] ?? null} onChange={(v) => onFeedback(e.item.id, v)} />
-                    )}
+                    <div className="flex flex-none items-center">
+                      {onSeen && seenWords && !seen?.has(e.item.id) && (
+                        <SeenControl compact title={e.item.title} words={seenWords} rating={undefined} onChange={(n) => onSeen(e.item, n)} />
+                      )}
+                      {onFeedback && (
+                        <FeedbackButtons title={e.item.title} value={feedback[e.item.id] ?? null} onChange={(v) => onFeedback(e.item.id, v)} />
+                      )}
+                    </div>
                   </div>
+                  {onSeen && seenWords && seen?.has(e.item.id) && (
+                    <SeenControl title={e.item.title} words={seenWords} rating={seen.get(e.item.id)} onChange={(n) => onSeen(e.item, n)} />
+                  )}
                 </div>
               )}
             </ItemRow>

@@ -3,9 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Button, Chip, Heading, Icon, IconButton, Skeleton, Text } from '@/components/atoms'
-import { EmptyState, Hideable, LayoutSwitch, LearnMore, SourceAttribution } from '@/components/molecules'
+import { EmptyState, Hideable, LayoutSwitch, LearnMore, SeenControl, SourceAttribution } from '@/components/molecules'
 import { AddTracksPanel, ResultList, SwipeDeck, VibeCard } from '@/components/organisms'
-import { ApiError, api, type Item, type ResultEntry, type SessionResult } from '@/lib/api'
+import { ApiError, api, type Item, type ResultEntry, type SeenRating, type SessionResult } from '@/lib/api'
 import { geekLine } from '@/lib/details'
 import { totalMinutes } from '@/lib/format'
 import { agree, useDomain } from '@/lib/domain'
@@ -14,6 +14,7 @@ import { useSavedLists } from '@/lib/saved-lists'
 import { useSessionLinks } from '@/lib/links'
 import { loadLayout, saveLayout, type ResultLayout } from '@/lib/swipe'
 import { useFeedback, useTaste } from '@/lib/taste'
+import { hasSeen, seenMap, seenWords, useSeen, useSeenMutation } from '@/lib/seen'
 import { useSwipeSession } from '@/lib/use-swipe'
 import { youtubeQuotaWarning } from '@/lib/list-size'
 import { useSaveToYouTube } from '@/lib/youtube'
@@ -37,6 +38,23 @@ export function ResultPage() {
   const { save, sync, isSaved } = useSavedLists(domain.id)
   const taste = useTaste(domain.id)
   const feedback = useFeedback(domain.id)
+  // «Ya la vi»: marcarlo lo saca de las próximas listas; la valoración enseña al perfil de gustos.
+  const seenList = useSeen(domain.id)
+  const seenMutation = useSeenMutation(domain.id)
+  const seen = seenMap(seenList.data)
+  const words = seenWords(domain.id)
+  const onSeen = hasSeen(domain.id)
+    ? (item: Item, next: { seen: boolean; rating: SeenRating | null }) =>
+        seenMutation.mutate(
+          { item, ...next },
+          {
+            onSuccess: () => {
+              if (next.seen && !seen.has(item.id)) toast.success(`Apuntado como ${words.participle}: no volverá a salir en tus listas`, { duration: 2200 })
+            },
+            onError: (e) => toast.error('No he podido guardarlo', { description: e.message }),
+          },
+        )
+    : undefined
   const saveToYouTube = useSaveToYouTube(id)
   const { prepareVideo } = player
 
@@ -325,6 +343,12 @@ export function ResultPage() {
             onGesture={(gesture, entry) =>
               gesture === 'detail' ? navigate(domain.path(`biblioteca/${entry.item.id}`)) : swipe.decide(gesture, entry)
             }
+            footer={
+              onSeen &&
+              ((entry) => (
+                <SeenControl title={entry.item.title} words={words} rating={seen.has(entry.item.id) ? seen.get(entry.item.id) : undefined} onChange={(n) => onSeen(entry.item, n)} />
+              ))
+            }
             actions={(entry) => {
               if (domain.playable) {
                 const on = player.current?.item.id === entry.item.id
@@ -378,6 +402,9 @@ export function ResultPage() {
           // Sin reproductor (películas, libros, videojuegos), el toque abre la ficha con el enlace a la fuente.
           onSelect={domain.playable ? play : (i) => navigate(domain.path(`biblioteca/${data.entries[i].item.id}`))}
           feedback={taste.data?.feedback}
+          seen={seen}
+          seenWords={words}
+          onSeen={onSeen}
           onFeedback={(itemId, value) =>
             feedback.mutate(
               { itemId, value },

@@ -334,6 +334,15 @@ Lo que la persona cuenta antes de empezar (escrito o por voz) es la base de todo
 - **Evals nuevas**: `theme-apocalypse`, `actor`, `free-zombies`; `pokemon` acepta los de Pikachu. Local, proveedores reales: en verde marvel (1-4 preguntas), like-marvel, like-pokemon, author, nintendo, artist, romance-movies, no-horror, alas, pokemon, free-romance, free-nonsense, free-zombies, workout, theme-apocalypse y actor. Tests: `comprehension.spec.ts`.
 - **Pendiente**: preguntas redactadas para subtemas («¿con zombis?») a partir de las etiquetas que más separan la bolsa (hoy las preguntas salen del banco revisado); en producción, la primera vez que se pide una temática o un actor se espera a la búsqueda en directo.
 
+### «Ya lo vi / leí / jugué / escuché» (26/10/2026)
+En las 4 temáticas públicas (películas, libros, videojuegos, música). Por persona anónima (`x-sintonia-user`) y por `domain`.
+- **Datos**: tabla `seen_items` (migración `0022_seen_items`): `user_id`, `domain_id`, `item_id`, `rating` (`loved` | `liked` | `meh` | null), `source` (`app`, `letterboxd`, `goodreads`, `steam`). PK (usuario, elemento).
+- **API** (`apps/api/src/seen/`): `GET /api/seen/:domain` (lista con el elemento entero), `PUT /api/seen/:domain/:itemId` `{ rating }` y `DELETE` para desmarcar. `SeenService.markMany` para importaciones (una nota nueva gana; sin nota se conserva la anterior: `mergeMarks`).
+- **Fuera de las recomendaciones**: `buildBag` recibe `seen` y lo deja fuera de la bolsa; `TuningService` lo quita del catálogo, de la búsqueda semántica y de «Tu vibra». Excepción: lo pedido por su nombre (semillas). La comprensión del texto no cambia.
+- **Perfil de gustos**: `applyFeedback` acepta valoraciones con peso (`RATING_WEIGHT`): 👍 = 1, «Me encantó» = 1,5, «Bien» = 1, «Meh» = −0,5, 👎 = −1. `TasteService.rate` ajusta solo lo aprendido (no toca los 👍/👎); cambiar o quitar la nota deshace la anterior.
+- **Web**: `molecules/SeenControl` (con historias): un toque marca («Ya la vi», «Ya lo leí», «Ya lo jugué», «Ya la escuché», `lib/seen.ts`) y aparecen «😍 Me encantó / 🙂 Bien / 😐 Meh»; pulsar «Vista» desmarca. En la ficha (cabecera), en cada fila de la lista (icono 👁; marcada, fila con las notas) y en «Desliza» (`footer` de `SwipeCard`/`SwipeDeck`). Sección `/:domain/ya-visto` (`SeenPage`) con filtro por nota, desmarcar con «Deshacer»; enlace desde «Mis gustos».
+- **Tests**: `apps/api/src/seen/seen.spec.ts` (pesos, fusión, exclusión en la bolsa). No probado en el navegador (regla de gasto): probar en producción.
+
 ### «Desliza» en el resultado (25/10/2026)
 Otra forma de vivir el resultado en todas las temáticas: una tarjeta grande cada vez (portada, título, subtítulo, dato friki, encaje, «Por qué» y reproducir o «Ver en TMDB/RAWG/Open Library» según la temática). Solo web; la API no cambia.
 - **Interruptor Lista / Desliza** (`LayoutSwitch`) bajo los botones del resultado; se recuerda por navegador (`localStorage` `sintonia:result-layout`, con try/catch). En Desliza se ocultan «Editar» y «Tu vibra» de móvil.
