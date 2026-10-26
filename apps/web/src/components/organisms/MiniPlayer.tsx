@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { Cover, Icon, IconButton, MatchBadge } from '@/components/atoms'
 import { PlaybackControls, SeekBar } from '@/components/molecules'
 import { REPEAT_LABEL } from '@/components/molecules/PlaybackControls'
+import { cn } from '@/lib/utils'
 import { usePlayerVideoSlot, type QueueEntry } from '@/player/player-context'
 import type { RepeatMode } from '@/player/queue-order'
 
@@ -37,10 +38,11 @@ export function MiniPlayer({ entry, playing, onToggle, videoSlot: slotProp, shuf
           <span className="truncate text-xs opacity-75">{entry.item.subtitle}</span>
         </span>
       </Link>
-      {onShuffle && <IconButton icon="shuffle" label={shuffle ? 'Aleatorio: activado' : 'Aleatorio: desactivado'} aria-pressed={!!shuffle} variant="ghost" className={shuffle ? 'text-primary-foreground bg-primary/80' : 'opacity-70'} onClick={onShuffle} />}
-      {onRepeat && <IconButton icon={repeat === 'one' ? 'repeatOne' : 'repeat'} label={REPEAT_LABEL[repeat]} aria-pressed={repeat !== 'off'} variant="ghost" className={repeat !== 'off' ? 'text-primary-foreground bg-primary/80' : 'opacity-70'} onClick={onRepeat} />}
+      {/* En pantallas estrechas, aleatorio y repetir quedan en el reproductor completo: la ✕ siempre cabe. */}
+      {onShuffle && <IconButton icon="shuffle" label={shuffle ? 'Aleatorio: activado' : 'Aleatorio: desactivado'} aria-pressed={!!shuffle} variant="ghost" className={cn('max-[399px]:hidden', shuffle ? 'text-primary-foreground bg-primary/80' : 'opacity-70')} onClick={onShuffle} />}
+      {onRepeat && <IconButton icon={repeat === 'one' ? 'repeatOne' : 'repeat'} label={REPEAT_LABEL[repeat]} aria-pressed={repeat !== 'off'} variant="ghost" className={cn('max-[399px]:hidden', repeat !== 'off' ? 'text-primary-foreground bg-primary/80' : 'opacity-70')} onClick={onRepeat} />}
       <IconButton icon={playing ? 'pause' : 'play'} label={playing ? 'Pausar' : 'Reproducir'} variant="ghost" onClick={onToggle} />
-      {onClose && <IconButton icon="close" label="Cerrar el reproductor" variant="ghost" className="opacity-70" onClick={onClose} />}
+      {onClose && <IconButton icon="close" label="Parar y cerrar el reproductor" variant="ghost" onClick={onClose} />}
     </div>
   )
 }
@@ -87,7 +89,7 @@ export function PlayerBar({ entry, playing, onToggle, position, duration, hasPre
             <Icon name="sparkles" className="size-4" /> Por qué suena
           </Link>
         )}
-        {onClose && <IconButton icon="close" label="Cerrar el reproductor" variant="ghost" onClick={onClose} />}
+        {onClose && <IconButton icon="close" label="Parar y cerrar el reproductor" variant="ghost" onClick={onClose} />}
       </div>
     </div>
   )

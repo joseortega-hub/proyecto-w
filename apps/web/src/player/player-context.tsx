@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Item } from '@/lib/api'
 import { toast } from 'sonner'
 import { localUrl } from '@/lib/local-files'
+import { closePlayback } from './close-player'
 import { VideoDock } from './VideoDock'
 import { nextIndex, previousIndex, reindex, shuffledOrder, upcomingIndices, type RepeatMode } from './queue-order'
 import { loadYouTubeApi, YT_STATE, type YTPlayer } from './youtube-iframe'
@@ -286,11 +287,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [video],
   )
   const stop = useCallback(() => {
-    audio.current?.pause()
-    audio.current?.removeAttribute('src')
-    yt.current?.stopVideo()
+    resumeOnReturn.current = false
+    // Si el IFrame aún estaba cargando, se destruye en cuanto esté listo.
+    const pending = yt.current ? null : ytReady.current
+    closePlayback({ audio: audio.current, video: yt.current, mediaSession: 'mediaSession' in navigator ? navigator.mediaSession : null })
+    yt.current = null
+    ytReady.current = null
+    pending
+      ?.then((player) => {
+        if (yt.current === player) yt.current = null
+        player.destroy()
+      })
+      .catch(() => undefined)
     setState((s) => ({ ...s, queue: [], index: 0, listTitle: '', listId: null, domainId: null, playing: false, position: 0, duration: 0, order: null }))
-    if ('mediaSession' in navigator) navigator.mediaSession.metadata = null
   }, [])
 
   // Al desmontar el proveedor (recarga en caliente, Storybook) no queda ningún IFrame colgado.

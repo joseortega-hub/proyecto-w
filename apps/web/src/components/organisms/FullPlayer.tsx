@@ -17,7 +17,10 @@ interface FullPlayerProps {
   repeat?: RepeatMode
   onShuffle?: () => void
   onRepeat?: () => void
+  /** Vuelve atrás sin parar la música. */
   onClose: () => void
+  /** Para la música y cierra el reproductor. */
+  onStop?: () => void
   onToggle: () => void
   onPrevious: () => void
   onNext: () => void
@@ -36,17 +39,17 @@ interface FullPlayerProps {
 }
 
 /** Reproductor a pantalla completa con la explicación de lo que suena. */
-export function FullPlayer({ entry, listTitle, onClose, videoSlot, upNext, previousEntry, onJump, feedback, seen, ...p }: FullPlayerProps) {
+export function FullPlayer({ entry, listTitle, onClose, onStop, videoSlot, upNext, previousEntry, onJump, feedback, seen, ...p }: FullPlayerProps) {
   const { item } = entry
   const youtube = item.source === 'youtube'
   return (
     <div className="flex flex-1 flex-col gap-[18px]">
       <header className="flex items-center justify-between gap-3">
-        <IconButton icon="chevronDown" label="Cerrar reproductor" onClick={onClose} />
+        <IconButton icon="chevronDown" label="Minimizar el reproductor" onClick={onClose} />
         <Text as="span" font="label" className="truncate">
           {listTitle}
         </Text>
-        <span className="size-11" aria-hidden />
+        {onStop ? <IconButton icon="close" label="Parar y cerrar el reproductor" onClick={onStop} /> : <span className="size-11" aria-hidden />}
       </header>
       {videoSlot ? (
         <div ref={videoSlot} className="aspect-video w-full rounded-lg bg-black" aria-hidden />

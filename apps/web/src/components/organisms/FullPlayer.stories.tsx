@@ -42,6 +42,7 @@ const meta = {
     hasPrevious: true,
     hasNext: true,
     onClose: fn(),
+    onStop: fn(),
     onToggle: fn(),
     onPrevious: fn(),
     onNext: fn(),

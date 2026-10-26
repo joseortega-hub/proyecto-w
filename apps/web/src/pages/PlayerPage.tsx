@@ -51,6 +51,10 @@ export function PlayerPage() {
         onShuffle={player.toggleShuffle}
         onRepeat={player.cycleRepeat}
         onClose={close}
+        onStop={() => {
+          player.stop()
+          close()
+        }}
         onToggle={player.toggle}
         onPrevious={player.previous}
         onNext={player.next}
