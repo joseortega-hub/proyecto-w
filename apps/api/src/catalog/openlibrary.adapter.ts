@@ -2,7 +2,8 @@ import { bookDetails, type ItemDetails } from './item-details.js';
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorMatchesText } from '../interview/anchors.js';
 import { bestName, nameQueries } from '../interview/named.js';
-import { anchorTag, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
+import { anchorTag, type CatalogAdapter, type HistoryLookup, type ImportedItem } from './catalog-adapter.js';
+import { normalizeTitle } from '../history/history.js';
 import { clamp, logScale, mapLimit, politeFetcher, priorAverage, yearScale } from './derive.js';
 
 export interface OpenLibraryDoc {
@@ -213,6 +214,24 @@ export class OpenLibraryAdapter implements CatalogAdapter {
     const top = items.slice(0, SPANISH_LOOKUPS);
     const enriched = mapLimit(top, 3, (item) => this.withSpanishEdition(item)).then((out) => [...out.map((x, i) => x ?? top[i]), ...items.slice(SPANISH_LOOKUPS)]);
     return Promise.race([enriched, new Promise<ImportedItem[]>((resolve) => setTimeout(() => resolve(items), SPANISH_WAIT_MS))]);
+  }
+
+  async lookup(entry: HistoryLookup) {
+    const title = entry.title.replace(/\s*\([^)]*#\d+[^)]*\)\s*$/, '');
+    const url = new URL('https://openlibrary.org/search.json');
+    url.search = new URLSearchParams({
+      title,
+      ...(entry.author ? { author: entry.author } : {}),
+      limit: '5',
+      lang: 'es',
+      fields: 'key,title,author_name,first_publish_year,number_of_pages_median,cover_i,subject,language,readinglog_count,editions,editions.title,editions.language',
+    }).toString();
+    const body = await this.get<{ docs: OpenLibraryDoc[] }>(url).catch(() => ({ docs: [] as OpenLibraryDoc[] }));
+    const wanted = normalizeTitle(title);
+    const doc = body.docs.find((d) => d.author_name?.length && normalizeTitle(d.title) === wanted) ?? (entry.author ? body.docs.find((d) => d.author_name?.length) : undefined);
+    if (!doc) return null;
+    const item = this.toItem(doc, null, LIVE_MAX_READING_LOG);
+    return { externalId: item.externalId, item: async () => item };
   }
 
   /** Autor con su nombre real: busca cada palabra y su comienzo (la búsqueda de autores no tolera erratas) y se queda con el más parecido. */

@@ -371,7 +371,27 @@ export interface SeenList {
   entries: SeenEntry[]
 }
 
+/** Importación de historial (Letterboxd, Goodreads, Steam) como «ya visto». */
+export interface HistoryImport {
+  id: string
+  domainId: string
+  source: 'letterboxd' | 'goodreads' | 'steam'
+  status: 'running' | 'done'
+  total: number
+  processed: number
+  found: number
+  added: number
+  notFound: number
+  missing: string[]
+}
+
 export const api = {
+  getHistoryImport: (domainId: string) => request<{ import: HistoryImport | null }>(`/history/${domainId}`).then((r) => r.import),
+  /** El CSV va tal cual (`text/csv`): se lee en el servidor y no se guarda. */
+  startHistoryCsv: (domainId: string, csv: string) =>
+    request<HistoryImport>(`/history/${domainId}`, { method: 'POST', body: csv, headers: { 'content-type': 'text/csv' } }),
+  startHistorySteam: (domainId: string, steam: string) => request<HistoryImport>(`/history/${domainId}`, { method: 'POST', body: JSON.stringify({ steam }) }),
+  stepHistory: (id: string) => request<HistoryImport>(`/history/step/${id}`, { method: 'POST' }),
   /** «Ya visto» de una temática. */
   getSeen: (domainId: string) => request<SeenList>(`/seen/${domainId}`),
   markSeen: (domainId: string, itemId: string, rating: SeenRating | null) =>

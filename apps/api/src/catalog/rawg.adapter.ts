@@ -1,7 +1,8 @@
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorMatchesText } from '../interview/anchors.js';
 import { bestName, nameQueries } from '../interview/named.js';
-import { anchorTag, themeKeywordIds, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
+import { anchorTag, themeKeywordIds, type CatalogAdapter, type HistoryLookup, type ImportedItem } from './catalog-adapter.js';
+import { normalizeTitle } from '../history/history.js';
 import { gameDetails, type ItemDetails } from './item-details.js';
 import { clamp, logScale, mapLimit, nudge, politeFetcher, priorAverage } from './derive.js';
 
@@ -217,6 +218,22 @@ export class RawgAdapter implements CatalogAdapter {
       const item = this.toItem({ ...game, ...details[i] }, LIVE_MAX_ADDED);
       return isTagged ? { ...item, tags: [...new Set([...(item.tags ?? []), anchorTag(anchor)])] } : item;
     });
+  }
+
+  async lookup(entry: HistoryLookup) {
+    const body = await this.get<{ results: RawgGame[] }>(this.url('games', { search: entry.title, search_precise: 'true', page_size: '5', exclude_additions: 'true' })).catch(() => ({
+      results: [] as RawgGame[],
+    }));
+    const wanted = normalizeTitle(entry.title);
+    const game = body.results.find((g) => normalizeTitle(g.name) === wanted);
+    if (!game) return null;
+    return {
+      externalId: String(game.id),
+      item: async () => {
+        const full = await this.get<RawgDetail>(this.url(`games/${game.id}`)).catch(() => game);
+        return this.toItem({ ...game, ...full }, LIVE_MAX_ADDED);
+      },
+    };
   }
 
   /** Desarrolladora y editora de un juego ya importado (script de relleno de facetas). */

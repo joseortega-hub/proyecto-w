@@ -16,6 +16,7 @@ import {
   vector,
 } from 'drizzle-orm/pg-core';
 import type { DomainConfig } from '../domains/domain.types.js';
+import type { HistoryEntry } from '../history/history.js';
 import type { InterviewContext } from '../interview/interview.context.js';
 import type { Anchor, BagEntry, InterviewTurn, MoodProfile, SessionPreferences, SessionResult, TextSignals } from '../interview/interview.types.js';
 import type { Feedback, SeenRating, TasteProfile } from '../taste/taste.engine.js';
@@ -397,3 +398,33 @@ export const seenItems = pgTable(
 );
 
 export type SeenRow = typeof seenItems.$inferSelect;
+
+/**
+ * Importación de historial en curso (Letterboxd, Goodreads, Steam), reanudable por lotes. Del
+ * archivo solo se guardan título, año, autor y nota de lo pendiente, y se vacía al terminar.
+ */
+export const historyImports = pgTable(
+  'history_imports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id').notNull(),
+    domainId: text('domain_id')
+      .notNull()
+      .references(() => domains.id, { onDelete: 'cascade' }),
+    source: text('source').notNull(),
+    status: text('status').$type<'running' | 'done'>().notNull().default('running'),
+    entries: jsonb('entries').$type<HistoryEntry[]>().notNull().default([]),
+    cursor: integer('cursor').notNull().default(0),
+    total: integer('total').notNull().default(0),
+    found: integer('found').notNull().default(0),
+    added: integer('added').notNull().default(0),
+    /** Búsquedas en la fuente gastadas (con tope). */
+    live: integer('live').notNull().default(0),
+    missing: jsonb('missing').$type<string[]>().notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('history_imports_user_domain_idx').on(t.userId, t.domainId)],
+);
+
+export type HistoryImportRow = typeof historyImports.$inferSelect;

@@ -84,6 +84,8 @@ export const config = {
   youtubeImportLimit: Number(optional('YOUTUBE_IMPORT_LIMIT', '400')),
   jamendoClientId: optional('JAMENDO_CLIENT_ID'),
   rawgApiKey: optional('RAWG_API_KEY'),
+  /** Steam Web API (clave gratuita): biblioteca de un perfil público para «Importar historial». */
+  steamApiKey: optional('STEAM_API_KEY'),
   /** API Key (v3) o token de lectura (v4) de TMDB. */
   tmdbApiKey: optional('TMDB_API_KEY'),
   /** Contacto opcional para el User-Agent de Open Library (sube el límite de 1 a 3 peticiones/s). */

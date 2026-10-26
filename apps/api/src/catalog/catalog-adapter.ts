@@ -26,6 +26,17 @@ export interface CatalogAdapter {
    * "Sarah J. Maas"), según la fuente: autor, persona, compañía o desarrolladora. Null si no hay uno parecido.
    */
   resolveName?(name: string, kinds: Anchor['kind'][]): Promise<{ name: string; kind: Anchor['kind'] } | null>;
+  /**
+   * Un título concreto del historial de la persona (importar de Letterboxd, Goodreads o Steam):
+   * su id en la fuente y, solo si hace falta guardarlo, el elemento entero. Null si no hay uno claro.
+   */
+  lookup?(entry: HistoryLookup): Promise<{ externalId: string; item: () => Promise<ImportedItem | null> } | null>;
+}
+
+export interface HistoryLookup {
+  title: string;
+  year?: number;
+  author?: string;
 }
 
 /** Etiqueta con la que se marcan los resultados de una búsqueda en directo ("marvel"). */

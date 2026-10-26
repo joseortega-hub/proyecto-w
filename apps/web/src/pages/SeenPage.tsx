@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { Button, Heading, IconButton, Skeleton, Text } from '@/components/atoms'
 import { EmptyState, ItemRow, SeenControl } from '@/components/molecules'
+import { HistoryImportPanel } from '@/components/organisms'
 import type { SeenRating } from '@/lib/api'
 import { geekLine } from '@/lib/details'
-import { useDomain } from '@/lib/domain'
+import { agree, useDomain } from '@/lib/domain'
+import { HISTORY_SOURCE, useHistoryImport } from '@/lib/history'
 import { hasSeen, RATINGS, seenWords, useSeen, useSeenMutation } from '@/lib/seen'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +21,8 @@ export function SeenPage() {
   const list = useSeen(domain.id)
   const mutation = useSeenMutation(domain.id)
   const [filter, setFilter] = useState<Filter>('all')
+  const importer = useHistoryImport(domain.id)
+  const source = HISTORY_SOURCE[domain.id]
 
   if (!hasSeen(domain.id)) {
     return <EmptyState icon="info" title="Esta temática no lo necesita" description="Aquí ya está solo lo tuyo." action={<Button onClick={() => navigate(domain.path())}>Volver al inicio</Button>} />
@@ -44,6 +48,20 @@ export function SeenPage() {
           Lo que marques aquí no volverá a salir en tus listas. Tu valoración nos ayuda a acertar más: «Me encantó» cuenta más que un 👍 y «Meh», un poco menos.
         </Text>
       </header>
+
+      {source && (
+        <HistoryImportPanel
+          source={source}
+          nounPlural={domain.nounPlural}
+          foundWord={agree(domain.info, 'encontradas', 'encontrados')}
+          view={importer.view}
+          running={importer.running}
+          error={importer.error}
+          onCsv={(csv) => importer.start({ csv })}
+          onSteam={(steam) => importer.start({ steam })}
+          onResume={importer.resume}
+        />
+      )}
 
       {!list.data ? (
         <div className="flex flex-col gap-2" aria-busy>

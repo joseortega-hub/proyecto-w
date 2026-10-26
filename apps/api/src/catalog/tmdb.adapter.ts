@@ -1,7 +1,8 @@
 import type { Anchor } from '../interview/interview.types.js';
 import { anchorMatchesText } from '../interview/anchors.js';
 import { bestName, nameQueries } from '../interview/named.js';
-import { anchorTag, themeKeywordIds, type CatalogAdapter, type ImportedItem } from './catalog-adapter.js';
+import { anchorTag, themeKeywordIds, type CatalogAdapter, type HistoryLookup, type ImportedItem } from './catalog-adapter.js';
+import { normalizeTitle } from '../history/history.js';
 import { movieDetails, type ItemDetails } from './item-details.js';
 import { clamp, logScale, mapLimit, nudge, politeFetcher, priorAverage, yearScale } from './derive.js';
 
@@ -236,6 +237,28 @@ export class TmdbAdapter implements CatalogAdapter {
       const item = this.toItem({ ...movie, ...details[i] }, LIVE_MAX_VOTES);
       return isTagged ? { ...item, tags: [...new Set([...(item.tags ?? []), anchorTag(anchor)])] } : item;
     });
+  }
+
+  async lookup(entry: HistoryLookup) {
+    const params: Record<string, string> = { query: entry.title, include_adult: 'false', language: 'es-ES' };
+    if (entry.year) params.year = String(entry.year);
+    const search = (p: Record<string, string>) =>
+      this.get<{ results: (TmdbMovie & { original_title?: string })[] }>(this.url('search/movie', p))
+        .then((b) => b.results)
+        .catch(() => []);
+    // Con el año exacto primero; si no sale, sin año (Letterboxd y TMDB a veces difieren en uno).
+    let results = await search(params);
+    if (!results.length && entry.year) results = (await search({ ...params, year: '' })).filter((m) => Math.abs(Number(m.release_date?.slice(0, 4)) - entry.year!) <= 1);
+    const wanted = normalizeTitle(entry.title);
+    const movie = results.find((m) => [m.title, m.original_title ?? ''].some((t) => normalizeTitle(t) === wanted)) ?? (entry.year ? results[0] : undefined);
+    if (!movie) return null;
+    return {
+      externalId: String(movie.id),
+      item: async () => {
+        const full = await this.get<TmdbMovie>(this.url(`movie/${movie.id}`, { language: 'es-ES', append_to_response: 'credits,keywords' })).catch(() => movie);
+        return this.toItem({ ...movie, ...full }, LIVE_MAX_VOTES);
+      },
+    };
   }
 
   /**
