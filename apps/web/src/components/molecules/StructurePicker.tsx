@@ -17,14 +17,18 @@ function Sketch({ id }: { id: LayoutId }) {
     <span aria-hidden className="relative flex h-14 w-full overflow-hidden rounded-md border border-border bg-background p-1">
       {id === 'app' && (
         <span className="flex w-full flex-col gap-1">
+          <span className={cn(block, 'h-1.5 w-1/2 self-end opacity-60')} />
           <span className={cn(block, 'flex-1')} />
           <span className={cn(bar, 'h-2.5')} />
         </span>
       )}
       {id === 'library' && (
-        <span className="flex w-full gap-1">
-          <span className={cn(bar, 'w-2.5')} />
-          <span className={cn(block, 'w-5 opacity-60')} />
+        <span className="flex w-full flex-col gap-1">
+          <span className="flex gap-1">
+            <span className={cn(bar, 'h-1.5 flex-1')} />
+            <span className={cn(block, 'h-1.5 flex-1')} />
+            <span className={cn(block, 'h-1.5 flex-1')} />
+          </span>
           <span className={cn(block, 'flex-1')} />
         </span>
       )}
@@ -34,6 +38,22 @@ function Sketch({ id }: { id: LayoutId }) {
           <span className={cn(bar, 'absolute inset-x-3 bottom-1.5 h-2.5 rounded-full shadow')} />
           <span className="absolute bottom-1 left-1/2 size-3.5 -translate-x-1/2 rounded-full bg-primary ring-2 ring-background" />
         </>
+      )}
+      {id === 'thumb' && (
+        <span className="flex w-full flex-col gap-1">
+          <span className={cn(block, 'flex-1')} />
+          <span className="flex h-3.5 gap-0.5">
+            <span className="w-3.5 rounded-[3px] bg-primary" />
+            <span className={cn(bar, 'flex-1')} />
+          </span>
+        </span>
+      )}
+      {id === 'focus' && (
+        <span className="flex w-full flex-col gap-1">
+          <span className={cn(bar, 'h-0.5 opacity-50')} />
+          <span className={cn(block, 'flex-1')} />
+          <span className={cn(bar, 'h-0.5 opacity-50')} />
+        </span>
       )}
     </span>
   )

@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router'
-import { Heading, Icon, IconButton, type IconName } from '@/components/atoms'
-import { CustomizeMenu, ThemeMenu } from '@/components/organisms'
-import { useTheme } from '@/lib/theme'
+import { Link, NavLink } from 'react-router'
+import { Heading, Icon, type IconName } from '@/components/atoms'
+import { SettingsMenu } from '@/components/organisms'
 import { cn } from '@/lib/utils'
 
 const LINKS: { to: string; label: string; icon: IconName; end?: boolean }[] = [
@@ -12,11 +11,9 @@ const LINKS: { to: string; label: string; icon: IconName; end?: boolean }[] = [
 
 /**
  * Marco de las pantallas que no son de una temática («Hoy para ti», «Tu historia»): cabecera
- * con marca, las dos pestañas, «Bajo el capó», estilo y modo claro/oscuro. Respeta zonas seguras.
+ * con marca, las dos pestañas y el menú de ajustes (⋯). Respeta zonas seguras.
  */
 export function GlobalShell({ children }: { children: ReactNode }) {
-  const { theme, toggle } = useTheme()
-  const navigate = useNavigate()
   return (
     // `px-safe` va en el marco de fuera: como utilidad propia pisaría al padding de dentro.
     <div className="pt-safe px-safe min-h-dvh">
@@ -45,12 +42,7 @@ export function GlobalShell({ children }: { children: ReactNode }) {
               </NavLink>
             ))}
           </nav>
-          <div className="flex gap-2">
-            <IconButton icon="activity" variant="ghost" label="Bajo el capó: la IA por dentro" onClick={() => navigate('/bajo-el-capo')} />
-            <CustomizeMenu />
-            <ThemeMenu />
-            <IconButton icon="theme" label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle} />
-          </div>
+          <SettingsMenu />
         </header>
         <main className="flex flex-1 flex-col gap-5 pt-2">{children}</main>
       </div>

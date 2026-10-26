@@ -19,3 +19,5 @@ function Interactive() {
 
 export const Default: Story = { render: () => <Interactive /> }
 export const Library: Story = { args: { value: 'library' } }
+export const UnaMano: Story = { args: { value: 'thumb' } }
+export const Enfoque: Story = { args: { value: 'focus' } }
