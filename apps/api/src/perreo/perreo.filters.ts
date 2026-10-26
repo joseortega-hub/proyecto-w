@@ -23,6 +23,8 @@ export interface ArtistSummary {
   status?: string | null;
   /** Color propio #rrggbb (o el de su foto). */
   color?: string | null;
+  /** Puesto en tus favoritos (1 = el primero); null o ausente si no es favorito. */
+  favorite?: number | null;
 }
 
 export type ArtistSort = 'fame' | 'age' | 'name';
@@ -85,14 +87,22 @@ export function filterArtists(list: ArtistSummary[], query: ArtistQuery): Artist
     return true;
   });
   const sort = query.sort ?? 'fame';
-  return out.sort((a, b) =>
-    sort === 'name'
+  // Sin filtros ni orden elegido, tus favoritos van arriba (en su orden).
+  const fav = (a: ArtistSummary) => (isUnfiltered(query) ? (a.favorite ?? Infinity) : 0);
+  return out.sort(
+    (a, b) =>
+      fav(a) - fav(b) ||
+      (sort === 'name'
       ? a.name.localeCompare(b.name, 'es')
       : sort === 'age'
         ? (a.debutYear ?? 9999) - (b.debutYear ?? 9999) || a.name.localeCompare(b.name, 'es')
-        : b.fame - a.fame || a.name.localeCompare(b.name, 'es'),
+        : b.fame - a.fame || a.name.localeCompare(b.name, 'es')),
   );
 }
+
+/** Sin búsqueda, sin filtros y con el orden por defecto (fama). */
+export const isUnfiltered = (q: ArtistQuery) =>
+  !q.q && (q.sort ?? 'fame') === 'fame' && !q.fameMin && (q.fameMax == null || q.fameMax >= 100) && !q.country && !q.city && !q.era && !q.label && !q.style && !q.followed && !q.kind;
 
 export interface ArtistFacets {
   countries: { value: string; count: number }[];

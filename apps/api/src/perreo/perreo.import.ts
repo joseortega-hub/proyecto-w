@@ -12,6 +12,7 @@ import { createGroqClient, GroqTextProvider } from '../ai/groq/groq.providers.js
 import { enrichSongs, ENRICH_BATCH } from '../youtube/youtube.enrich.js';
 import { config } from '../config.js';
 import { PERREO_STYLES } from '../domains/perreo.domain.js';
+import { favoriteRanks, favoritesFirst, readFavorites } from './perreo.favorites.js';
 import { fold } from './perreo.filters.js';
 import {
   channelFeed,
@@ -108,7 +109,8 @@ for (const r of rows) slugByName.set(fold(r.name.trim()), r.slug);
 // ---------- Datos por artista ----------
 const artists: PerreoArtistFile[] = [];
 let n = 0;
-for (const row of rows) {
+// Los favoritos (favoritos.json) van primero: si una fuente se agota a mitad, ellos ya están.
+for (const row of favoritesFirst(rows, (r) => r.slug, favoriteRanks(readFavorites(out), rows))) {
   n++;
   const name = row.name.trim();
   const c = (cache[row.slug] ??= {});

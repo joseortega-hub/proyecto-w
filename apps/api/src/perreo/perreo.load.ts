@@ -13,8 +13,9 @@ import { domains, perreoArtists, perreoReview } from '../db/schema.js';
 import { perreoDomain } from '../domains/perreo.domain.js';
 import { protectManual } from './perreo.edit.js';
 import { upsertItems } from '../catalog/upsert.js';
+import { applyProfile, favoriteRanks, readFavorites } from './perreo.favorites.js';
 import { mergePerreo } from './perreo.resolve.js';
-import type { IgReview, PerreoArtistFile, PerreoOverlay, PerreoSongFile } from './perreo.types.js';
+import type { IgReview, PerreoArtistFile, PerreoOverlay, PerreoProfile, PerreoSongFile } from './perreo.types.js';
 
 const prod = process.argv.includes('--prod');
 const target = prod ? process.env.PROD_DATABASE_URL?.trim() : undefined;
@@ -33,12 +34,20 @@ const readJson = <T>(file: string, fallback: T): T => {
     return fallback;
   }
 };
-const artists = mergePerreo(
+const merged = mergePerreo(
   readJson<PerreoArtistFile[]>('artists.json', []),
   readJson<PerreoArtistFile[]>('ig-artists.json', []),
   readJson<Record<string, PerreoOverlay>>('ig-overlay.json', {}),
 );
-const songs = [...readJson<PerreoSongFile[]>('songs.json', []), ...readJson<PerreoSongFile[]>('ig-songs.json', [])];
+// Favoritos (favoritos.json, en orden): su puesto y su ficha ampliada (favorites.json, de pnpm perreo:favorites), que solo rellena huecos.
+const ranks = favoriteRanks(readFavorites(dir), merged);
+const favProfiles = readJson<{ profiles: Record<string, PerreoProfile> }>('favorites.json', { profiles: {} }).profiles;
+const artists = merged.map((a) => {
+  const p = favProfiles[a.slug];
+  return { ...(p ? applyProfile(a, p) : a), favoriteRank: ranks.get(a.slug) ?? null, profile: p ?? {} };
+});
+if (ranks.size) console.log(`Favoritos: ${[...ranks.keys()].join(', ')} (${Object.keys(favProfiles).length} con ficha ampliada)`);
+const songs = [...readJson<PerreoSongFile[]>('songs.json', []), ...readJson<PerreoSongFile[]>('ig-songs.json', []), ...readJson<PerreoSongFile[]>('fav-songs.json', [])];
 const reviewFile = readJson<IgReview[]>('ig-review.json', []);
 if (!songs.length) console.warn('Sin canciones: se cargan solo los artistas.');
 
@@ -47,8 +56,8 @@ try {
   await migrate(db, { migrationsFolder: resolve(dirname(fileURLToPath(import.meta.url)), '../../drizzle') });
   // Comprobación previa: si una migración no se aplicó, se dice claro en vez de fallar en el insert.
   const cols = await client<{ column_name: string }[]>`select column_name from information_schema.columns where table_name = 'perreo_artists'`;
-  const missing = ['source', 'followed', 'kind', 'incomplete', 'nickname', 'hidden', 'featured_video_id', 'manual_fields', 'street_level', 'status', 'active_until', 'aliases', 'collaborators', 'color'].filter((c) => !cols.some((x) => x.column_name === c));
-  if (missing.length) throw new Error(`Faltan columnas en perreo_artists (${missing.join(', ')}): la migración no se aplicó. Haz git pull y repite el comando; si sigue, revisa que drizzle/meta/_journal.json incluya 0020_perreo_fields.`);
+  const missing = ['source', 'followed', 'kind', 'incomplete', 'nickname', 'hidden', 'featured_video_id', 'manual_fields', 'street_level', 'status', 'active_until', 'aliases', 'collaborators', 'color', 'favorite_rank', 'profile'].filter((c) => !cols.some((x) => x.column_name === c));
+  if (missing.length) throw new Error(`Faltan columnas en perreo_artists (${missing.join(', ')}): la migración no se aplicó. Haz git pull y repite el comando; si sigue, revisa que drizzle/meta/_journal.json incluya 0025_perreo_favorites.`);
   const d = perreoDomain;
   const row = { id: d.id, name: d.name, itemNoun: d.itemNoun, itemNounPlural: d.itemNounPlural, config: d.config };
   await db.insert(domains).values(row).onConflictDoUpdate({ target: domains.id, set: row });

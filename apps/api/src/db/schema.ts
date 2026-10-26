@@ -1,4 +1,5 @@
 import type { ItemDetails } from '../catalog/item-details.js';
+import type { PerreoProfile } from '../perreo/perreo.types.js';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -266,6 +267,10 @@ export const perreoArtists = pgTable(
     collaborators: text('collaborators').array().notNull().default(sql`'{}'::text[]`),
     /** Color propio #rrggbb: a mano o el más vivo de su foto (desbloqueo y ficha). */
     color: text('color'),
+    /** Puesto en la lista de favoritos de la persona (1 = el primero); null si no es favorito. */
+    favoriteRank: integer('favorite_rank'),
+    /** Ficha ampliada de los favoritos (Wikidata, MusicBrainz, Last.fm, Deezer y YouTube): la escribe `pnpm perreo:favorites`. */
+    profile: jsonb('profile').$type<PerreoProfile>().notNull().default({}),
   },
   (t) => [index('perreo_artists_fame_idx').on(t.fame)],
 );

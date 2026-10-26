@@ -71,10 +71,14 @@ const year = today.slice(0, 4);
 try {
   await migrate(db, { migrationsFolder: resolve(dirname(fileURLToPath(import.meta.url)), '../../drizzle') });
   const all = await db
-    .select({ slug: perreoArtists.slug, name: perreoArtists.name, kind: perreoArtists.kind, channel: perreoArtists.youtubeChannelId, aliases: perreoArtists.aliases, fame: perreoArtists.fame })
+    .select({ slug: perreoArtists.slug, name: perreoArtists.name, kind: perreoArtists.kind, channel: perreoArtists.youtubeChannelId, aliases: perreoArtists.aliases, fame: perreoArtists.fame, favoriteRank: perreoArtists.favoriteRank })
     .from(perreoArtists)
     .where(and(eq(perreoArtists.incomplete, false), eq(perreoArtists.hidden, false), inArray(perreoArtists.kind, ['artist', 'group'])));
-  const artists = all.filter((a) => !only || a.slug === only).slice(0, limit);
+  // Los favoritos primero (y siempre dentro del --limit): si una fuente se agota, ellos ya tienen su foto del día.
+  const artists = all
+    .filter((a) => !only || a.slug === only)
+    .sort((a, b) => (a.favoriteRank ?? Infinity) - (b.favoriteRank ?? Infinity))
+    .slice(0, limit);
   console.log(`Artistas: ${artists.length}`);
   const byName = new Map(all.flatMap((a) => [a.name, ...a.aliases].map((n) => [fold(n), a.slug] as const)));
 

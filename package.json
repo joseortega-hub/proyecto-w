@@ -28,6 +28,7 @@
     "perreo:load": "pnpm --filter @sintonia/api perreo:load",
     "perreo:instagram": "pnpm --filter @sintonia/api perreo:instagram",
     "perreo:instagram:import": "pnpm --filter @sintonia/api perreo:instagram:import",
-    "perreo:pulse": "pnpm --filter @sintonia/api perreo:pulse"
+    "perreo:pulse": "pnpm --filter @sintonia/api perreo:pulse",
+    "perreo:favorites": "pnpm --filter @sintonia/api perreo:favorites"
   }
 }

@@ -36,6 +36,7 @@ const summary = (a: Artist): ArtistSummary => ({
   streetLevel: a.streetLevel,
   status: a.status,
   color: a.color,
+  favorite: a.favoriteRank,
 });
 
 /** Explorador de artistas del Modo Perreo: fichas, fotos y la primera lista de cada artista. */
@@ -139,6 +140,9 @@ export class PerreoService {
       artist,
       ownSongs: ownAll.map((s) => ({ videoId: s.externalId, title: s.title })),
       similar: similar.map(summary),
+      // Grupo ↔ miembros (de la ficha ampliada de los favoritos).
+      members: (artist.profile.members ?? []).flatMap((s) => rows.filter((r) => r.slug === s && !r.hidden)).map(summary),
+      memberOf: (artist.profile.memberOf ?? []).flatMap((s) => rows.filter((r) => r.slug === s && !r.hidden)).map(summary),
       alsoFollow: similar.filter((s) => s.followed).map(summary),
       firstList: [...ownAll.slice(0, 8), ...interleave(other, 8)].map(publicItem),
     };

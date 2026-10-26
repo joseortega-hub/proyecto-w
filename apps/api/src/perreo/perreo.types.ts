@@ -27,6 +27,13 @@ export interface PerreoArtistFile {
   kind?: string;
   /** Ficha mínima: falta completar datos (sin inventar nada). */
   incomplete?: boolean;
+  /** Los rellena la ficha de favoritos si están vacíos. */
+  aliases?: string[];
+  collaborators?: string[];
+  activeUntil?: number | null;
+  /** Puesto en la lista de favoritos (lo pone perreo:load desde favoritos.json). */
+  favoriteRank?: number | null;
+  profile?: PerreoProfile;
 }
 
 /** Lo que ig-overlay.json añade a un artista de los 66 que la persona sigue. */
@@ -72,4 +79,36 @@ export interface PerreoSongFile {
   attributes?: Record<string, number>;
   tags?: string[];
   language?: string;
+}
+
+/** Un lanzamiento de la discografía (MusicBrainz o Deezer). */
+export interface ProfileRelease {
+  title: string;
+  /** album, ep, single… */
+  type: string;
+  /** AAAA-MM-DD, AAAA-MM o AAAA. */
+  date: string | null;
+}
+
+/** Ficha ampliada de un favorito (columna `profile`). Todo es opcional: cada fuente que falla deja su parte vacía. */
+export interface PerreoProfile {
+  updatedAt?: string;
+  /** Fuentes que respondieron: wikidata, musicbrainz, lastfm, deezer, youtube. */
+  sources?: string[];
+  wikidata?: string | null;
+  mbid?: string | null;
+  birthPlace?: string | null;
+  origin?: string | null;
+  activeFrom?: number | null;
+  activeTo?: number | null;
+  awards?: string[];
+  labels?: string[];
+  socials?: Record<string, string>;
+  discography?: ProfileRelease[];
+  lastfm?: { listeners: number | null; playcount: number | null; tags: string[]; similar: string[] };
+  deezer?: { id: number; fans: number | null; albums: number | null; link: string; topTracks: string[] };
+  youtube?: { channelId: string; title: string; subscribers: number | null; views: number | null; videos: number | null; topVideos: { id: string; title: string; views: number; publishedAt: string }[] };
+  /** Grupo ↔ miembros (slugs del Modo Perreo). */
+  members?: string[];
+  memberOf?: string[];
 }

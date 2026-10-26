@@ -15,6 +15,7 @@ import { PERREO_STYLES } from '../domains/perreo.domain.js';
 import { enrichSongs, ENRICH_BATCH } from '../youtube/youtube.enrich.js';
 import { fold } from './perreo.filters.js';
 import { hasSongs, type Kind } from './perreo.kinds.js';
+import { favoriteRanks, favoritesFirst, readFavorites } from './perreo.favorites.js';
 import { findDuplicate, freeSlug, squash, stylesFromTags, type Known } from './perreo.resolve.js';
 import { commonsPhoto, deezerArtist, downloadImage, lastfmTags, wikidataCard, wikiSummaryByTitle, type WikidataCard } from './perreo.sources.ig.js';
 import { channelFeed, channelUploads, cleanTitle, lastfmArtist, matchSimilar, songKey, type ChannelVideo, type LastfmArtist } from './perreo.sources.js';
@@ -72,7 +73,9 @@ console.log(`Sigues ${follows.length}: ${Object.keys(overlay).length} ya estaban
 // ---------- Ficha de cada artista nuevo ----------
 const artists: PerreoArtistFile[] = [];
 let n = 0;
-for (const { entry, slug } of mine) {
+// Los favoritos (favoritos.json) van primero: si una fuente se agota a mitad, ellos ya están.
+const favRanks = favoriteRanks(readFavorites(out), mine.map((m) => ({ slug: m.slug, name: m.entry.name })));
+for (const { entry, slug } of favoritesFirst(mine, (m) => m.slug, favRanks)) {
   n++;
   const c = (cache[slug] ??= {});
   const minimal = entry.via === 'sin-resolver';
