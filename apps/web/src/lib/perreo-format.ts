@@ -61,4 +61,12 @@ export const LINK_LABELS: Record<string, string> = {
   soundcloud: 'SoundCloud',
   facebook: 'Facebook',
   web: 'Web oficial',
+  deezer: 'Deezer',
+  youtube: 'YouTube',
+}
+
+/** 1234567 → «1,2 M»; 45300 → «45,3 mil». */
+export function compactNumber(n: number | null | undefined): string {
+  if (n == null) return '—'
+  return new Intl.NumberFormat('es', { notation: 'compact', maximumFractionDigits: 1 }).format(n)
 }

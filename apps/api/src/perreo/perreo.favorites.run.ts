@@ -29,7 +29,13 @@ import {
 } from './perreo.favorites.js';
 import { fold } from './perreo.filters.js';
 import { countryName } from './perreo.sources.ig.js';
-import { cleanTitle, sleep, songKey, USER_AGENT } from './perreo.sources.js';
+import {
+  cleanTitle,
+  sleep,
+  songKey,
+  USER_AGENT,
+  wikiBio,
+} from './perreo.sources.js';
 import type {
   PerreoArtistFile,
   PerreoProfile,
@@ -426,8 +432,36 @@ async function deezer(name: string) {
 /** YouTube: datos del canal y los vídeos más vistos de sus subidas (hasta 200, ~8 unidades). */
 async function youtube(a: PerreoArtistFile, channelHint: string | null) {
   if (!youtubeKey) return null;
-  let channelId = a.youtubeChannelId ?? channelHint;
-  if (!channelId) {
+  type Channel = {
+    snippet?: { title: string };
+    statistics?: {
+      viewCount?: string;
+      subscriberCount?: string;
+      videoCount?: string;
+    };
+    contentDetails?: { relatedPlaylists?: { uploads?: string } };
+  };
+  const lookup = async (id: string) =>
+    (
+      await cachedJson<{ items?: Channel[] }>(
+        'yt',
+        `fav:yt:channel:${id}`,
+        `https://www.googleapis.com/youtube/v3/channels?${new URLSearchParams({ part: 'snippet,statistics,contentDetails', id, key: youtubeKey })}`,
+      )
+    )?.items?.[0] ?? null;
+  // El canal de la ficha puede estar cerrado: se prueba el de Wikidata y, si no, una única búsqueda.
+  let channelId: string | null = null;
+  let c: Channel | null = null;
+  for (const id of new Set(
+    [a.youtubeChannelId, channelHint].filter((x): x is string => !!x),
+  )) {
+    c = await lookup(id);
+    if (c) {
+      channelId = id;
+      break;
+    }
+  }
+  if (!c) {
     // Única búsqueda permitida (100 unidades): solo si nadie más sabe su canal, y cacheada.
     const found = await cachedJson<{
       items?: { id?: { channelId?: string }; snippet?: { title?: string } }[];
@@ -442,27 +476,12 @@ async function youtube(a: PerreoArtistFile, channelHint: string | null) {
           .replace(/[^a-z0-9]/g, '')
           .startsWith(fold(a.name).replace(/[^a-z0-9]/g, '')),
       )?.id?.channelId ?? null;
-    if (channelId)
+    if (channelId) {
       console.log(`  canal encontrado con search.list: ${channelId}`);
+      c = await lookup(channelId);
+    }
   }
-  if (!channelId) return null;
-  const ch = await cachedJson<{
-    items?: {
-      snippet?: { title: string };
-      statistics?: {
-        viewCount?: string;
-        subscriberCount?: string;
-        videoCount?: string;
-      };
-      contentDetails?: { relatedPlaylists?: { uploads?: string } };
-    }[];
-  }>(
-    'yt',
-    `fav:yt:channel:${channelId}`,
-    `https://www.googleapis.com/youtube/v3/channels?${new URLSearchParams({ part: 'snippet,statistics,contentDetails', id: channelId, key: youtubeKey })}`,
-  );
-  const c = ch?.items?.[0];
-  if (!c) return null;
+  if (!channelId || !c) return null;
   const uploads =
     c.contentDetails?.relatedPlaylists?.uploads ?? `UU${channelId.slice(2)}`;
   const ids: string[] = [];
@@ -592,7 +611,10 @@ try {
         ?.map(
           (r) => /wikidata\.org\/wiki\/(Q\d+)/.exec(r.url?.resource ?? '')?.[1],
         )
-        .find(Boolean) ?? null;
+        .find(Boolean) ??
+      // Sin enlace en MusicBrainz: la entidad de su página de Wikipedia (solo si es de música y con su nombre).
+      (await wikiBio(a.name))?.qid ??
+      null;
     if (mb) sources.push('musicbrainz');
     const wd = qid ? await wikidata(qid) : null;
     if (wd) sources.push('wikidata');

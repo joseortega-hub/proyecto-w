@@ -27,6 +27,23 @@ export interface PerreoArtist {
   status?: string | null
   /** Color propio #rrggbb (a mano o el de su foto). */
   color?: string | null
+  /** Puesto en tus favoritos (1 = el primero); null si no es favorito. */
+  favorite?: number | null
+}
+
+/** Ficha ampliada de un favorito (Wikidata, MusicBrainz, Last.fm, Deezer y YouTube). */
+export interface PerreoProfile {
+  updatedAt?: string
+  sources?: string[]
+  birthPlace?: string | null
+  origin?: string | null
+  activeFrom?: number | null
+  activeTo?: number | null
+  awards?: string[]
+  discography?: { title: string; type: string; date: string | null }[]
+  lastfm?: { listeners: number | null; playcount: number | null; tags: string[] }
+  deezer?: { fans: number | null; albums: number | null; link: string; topTracks: string[] }
+  youtube?: { channelId: string; title: string; subscribers: number | null; views: number | null; videos: number | null; topVideos: { id: string; title: string; views: number; publishedAt: string }[] }
 }
 
 export interface PerreoFacets {
@@ -62,6 +79,8 @@ export interface PerreoArtistFull extends Omit<PerreoArtist, 'labels'> {
   featuredVideoId?: string | null
   /** Campos editados a mano (las recargas no los pisan). */
   manualFields?: string[]
+  favoriteRank?: number | null
+  profile?: PerreoProfile
 }
 
 export interface PerreoArtistDetail {
@@ -71,6 +90,9 @@ export interface PerreoArtistDetail {
   similar: PerreoArtist[]
   /** De los parecidos, los que la persona sigue en Instagram. */
   alsoFollow: PerreoArtist[]
+  /** Si es un grupo, sus miembros; si es solista, los grupos de los que forma parte. */
+  members?: PerreoArtist[]
+  memberOf?: PerreoArtist[]
   /** Primera lista: sus canciones y las de sus parecidos. */
   firstList: Item[]
 }

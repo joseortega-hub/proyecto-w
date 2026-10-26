@@ -130,7 +130,7 @@ export function ArtistExplorer({ filters, onChange, data, loading, photoUrl, onO
         <ul className={cn('grid grid-cols-2 gap-3 max-[340px]:grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5', loading && 'opacity-60')}>
           {(data?.artists ?? []).map((a) => (
             <li key={a.slug}>
-              <ArtistCard name={a.name} photoUrl={photoUrl(a)} country={a.country} debutYear={a.debutYear} fame={a.fame} styles={a.styles} kind={a.kind} incomplete={a.incomplete} onOpen={() => onOpen(a.slug)} />
+              <ArtistCard name={a.name} photoUrl={photoUrl(a)} country={a.country} debutYear={a.debutYear} fame={a.fame} styles={a.styles} kind={a.kind} incomplete={a.incomplete} favorite={a.favorite} onOpen={() => onOpen(a.slug)} />
             </li>
           ))}
         </ul>

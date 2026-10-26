@@ -35,3 +35,21 @@ export const Followed: Story = {
 }
 export const Playing: Story = { args: { activeItemId: 's2', playing: true } }
 export const Minimal: Story = { args: { firstList: [], similar: [], artist: { slug: 'x', name: 'Dei V', realName: null, birthDate: null, country: null, city: null, countries: [], debutYear: null, fame: 5, listeners: null, styles: [], labels: [], links: {}, bio: null, bioSource: null, similar: [], followed: false, kind: 'artist', incomplete: false } } }
+export const Favorite: Story = {
+  args: {
+    members: [{ ...meta.args.artist, slug: 'wisin', name: 'Wisin', labels: [] }],
+    artist: {
+      ...meta.args.artist,
+      favoriteRank: 1,
+      profile: {
+        sources: ['wikidata', 'musicbrainz', 'lastfm', 'deezer', 'youtube'],
+        updatedAt: '2026-10-26',
+        awards: ['Grammy Latino al Mejor Álbum de Música Urbana'],
+        lastfm: { listeners: 936504, playcount: 21000000, tags: ['reggaeton'] },
+        deezer: { fans: 3400000, albums: 40, link: 'https://www.deezer.com', topTracks: [] },
+        youtube: { channelId: 'UC0', title: 'Canal', subscribers: 12000000, views: 9800000000, videos: 300, topVideos: [{ id: 'abc', title: 'Rakata', views: 410000000, publishedAt: '2009-10-01' }] },
+        discography: [{ title: 'Pa’l Mundo', type: 'album', date: '2005-11-08' }],
+      },
+    },
+  },
+}

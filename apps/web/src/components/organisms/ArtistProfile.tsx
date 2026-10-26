@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button, Chip, Heading, Icon, Text } from '@/components/atoms'
 import { ItemRow } from '@/components/molecules'
+import { ArtistDossier } from './ArtistDossier'
 import type { Item } from '@/lib/api'
 import { careerYears, fameLabel, flagOf, initials, labelYears, LINK_LABELS, originLabel } from '@/lib/perreo-format'
 import { kindName, STATUS_LABELS, type PerreoArtist, type PerreoArtistFull } from '@/lib/perreo-types'
@@ -11,6 +12,9 @@ interface ArtistProfileProps {
   similar: PerreoArtist[]
   /** De los parecidos, los que la persona sigue en Instagram. */
   alsoFollow?: PerreoArtist[]
+  /** Grupo ↔ miembros: los de un grupo o los grupos de un solista. */
+  members?: PerreoArtist[]
+  memberOf?: PerreoArtist[]
   /** Primera lista: sus canciones y las de sus parecidos. */
   firstList: Item[]
   photoUrl: string | null
@@ -25,7 +29,7 @@ interface ArtistProfileProps {
 }
 
 /** Ficha de un artista: foto, datos, biografía, sellos, enlaces, parecidos y su primera lista. */
-export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, photoUrl, activeItemId, playing, onPlay, onMakeList, onOpenArtist, onEdit, className }: ArtistProfileProps) {
+export function ArtistProfile({ artist, similar, alsoFollow = [], members = [], memberOf = [], firstList, photoUrl, activeItemId, playing, onPlay, onMakeList, onOpenArtist, onEdit, className }: ArtistProfileProps) {
   // Se recuerda qué URL falló: si llega otra (foto nueva), se vuelve a intentar.
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const failed = !!photoUrl && failedSrc === photoUrl
@@ -49,6 +53,7 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
           {artist.realName && <Text tone="muted">{artist.realName}</Text>}
           {!!artist.aliases?.length && <Text tone="muted" size="sm">También: {artist.aliases.join(' · ')}</Text>}
           <div className="flex flex-wrap gap-1.5">
+            {artist.favoriteRank != null && <Chip title={`Tu favorito n.º ${artist.favoriteRank}`}>★ De tus favs</Chip>}
             {origin && (
               <Chip variant="outline">
                 {flagOf(artist.countries[0] ?? '')} {origin}
@@ -105,6 +110,23 @@ export function ArtistProfile({ artist, similar, alsoFollow = [], firstList, pho
           )}
         </section>
       )}
+
+      {(members.length > 0 || memberOf.length > 0) && (
+        <section aria-labelledby="crew" className="flex flex-col gap-2">
+          <Heading as="h2" size="section" id="crew">
+            {members.length ? 'El combo' : 'También en el combo'}
+          </Heading>
+          <div className="flex flex-wrap gap-2">
+            {[...members, ...memberOf].map((s) => (
+              <button key={s.slug} type="button" onClick={() => onOpenArtist(s.slug)} className="inline-flex min-h-11 items-center rounded-full focus-visible:outline-2 focus-visible:outline-ring">
+                <Chip className="cursor-pointer">{s.name}</Chip>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {artist.profile && <ArtistDossier profile={artist.profile} />}
 
       {artist.labels.length > 0 && (
         <section aria-labelledby="labels" className="flex flex-col gap-2">

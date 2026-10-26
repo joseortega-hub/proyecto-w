@@ -16,12 +16,14 @@ interface ArtistCardProps {
   /** Tipo (si no es artista, se enseña) y ficha por completar. */
   kind?: string
   incomplete?: boolean
+  /** Puesto en tus favoritos: marca discreta ★ en la foto. */
+  favorite?: number | null
   onOpen?: () => void
   className?: string
 }
 
 /** Un artista en la galería del explorador: foto, nombre, origen, fama y estilos. */
-export function ArtistCard({ name, photoUrl, country, debutYear, fame, styles = [], kind, incomplete, onOpen, className }: ArtistCardProps) {
+export function ArtistCard({ name, photoUrl, country, debutYear, fame, styles = [], kind, incomplete, favorite, onOpen, className }: ArtistCardProps) {
   // Se recuerda qué URL falló: si llega otra (foto nueva), se vuelve a intentar.
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const failed = !!photoUrl && failedSrc === photoUrl
@@ -45,6 +47,11 @@ export function ArtistCard({ name, photoUrl, country, debutYear, fame, styles = 
         {country && (
           <span className="absolute top-2 left-2 rounded-full bg-card/90 px-2 py-0.5 text-[13px]" title={country}>
             {flagOf(country.split('/')[0])}
+          </span>
+        )}
+        {favorite != null && (
+          <span className="absolute top-2 right-2 rounded-full bg-card/90 px-2 py-0.5 text-[13px] text-domain" title="De tus favs">
+            ★<span className="sr-only"> De tus favs</span>
           </span>
         )}
       </div>
