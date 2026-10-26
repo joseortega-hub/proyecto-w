@@ -43,17 +43,37 @@ function subscribe(cb: () => void) {
   }
 }
 
+export const getLayout = () => cache
+
+export function setLayout(next: LayoutId) {
+  cache = parseLayout(next)
+  try {
+    if (cache === DEFAULT_LAYOUT) localStorage.removeItem(KEY)
+    else localStorage.setItem(KEY, cache)
+  } catch {
+    /* sin almacenamiento: vale hasta recargar */
+  }
+  listeners.forEach((l) => l())
+}
+
 export function useLayout() {
   const layout = useSyncExternalStore(subscribe, () => cache, () => DEFAULT_LAYOUT)
-  const setLayout = useCallback((next: LayoutId) => {
-    cache = next
-    try {
-      if (next === DEFAULT_LAYOUT) localStorage.removeItem(KEY)
-      else localStorage.setItem(KEY, next)
-    } catch {
-      /* sin almacenamiento: vale hasta recargar */
-    }
-    listeners.forEach((l) => l())
-  }, [])
-  return { layout, setLayout }
+  return { layout, setLayout: useCallback((next: LayoutId) => setLayout(next), []) }
+}
+
+/**
+ * La estructura solo cambia el marco de las temáticas. Fuera de ellas («Hoy para ti», «Tu
+ * historia») y en el Modo Perreo, que tiene su propio marco, elegirla no cambia nada a la
+ * vista: sin este aviso parecía que el selector no funcionaba.
+ */
+export function layoutNotice(domainId: string, layout: LayoutId): { title: string; description: string } | null {
+  if (domainId && domainId !== 'perreo') return null
+  const label = LAYOUTS.find((l) => l.id === layout)?.label ?? 'Clásica'
+  return {
+    title: `Estructura «${label}» guardada`,
+    description:
+      domainId === 'perreo'
+        ? 'El Modo Perreo tiene su propio diseño. La verás en el resto de temáticas.'
+        : 'La verás al entrar en una temática, como Música o Películas.',
+  }
 }

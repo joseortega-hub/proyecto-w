@@ -1,9 +1,11 @@
 import { Popover } from 'radix-ui'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Icon, IconButton } from '@/components/atoms'
 import { openFeedback } from '@/lib/feedback'
 import { SectionToggles, StructurePicker } from '@/components/molecules'
-import { useLayout } from '@/lib/layout'
+import { useDomain } from '@/lib/domain'
+import { layoutNotice, useLayout, type LayoutId } from '@/lib/layout'
 import { SECTION_GROUPS, useHiddenSections } from '@/lib/sections'
 
 type CustomizeMenuProps = {
@@ -16,6 +18,12 @@ export function CustomizeMenu({ side = 'bottom', align = 'end' }: CustomizeMenuP
   const { hidden, setHidden, showAll } = useHiddenSections()
   const { layout, setLayout } = useLayout()
   const [open, setOpen] = useState(false)
+  const domainId = useDomain().id
+  const changeLayout = (next: LayoutId) => {
+    setLayout(next)
+    const notice = layoutNotice(domainId, next)
+    if (notice) toast.success(notice.title, { description: notice.description })
+  }
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
@@ -30,7 +38,7 @@ export function CustomizeMenu({ side = 'bottom', align = 'end' }: CustomizeMenuP
           className="z-50 max-h-[min(36rem,calc(100dvh-24px))] w-[min(21rem,calc(100vw-24px))] overflow-y-auto overscroll-contain rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-lg outline-none"
         >
           <p className="label-caps px-2.5 pt-1.5 pb-2">Estructura</p>
-          <StructurePicker value={layout} onChange={setLayout} className="px-1" />
+          <StructurePicker value={layout} onChange={changeLayout} className="px-1" />
           <p className="px-2.5 pt-2 text-[13px] text-muted-foreground">Se aplica dentro de cada temática.</p>
           <hr className="my-3 border-border" />
           <p className="label-caps px-2.5">Secciones visibles</p>
