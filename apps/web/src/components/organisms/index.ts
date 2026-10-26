@@ -34,3 +34,4 @@ export { PerreoBottomNav, PerreoSideNav, PerreoTopBar, PERREO_SECTIONS } from '.
 export { VersusArena } from './VersusArena'
 export { ArtistPicker } from './ArtistPicker'
 export { HistoryImportPanel } from './HistoryImportPanel'
+export { YearStories } from './YearStories'

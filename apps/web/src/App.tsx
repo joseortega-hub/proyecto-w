@@ -22,6 +22,7 @@ import { ResultPage } from '@/pages/ResultPage'
 import { StoryPage } from '@/pages/StoryPage'
 import { TastePage } from '@/pages/TastePage'
 import { SeenPage } from '@/pages/SeenPage'
+import { YearPage } from '@/pages/YearPage'
 import { TodayPage } from '@/pages/TodayPage'
 import { PlayerProvider } from '@/player/player-context'
 
@@ -38,6 +39,7 @@ export function App() {
             {/* "/" es «Hoy para ti»; "/historia", «Tu historia». */}
             <Route index element={<TodayPage />} />
             <Route path="historia" element={<StoryPage />} />
+            <Route path="tu-ano" element={<YearPage />} />
             {/* Cada temática tiene su biblioteca, sus listas y sus entrevistas. */}
             <Route path=":domain" element={<DomainGate />}>
               {/* El Modo Perreo tiene su propio marco y portada (DomainShell decide). */}

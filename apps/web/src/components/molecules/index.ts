@@ -53,3 +53,4 @@ export { ArtistAvatar, HotRow, PerreoTabs, PulseEmpty, PulseNote, ReleaseCard } 
 export { SeenControl } from './SeenControl'
 export { UpNext, type UpNextEntry } from './UpNext'
 export { VersusHistory } from './VersusHistory'
+export { YearStoryCard } from './YearStoryCard'

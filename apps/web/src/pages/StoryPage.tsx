@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
-import { Button, Heading, Skeleton, Text } from '@/components/atoms'
+import { Button, Heading, Icon, Skeleton, Text } from '@/components/atoms'
 import { EmptyState } from '@/components/molecules'
 import { AiPanel, LearnedPanel, TopPanel, VibeCalendar, type RecentVibe } from '@/components/organisms'
 import { GlobalShell } from '@/components/templates/GlobalShell'
@@ -41,6 +41,9 @@ export function StoryPage() {
         <Text tone="muted" size="lead">
           Lo que Sintonía ha aprendido de ti. Solo vive en tu navegador anónimo: nadie más lo ve.
         </Text>
+        <Button variant="secondary" size="md" className="mt-2 self-start" onClick={() => navigate('/tu-ano')}>
+          <Icon name="sparkles" /> Tu año en Sintonía
+        </Button>
       </div>
       {story.isError ? (
         <EmptyState icon="retry" title="No puedo cargar tu historia" description={story.error.message} action={<Button onClick={() => story.refetch()}>Reintentar</Button>} />

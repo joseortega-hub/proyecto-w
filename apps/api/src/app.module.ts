@@ -46,10 +46,12 @@ import { SeenController } from './seen/seen.controller.js';
 import { SeenService } from './seen/seen.service.js';
 import { HistoryController } from './history/history.controller.js';
 import { HistoryService } from './history/history.service.js';
+import { YearController } from './year/year.controller.js';
+import { YearService } from './year/year.service.js';
 
 @Module({
   imports: [DbModule, AiModule],
-  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController, ListsController, LinksController, FeedbackController, SeenController, HistoryController],
+  controllers: [DomainsController, InterviewController, ItemsController, PreferencesController, TasteController, YouTubeController, FolderController, OpsController, ThemesController, HomeController, PerreoController, ListsController, LinksController, FeedbackController, SeenController, HistoryController, YearController],
   providers: [
     DomainsService,
     AnchorsService,
@@ -80,6 +82,7 @@ import { HistoryService } from './history/history.service.js';
     FeedbackService,
     SeenService,
     HistoryService,
+    YearService,
   ],
 })
 export class AppModule {}

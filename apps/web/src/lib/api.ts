@@ -385,7 +385,34 @@ export interface HistoryImport {
   missing: string[]
 }
 
+export type YearCardKind = 'intro' | 'domains' | 'rated' | 'creators' | 'words' | 'vibe' | 'facts'
+
+/** «Tu año en Sintonía»: solo datos guardados; la IA, como mucho, redacta los titulares. */
+export interface YearSummary {
+  year: number
+  empty: boolean
+  totals: { sessions: number; recommended: number; seen: number; rated: number; domains: number }
+  domains: { id: string; name: string; sessions: number; seen: number }[]
+  topRated: { domainId: string; title: string; subtitle: string | null; imageUrl: string | null; rating: SeenRating }[]
+  creators: { domainId: string; name: string; count: number }[]
+  words: { word: string; count: number }[]
+  vibe: { domainId: string; name: string; sessions: number; bars: { key: string; label: string; value: number; word: string | null }[] } | null
+  facts: string[]
+}
+
+export interface YearView {
+  summary: YearSummary
+  cards: { kind: YearCardKind; headline: string }[]
+}
+
 export const api = {
+  getYear: () => request<YearView>('/year'),
+  /** Tarjeta como PNG 9:16 (Satori en la API). */
+  getYearCard: async (kind: YearCardKind) => {
+    const res = await fetch(`/api/year/card/${kind}`, { headers: userHeaders() })
+    if (!res.ok) throw new ApiError(res.status, `Error ${res.status}`)
+    return res.blob()
+  },
   getHistoryImport: (domainId: string) => request<{ import: HistoryImport | null }>(`/history/${domainId}`).then((r) => r.import),
   /** El CSV va tal cual (`text/csv`): se lee en el servidor y no se guarda. */
   startHistoryCsv: (domainId: string, csv: string) =>
