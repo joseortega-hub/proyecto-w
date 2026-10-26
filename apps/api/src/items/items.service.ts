@@ -6,7 +6,7 @@ import { items, type ItemRow } from '../db/schema.js';
 import type { FacetFilter } from '../interview/interview.engine.js';
 
 /** Columnas de un elemento sin el embedding (768 números que no hacen falta fuera de pgvector). */
-const { embedding: _embedding, ...itemColumns } = getTableColumns(items);
+export const { embedding: _embedding, ...itemColumns } = getTableColumns(items);
 export type ItemWithoutEmbedding = Omit<ItemRow, 'embedding'>;
 
 /** Lo que se envía al cliente de cada elemento. */

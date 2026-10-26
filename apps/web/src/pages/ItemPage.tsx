@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { Button, IconButton, Skeleton } from '@/components/atoms'
-import { EmptyState, SeenControl, UpNext } from '@/components/molecules'
+import { EmptyState, PerreoArtistLinks, SeenControl, UpNext } from '@/components/molecules'
 import { ItemDetail } from '@/components/organisms'
 import { api } from '@/lib/api'
 import { upNextInList } from '@/lib/up-next'
 import { useDomain } from '@/lib/domain'
 import { itemEntity, useEntityLinks } from '@/lib/links'
+import { usePerreoYouTube } from '@/lib/perreo'
 import { hasSeen, seenMap, seenWords, useSeen, useSeenMutation } from '@/lib/seen'
 import { usePlayer } from '@/player/player-context'
 import { toast } from 'sonner'
@@ -35,6 +36,8 @@ export function ItemPage() {
   const seen = seenMap(seenList.data)
   const linksName = item.data ? itemEntity(item.data, details.data) : null
   const links = useEntityLinks(domain.id, linksName)
+  // En «Mi YouTube», con el Modo Perreo desbloqueado: enlace a la ficha de sus artistas.
+  const perreo = usePerreoYouTube(domain.id === 'youtube')
 
   const back = (
     <IconButton icon="back" label="Volver" onClick={() => (history.length > 1 ? navigate(-1) : navigate(domain.path('biblioteca')))} />
@@ -66,6 +69,7 @@ export function ItemPage() {
           />
         )}
       </header>
+      {data && <PerreoArtistLinks artists={perreo.data?.links[data.id] ?? []} />}
       {!data || !domain.info ? (
         <div className="flex flex-col gap-4 md:flex-row" aria-busy>
           <Skeleton className="aspect-square w-full max-w-72 rounded-[14px]" />

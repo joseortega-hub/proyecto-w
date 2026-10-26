@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import { Button, Spinner } from '@/components/atoms'
-import { ArtistEditForm, ArtistProfile } from '@/components/organisms'
-import { photoUrl, useEditArtist, usePerreoArtist } from '@/lib/perreo'
+import { ArtistEditForm, ArtistProfile, YourYouTubeSongs } from '@/components/organisms'
+import { photoUrl, useEditArtist, usePerreoArtist, usePerreoArtistYouTube } from '@/lib/perreo'
 import { usePlayer } from '@/player/player-context'
 
 /** Ficha de un artista con su primera lista y «Hazme una lista con este artista». */
@@ -11,6 +11,7 @@ export function PerreoArtistPage() {
   const navigate = useNavigate()
   const player = usePlayer()
   const detail = usePerreoArtist(slug)
+  const saved = usePerreoArtistYouTube(slug)
   const editArtist = useEditArtist(slug ?? '')
   const [editing, setEditing] = useState(false)
   if (detail.isPending) return <Spinner label="Abriendo la ficha…" />
@@ -22,6 +23,13 @@ export function PerreoArtistPage() {
     if (player.listId === listId && player.index === index) return player.toggle()
     const entries = firstList.map((item) => ({ item, reason: `Para ${artist.name} y los suyos`, match: 0.9 }))
     player.playList(entries, { title: `${artist.name} y los suyos`, id: listId, domainId: 'perreo', start: index })
+  }
+  // «En tu YouTube»: suena como lista propia y cuenta para los gustos de «Mi YouTube».
+  const savedId = `perreo-yt-${artist.slug}`
+  const playSaved = (index: number) => {
+    if (player.listId === savedId && player.index === index) return player.toggle()
+    const entries = (saved.data ?? []).map((item) => ({ item, reason: `De tu YouTube: ${artist.name}`, match: 0 }))
+    player.playList(entries, { title: `${artist.name} en tu YouTube`, id: savedId, domainId: 'youtube', start: index })
   }
 
   return (
@@ -42,6 +50,13 @@ export function PerreoArtistPage() {
         onMakeList={() => navigate('/perreo/entrevista', { state: { initialText: `canciones de ${artist.name} y parecidos`, preferences: {} } })}
         onOpenArtist={(s) => navigate(`/perreo/artistas/${s}`)}
         onEdit={() => (editArtist.reset(), setEditing(true))}
+      />
+      <YourYouTubeSongs
+        artistName={artist.name}
+        songs={saved.data ?? []}
+        activeItemId={player.listId === savedId ? player.current?.item.id : null}
+        playing={player.playing}
+        onPlay={playSaved}
       />
       <ArtistEditForm
         open={editing}

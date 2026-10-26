@@ -83,6 +83,22 @@ export class PerreoController {
     return this.perreo.decide(id.slice(0, 80).toLowerCase(), status);
   }
 
+  /** «Mi YouTube» enlazado con los artistas: `{ links: { itemId: [{ slug, name }] }, top }`. Vacío sin desbloquear. */
+  @Get('youtube')
+  async youtube(@Headers(USER_HEADER) user?: string) {
+    const userId = optionalUserId(user);
+    if (!userId || !(await this.domains.hasUnlocked(userId))) return { links: {}, top: [] };
+    return this.perreo.youtubeLinks(userId);
+  }
+
+  /** «En tu YouTube»: las canciones guardadas de la persona en las que sale el artista. */
+  @Get('artists/:slug/youtube')
+  async artistYoutube(@Param('slug') slug: string, @Headers(USER_HEADER) user?: string) {
+    const userId = optionalUserId(user);
+    if (!userId || !(await this.domains.hasUnlocked(userId))) return [];
+    return this.perreo.youtubeSongs(slug.slice(0, 80).toLowerCase(), userId);
+  }
+
   @Get('artists/:slug')
   get(@Param('slug') slug: string) {
     return this.perreo.get(slug.slice(0, 80));

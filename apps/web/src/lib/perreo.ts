@@ -98,6 +98,17 @@ export function usePerreoArtist(slug: string | undefined) {
   return useQuery({ queryKey: ['perreo', 'artist', slug], queryFn: () => api.perreoArtist(slug!), enabled: !!slug, staleTime: 5 * 60_000 })
 }
 
+/** «Mi YouTube» enlazado con el Perreo; solo se pide con el modo desbloqueado. */
+export function usePerreoYouTube(enabled = true) {
+  const unlocked = !!usePerreoUnlock()
+  return useQuery({ queryKey: ['perreo', 'youtube'], queryFn: api.perreoYouTube, enabled: enabled && unlocked, staleTime: 5 * 60_000 })
+}
+
+export function usePerreoArtistYouTube(slug: string | undefined) {
+  const unlocked = !!usePerreoUnlock()
+  return useQuery({ queryKey: ['perreo', 'artist', slug, 'youtube'], queryFn: () => api.perreoArtistYouTube(slug!), enabled: !!slug && unlocked, staleTime: 5 * 60_000 })
+}
+
 export function usePerreoReview() {
   return useQuery({ queryKey: ['perreo', 'review'], queryFn: api.perreoReview, staleTime: 60_000 })
 }

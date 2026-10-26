@@ -5,7 +5,7 @@ import type { Preference, SessionPreferences } from './preferences'
 import type { CompareResult, Judgement, OpsPanel, TraceRow } from './ops-types'
 import type { ResolvedTheme } from '@sintonia/tokens/engine'
 import type { HomeSummary, RouteIntentResult, StoryView } from './home-types'
-import type { PerreoArtistDetail, PerreoArtistList, PerreoArtistPatch, PerreoReview } from './perreo-types'
+import type { PerreoArtistDetail, PerreoArtistList, PerreoArtistPatch, PerreoReview, PerreoYouTube } from './perreo-types'
 import type { PerreoCompare, PerreoHot, PerreoReleases } from './perreo-pulse'
 import { userHeaders } from './user'
 
@@ -463,6 +463,10 @@ export const api = {
   perreoEdit: (slug: string, patch: PerreoArtistPatch) =>
     request<PerreoArtistDetail>(`/perreo/artists/${encodeURIComponent(slug)}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   perreoArtist: (slug: string) => request<PerreoArtistDetail>(`/perreo/artists/${encodeURIComponent(slug)}`),
+  /** «Mi YouTube» enlazado con los artistas (vacío sin el Modo Perreo desbloqueado). */
+  perreoYouTube: () => request<PerreoYouTube>('/perreo/youtube'),
+  /** «En tu YouTube»: las canciones guardadas en las que sale el artista. */
+  perreoArtistYouTube: (slug: string) => request<Item[]>(`/perreo/artists/${encodeURIComponent(slug)}/youtube`),
   /** El pulso del Modo Perreo (lo precalcula `pnpm perreo:pulse`). */
   perreoReleases: (query: string) => request<PerreoReleases>(`/perreo/releases?${query}`),
   perreoHot: (query: string) => request<PerreoHot>(`/perreo/hot?${query}`),

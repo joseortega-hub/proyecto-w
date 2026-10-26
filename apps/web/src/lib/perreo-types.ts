@@ -97,6 +97,14 @@ export interface PerreoArtistDetail {
   firstList: Item[]
 }
 
+/** «Mi YouTube» enlazado con los artistas del Perreo (por persona). */
+export interface PerreoYouTube {
+  /** Por canción de «Mi YouTube» (id del elemento), los artistas del Perreo que salen en ella. */
+  links: Record<string, { slug: string; name: string }[]>
+  /** Artistas con más canciones guardadas. */
+  top: { artist: PerreoArtist; count: number }[]
+}
+
 export type PerreoSort = 'fame' | 'age' | 'name'
 
 /** Filtros del explorador; se convierten en la query de la API. */

@@ -5,7 +5,9 @@ import { and, desc, eq, getTableColumns, inArray, isNull, sql } from 'drizzle-or
 import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
 import { items, perreoArtists, perreoReview } from '../db/schema.js';
-import { publicItem } from '../items/items.service.js';
+import { itemColumns, publicItem } from '../items/items.service.js';
+import { youtubeDomain } from '../domains/youtube.domain.js';
+import { buildArtistIndex, linkSongs } from './perreo.youtube.js';
 import { upsertItems } from '../catalog/upsert.js';
 import { isPrivateHost, planEdit, youtubeId, type ArtistPatch } from './perreo.edit.js';
 import { artistColor } from './perreo.color.js';
@@ -81,6 +83,47 @@ export class PerreoService {
     const [row] = await this.db.select({ photo: perreoArtists.photo }).from(perreoArtists).where(eq(perreoArtists.slug, slug));
     if (!row?.photo) throw new NotFoundException('Sin foto');
     return Buffer.from(row.photo, 'base64');
+  }
+
+  private youtubeIndex: { rows: Artist[]; index: Map<string, string[]> } | null = null;
+
+  /**
+   * «Mi YouTube» de una persona enlazado con los artistas del Perreo (visibles). Las canciones son
+   * suyas (`owner_id`) y no se copian al catálogo común: el enlace se calcula al pedirlo.
+   */
+  private async yourYoutube(userId: string) {
+    const rows = (await this.all()).filter((r) => !r.hidden);
+    if (this.youtubeIndex?.rows.length !== rows.length || this.youtubeIndex.rows.some((r, i) => r !== rows[i])) {
+      this.youtubeIndex = { rows, index: buildArtistIndex(rows) };
+    }
+    const songs = await this.db
+      .select(itemColumns)
+      .from(items)
+      .where(and(eq(items.domainId, youtubeDomain.id), eq(items.ownerId, userId)))
+      .orderBy(desc(items.popularity), desc(items.createdAt));
+    return { rows, ...linkSongs(songs.map((s) => ({ ...s, videoId: s.externalId })), this.youtubeIndex.index) };
+  }
+
+  /** «En tu YouTube» de la ficha: las canciones guardadas de la persona en las que sale el artista. */
+  async youtubeSongs(slug: string, userId: string) {
+    const { bySlug } = await this.yourYoutube(userId);
+    return (bySlug.get(slug) ?? []).map(({ videoId: _v, ...s }) => publicItem(s));
+  }
+
+  /**
+   * Para «Mi YouTube»: qué artistas del Perreo salen en cada canción (enlace a su ficha) y
+   * los artistas con más canciones guardadas («Tu más escuchado»).
+   */
+  async youtubeLinks(userId: string) {
+    const { rows, bySlug, bySong } = await this.yourYoutube(userId);
+    const bySlugRow = new Map(rows.map((r) => [r.slug, r]));
+    const links: Record<string, { slug: string; name: string }[]> = {};
+    for (const [id, slugs] of bySong) links[id] = slugs.flatMap((s) => (bySlugRow.has(s) ? [{ slug: s, name: bySlugRow.get(s)!.name }] : []));
+    const top = [...bySlug]
+      .map(([slug, songs]) => ({ artist: summary(bySlugRow.get(slug)!), count: songs.length }))
+      .sort((a, b) => b.count - a.count || b.artist.fame - a.artist.fame)
+      .slice(0, 10);
+    return { links, top };
   }
 
   /** Canciones de varios artistas, las más conocidas primero. */

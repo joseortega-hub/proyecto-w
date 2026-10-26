@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Icon, type IconName } from '@/components/atoms'
-import { ArtistAvatar, HotRow, ReleaseCard } from '@/components/molecules'
-import { photoUrl, usePerreoArtist, usePerreoArtists, usePerreoUnlock } from '@/lib/perreo'
+import { ArtistAvatar, HotRow, ReleaseCard, SavedArtistsTop } from '@/components/molecules'
+import { photoUrl, usePerreoArtist, usePerreoArtists, usePerreoUnlock, usePerreoYouTube } from '@/lib/perreo'
 import { artistOfTheDay, useHot, useReleases } from '@/lib/perreo-pulse'
 import { NO_FILTERS } from '@/lib/perreo-types'
 import '@/styles/perreo.css'
@@ -20,6 +20,7 @@ export function PerreoHomePage() {
   const unlock = usePerreoUnlock()
   const mine = usePerreoArtist(unlock?.slug)
   const all = usePerreoArtists(NO_FILTERS)
+  const saved = usePerreoYouTube()
   const hot = useHot('week')
   const fresh = useReleases('month', '')
   const daily = artistOfTheDay(all.data?.artists ?? [])
@@ -56,6 +57,16 @@ export function PerreoHomePage() {
           </span>
           <Icon name="next" className="ml-auto size-5 flex-none text-white/60" />
         </Link>
+      )}
+
+      {!!saved.data?.top.length && (
+        <section className="flex flex-col gap-3" aria-labelledby="tu-rotacion">
+          <h2 id="tu-rotacion" className="font-poster text-4xl text-white">
+            🎧 Tu más escuchado
+          </h2>
+          <p className="-mt-2 text-sm text-white/65">Los que más tienes guardados en tu YouTube.</p>
+          <SavedArtistsTop top={saved.data.top} />
+        </section>
       )}
 
       {!!hot.data?.entries.length && (
