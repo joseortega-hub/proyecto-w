@@ -11,13 +11,20 @@ const miko = a('Young Miko', '#9357c9')
 const duo: PerreoCompare = {
   updated: '2026-10-25',
   artists: [yankee, alfa],
-  values: { [yankee.slug]: { youtubeViews: 21_000_000_000, lastfmListeners: 3_100_000, deezerFans: 9_800_000, releasesYear: 2, fame: 98 }, [alfa.slug]: { youtubeViews: 4_300_000_000, lastfmListeners: 610_000, deezerFans: 1_200_000, releasesYear: 9, fame: 74 } },
+  values: { [yankee.slug]: { youtubeViews: 21_000_000_000, lastfmListeners: 3_100_000, deezerFans: 9_800_000, releasesYear: 2, fame: 98, yearsActive: 35, albumsPerYear: 0.6 }, [alfa.slug]: { youtubeViews: 4_300_000_000, lastfmListeners: 610_000, deezerFans: 1_200_000, releasesYear: 9, fame: 74, yearsActive: 19, albumsPerYear: 1.5 } },
+  profiles: {
+    [yankee.slug]: { debutYear: 1992, activeUntil: null, status: 'retired', country: 'Puerto Rico', city: 'San Juan', labels: ['El Cartel Records'], styles: ['reguetón', 'dembow'], topIn: [{ country: 'Puerto Rico', rank: 4 }] },
+    [alfa.slug]: { debutYear: 2008, activeUntil: null, status: 'active', country: 'República Dominicana', city: 'Santo Domingo', labels: ['El Jefe Records'], styles: ['dembow'], topIn: [] },
+  },
+  historyDays: 1,
   result: {
     metrics: [
-      { id: 'youtubeViews', label: 'Visitas en YouTube', source: 'YouTube', max: 21e9, winners: [yankee.slug], shares: { [yankee.slug]: 1, [alfa.slug]: 0.2 } },
+      { id: 'youtubeViews', label: 'Visitas en YouTube', source: 'YouTube', group: 'audience', scale: 'log', max: 21e9, winners: [yankee.slug], shares: { [yankee.slug]: 1, [alfa.slug]: 0.2 }, bars: { [yankee.slug]: 1, [alfa.slug]: 0.93 } },
       { id: 'lastfmListeners', label: 'Oyentes en Last.fm', source: 'Last.fm', max: 3.1e6, winners: [yankee.slug], shares: { [yankee.slug]: 1, [alfa.slug]: 0.2 } },
       { id: 'deezerFans', label: 'Fans en Deezer', source: 'Deezer', max: 9.8e6, winners: [yankee.slug], shares: { [yankee.slug]: 1, [alfa.slug]: 0.12 } },
-      { id: 'releasesYear', label: 'Lanzamientos este año', source: 'Deezer y MusicBrainz', max: 9, winners: [alfa.slug], shares: { [yankee.slug]: 0.22, [alfa.slug]: 1 } },
+      { id: 'releasesYear', label: 'Lanzamientos este año', source: 'Deezer y MusicBrainz', group: 'career', max: 9, winners: [alfa.slug], shares: { [yankee.slug]: 0.22, [alfa.slug]: 1 } },
+      { id: 'yearsActive', label: 'Años en activo', source: 'Sintonía', group: 'career', max: 35, winners: [yankee.slug], shares: { [yankee.slug]: 1, [alfa.slug]: 0.54 } },
+      { id: 'albumsPerYear', label: 'Discos por año en activo', source: 'Deezer', group: 'career', max: 1.5, winners: [alfa.slug], shares: { [yankee.slug]: 0.4, [alfa.slug]: 1 } },
     ],
     wins: { [yankee.slug]: 3, [alfa.slug]: 1 },
     champion: yankee.slug,

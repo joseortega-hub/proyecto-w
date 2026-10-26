@@ -59,18 +59,112 @@ export interface PerreoHot {
   entries: HotEntry[]
 }
 
-export type CompareMetricId = 'youtubeViews' | 'lastfmListeners' | 'lastfmPlays' | 'deezerFans' | 'releasesYear' | 'fame' | 'streetLevel'
+export type CompareMetricId =
+  | 'youtubeViews'
+  | 'youtubeSubs'
+  | 'lastfmListeners'
+  | 'lastfmPlays'
+  | 'deezerFans'
+  | 'fame'
+  | 'topCountries'
+  | 'streetLevel'
+  | 'yearsActive'
+  | 'deezerAlbums'
+  | 'albumsPerYear'
+  | 'catalogSongs'
+  | 'collabs'
+  | 'releasesYear'
+export type CompareGroup = 'audience' | 'street' | 'career'
+export type HistoryMetric = 'lastfmListeners' | 'deezerFans' | 'youtubeViews' | 'fame'
+export type HistoryPoint = { day: string } & Partial<Record<HistoryMetric, number | null>>
+
+/** Lo que se sabe de cada uno, sin número que comparar (la «ficha» del 1 vs 1). */
+export interface VersusProfile {
+  debutYear: number | null
+  activeUntil: number | null
+  status: string | null
+  country: string | null
+  city: string | null
+  labels: string[]
+  styles: string[]
+  topIn: { country: string; rank: number }[]
+}
+
+export interface CompareMetricResult {
+  id: CompareMetricId
+  label: string
+  source: string
+  group?: CompareGroup
+  scale?: 'log' | 'linear'
+  max: number
+  winners: string[]
+  shares: Record<string, number | null>
+  /** Largo de la barra (escala logarítmica en audiencia); si falta, `shares`. */
+  bars?: Record<string, number | null>
+}
 
 export interface PerreoCompare {
   updated: string | null
   artists: PulseArtist[]
   values: Record<string, Partial<Record<CompareMetricId, number | null>>>
+  profiles?: Record<string, VersusProfile>
+  /** Fotos diarias de `perreo:pulse` por artista, de la más antigua a la más reciente. */
+  history?: Record<string, HistoryPoint[]>
+  /** Días distintos con foto: con menos de 2 no hay evolución. */
+  historyDays?: number
   result: {
-    metrics: { id: CompareMetricId; label: string; source: string; max: number; winners: string[]; shares: Record<string, number | null> }[]
+    metrics: CompareMetricResult[]
     wins: Record<string, number>
     champion: string | null
   }
 }
+
+export const COMPARE_GROUPS: { id: CompareGroup; label: string }[] = [
+  { id: 'audience', label: 'La audiencia' },
+  { id: 'street', label: 'La calle' },
+  { id: 'career', label: 'La carrera' },
+]
+
+export const HISTORY_LABELS: Record<HistoryMetric, string> = {
+  lastfmListeners: 'Oyentes en Last.fm',
+  deezerFans: 'Fans en Deezer',
+  youtubeViews: 'Visitas en YouTube',
+  fame: 'Popularidad',
+}
+
+/** Cifra de una métrica: las de ritmo con un decimal («1,5»), el resto compactas. */
+export const metricNumber = (n: number | null | undefined) => (n != null && !Number.isInteger(n) ? n.toFixed(1).replace('.', ',') : compactNumber(n))
+
+/** Métricas del historial con al menos 2 días de datos de alguien. */
+export function historyMetrics(history: Record<string, HistoryPoint[]> | undefined): HistoryMetric[] {
+  if (!history) return []
+  return (Object.keys(HISTORY_LABELS) as HistoryMetric[]).filter((m) => Object.values(history).some((pts) => pts.filter((p) => p[m] != null).length >= 2))
+}
+
+/**
+ * Líneas de la evolución: eje X por día (común a todos) y eje Y de 0 a 1 entre el mínimo y el
+ * máximo de todos, para que se vea quién sube más. Cada artista lleva su crecimiento del primer al último día.
+ */
+export function historyLines(history: Record<string, HistoryPoint[]>, metric: HistoryMetric) {
+  const days = [...new Set(Object.values(history).flatMap((pts) => pts.filter((p) => p[metric] != null).map((p) => p.day)))].sort()
+  const values = Object.values(history).flatMap((pts) => pts.map((p) => p[metric]).filter((v): v is number => v != null))
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const x = (day: string) => (days.length > 1 ? days.indexOf(day) / (days.length - 1) : 0.5)
+  const y = (v: number) => (max > min ? (v - min) / (max - min) : 0.5)
+  const lines = Object.fromEntries(
+    Object.entries(history).map(([slug, pts]) => {
+      const known = pts.filter((p): p is HistoryPoint & Record<HistoryMetric, number> => p[metric] != null)
+      const first = known[0]?.[metric]
+      const last = known.at(-1)?.[metric]
+      return [slug, { points: known.map((p) => ({ x: x(p.day), y: y(p[metric]) })), growth: known.length >= 2 && first ? (last! - first) / first : null }]
+    }),
+  )
+  return { days, lines }
+}
+
+/** +3,2 % / −0,4 % / = */
+export const growthLabel = (g: number | null) => (g == null ? '' : Math.abs(g) < 0.0005 ? '=' : `${g > 0 ? '+' : '−'}${(Math.abs(g) * 100).toFixed(1).replace('.', ',')} %`)
 
 export const PERIOD_LABELS: Record<ReleasePeriod, string> = { week: 'Esta semana', month: 'Este mes', year: 'Este año', upcoming: 'Lo que viene' }
 export const PERIOD_HINTS: Record<ReleasePeriod, string> = { week: 'últimos 7 días', month: 'últimos 30 días', year: 'desde el 1 de enero', upcoming: 'fechas anunciadas' }

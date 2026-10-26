@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { artistOfTheDay, barWidth, compactNumber, countUp, releaseWhen } from './perreo-pulse'
+import { artistOfTheDay, barWidth, compactNumber, countUp, growthLabel, historyLines, historyMetrics, metricNumber, releaseWhen } from './perreo-pulse'
 import type { PerreoArtist } from './perreo-types'
 
 describe('cifras del pulso', () => {
@@ -51,5 +51,36 @@ describe('artista del día', () => {
     expect(['a', 'b', 'c']).toContain(pick.slug)
     expect(artistOfTheDay([...list].reverse(), new Date('2026-10-26T22:00:00Z'))!.slug).toBe(pick.slug)
     expect(artistOfTheDay([], d)).toBeNull()
+  })
+})
+
+describe('historial del 1 vs 1', () => {
+  const history = {
+    a: [
+      { day: '2026-10-24', lastfmListeners: 100, fame: null },
+      { day: '2026-10-26', lastfmListeners: 110, fame: null },
+    ],
+    b: [{ day: '2026-10-26', lastfmListeners: 300, fame: 80 }],
+  }
+  it('solo ofrece métricas con al menos 2 días de alguien', () => {
+    expect(historyMetrics(history)).toEqual(['lastfmListeners'])
+    expect(historyMetrics(undefined)).toEqual([])
+  })
+  it('dibuja con eje de días común y escala entre el mínimo y el máximo de todos', () => {
+    const { days, lines } = historyLines(history, 'lastfmListeners')
+    expect(days).toEqual(['2026-10-24', '2026-10-26'])
+    expect(lines.a.points).toEqual([
+      { x: 0, y: 0 },
+      { x: 1, y: 0.05 },
+    ])
+    expect(lines.a.growth).toBeCloseTo(0.1)
+    expect(lines.b.growth).toBeNull()
+  })
+  it('formatea el crecimiento y las cifras con decimales', () => {
+    expect(growthLabel(0.032)).toBe('+3,2 %')
+    expect(growthLabel(-0.004)).toBe('−0,4 %')
+    expect(growthLabel(0)).toBe('=')
+    expect(metricNumber(1.5)).toBe('1,5')
+    expect(metricNumber(12_000)).toBe('12 mil')
   })
 })

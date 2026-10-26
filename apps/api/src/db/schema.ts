@@ -303,6 +303,10 @@ export const perreoStats = pgTable(
     deezerFans: integer('deezer_fans'),
     youtubeViews: bigint('youtube_views', { mode: 'number' }),
     youtubeSubs: integer('youtube_subs'),
+    /** Discos y EP según Deezer (`nb_album`) ese día. */
+    deezerAlbums: integer('deezer_albums'),
+    /** Popularidad de Sintonía (0–100) ese día: con varios días, su evolución en el 1 vs 1. */
+    fame: real('fame'),
     /** { "España": 3 }: puesto en `geo.getTopArtists` de Last.fm. */
     geo: jsonb('geo').$type<Record<string, number>>().notNull().default({}),
   },

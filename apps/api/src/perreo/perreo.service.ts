@@ -92,6 +92,18 @@ export class PerreoService {
       .limit(limit);
   }
 
+  /** Para el 1 vs 1: la ficha completa de cada uno y los títulos de sus canciones en el catálogo. */
+  async versusFacts(slugs: string[]) {
+    const rows = (await this.all()).filter((r) => slugs.includes(r.slug));
+    const songs = slugs.length
+      ? await this.db
+          .select({ title: items.title, artist: sql<string>`${items.facets}->>'artist'` })
+          .from(items)
+          .where(and(eq(items.domainId, PERREO_DOMAIN), inArray(sql`${items.facets}->>'artist'`, slugs)))
+      : [];
+    return new Map(rows.map((r) => [r.slug, { artist: r, songTitles: songs.filter((s) => s.artist === r.slug).map((s) => s.title) }]));
+  }
+
   /** Cuentas dudosas de la segunda pasada que esperan una decisión. */
   async pendingReview() {
     const rows = await this.db.select().from(perreoReview);

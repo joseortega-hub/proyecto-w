@@ -79,6 +79,11 @@ export interface StatSnapshot {
   lastfmPlays: number | null;
   deezerFans: number | null;
   youtubeViews: number | null;
+  youtubeSubs?: number | null;
+  /** Discos y EP según Deezer (`nb_album`) ese día. */
+  deezerAlbums?: number | null;
+  /** Popularidad de Sintonía (0–100) ese día. */
+  fame?: number | null;
   /** Puesto en el top de Last.fm de cada país (nombre en español). */
   geo: Record<string, number>;
 }
@@ -154,16 +159,29 @@ export function rankHot(list: HotInput[], opts: { period: Period; country?: stri
 
 // ------------------------------------ Cara a cara ------------------------------------
 
+/**
+ * Métricas del cara a cara. `scale: 'log'` en las de audiencia: entre 21 000 M y 4 M de visitas
+ * la barra lineal del pequeño ni se vería; en escala logarítmica se compara el orden de magnitud,
+ * que es lo justo entre una leyenda y alguien que empieza. Las cifras y quién gana no cambian.
+ */
 export const COMPARE_METRICS = [
-  { id: 'youtubeViews', label: 'Visitas en YouTube', source: 'YouTube' },
-  { id: 'lastfmListeners', label: 'Oyentes en Last.fm', source: 'Last.fm' },
-  { id: 'lastfmPlays', label: 'Reproducciones en Last.fm', source: 'Last.fm' },
-  { id: 'deezerFans', label: 'Fans en Deezer', source: 'Deezer' },
-  { id: 'releasesYear', label: 'Lanzamientos este año', source: 'Deezer y MusicBrainz' },
-  { id: 'fame', label: 'Popularidad', source: 'Sintonía' },
-  { id: 'streetLevel', label: 'Nivel de calle', source: 'A mano' },
+  { id: 'youtubeViews', label: 'Visitas en YouTube', source: 'YouTube', group: 'audience', scale: 'log' },
+  { id: 'youtubeSubs', label: 'Suscriptores en YouTube', source: 'YouTube', group: 'audience', scale: 'log' },
+  { id: 'lastfmListeners', label: 'Oyentes en Last.fm', source: 'Last.fm', group: 'audience', scale: 'log' },
+  { id: 'lastfmPlays', label: 'Reproducciones en Last.fm', source: 'Last.fm', group: 'audience', scale: 'log' },
+  { id: 'deezerFans', label: 'Fans en Deezer', source: 'Deezer', group: 'audience', scale: 'log' },
+  { id: 'fame', label: 'Popularidad', source: 'Sintonía', group: 'street', scale: 'linear' },
+  { id: 'topCountries', label: 'Países donde está en el top', source: 'Last.fm', group: 'street', scale: 'linear' },
+  { id: 'streetLevel', label: 'Nivel de calle', source: 'A mano', group: 'street', scale: 'linear' },
+  { id: 'yearsActive', label: 'Años en activo', source: 'Sintonía', group: 'career', scale: 'linear' },
+  { id: 'deezerAlbums', label: 'Discos y EP', source: 'Deezer', group: 'career', scale: 'linear' },
+  { id: 'albumsPerYear', label: 'Discos por año en activo', source: 'Deezer', group: 'career', scale: 'linear' },
+  { id: 'catalogSongs', label: 'Canciones en Sintonía', source: 'YouTube', group: 'career', scale: 'linear' },
+  { id: 'collabs', label: 'Colaboraciones', source: 'Títulos con feat., ft. o x', group: 'career', scale: 'linear' },
+  { id: 'releasesYear', label: 'Lanzamientos este año', source: 'Deezer y MusicBrainz', group: 'career', scale: 'linear' },
 ] as const;
 export type CompareMetric = (typeof COMPARE_METRICS)[number]['id'];
+export type CompareGroup = (typeof COMPARE_METRICS)[number]['group'];
 
 export interface CompareRow {
   slug: string;
@@ -171,7 +189,19 @@ export interface CompareRow {
 }
 
 export interface CompareResult {
-  metrics: { id: CompareMetric; label: string; source: string; max: number; winners: string[]; shares: Record<string, number | null> }[];
+  metrics: {
+    id: CompareMetric;
+    label: string;
+    source: string;
+    group: CompareGroup;
+    scale: 'log' | 'linear';
+    max: number;
+    winners: string[];
+    /** Fracción lineal del mayor (0–1). */
+    shares: Record<string, number | null>;
+    /** Largo de la barra (0–1) en la escala de la métrica: lo que se dibuja. */
+    bars: Record<string, number | null>;
+  }[];
   /** Cuántas métricas gana cada uno (el marcador). */
   wins: Record<string, number>;
   /** El que más gana; null si hay empate arriba. */
@@ -192,11 +222,45 @@ export function normalizeCompare(rows: CompareRow[]): CompareResult {
     const winners = max > 0 ? rows.filter((_, i) => vals[i] === max).map((r) => r.slug) : [];
     for (const w of winners) wins[w]++;
     const shares = Object.fromEntries(rows.map((r, i) => [r.slug, vals[i] == null ? null : max > 0 ? vals[i]! / max : 0]));
-    return [{ id: m.id, label: m.label, source: m.source, max, winners, shares }];
+    const bars =
+      m.scale === 'log'
+        ? Object.fromEntries(rows.map((r, i) => [r.slug, vals[i] == null ? null : max > 0 ? Math.log10(1 + Math.max(0, vals[i]!)) / Math.log10(1 + max) : 0]))
+        : shares;
+    return [{ id: m.id, label: m.label, source: m.source, group: m.group, scale: m.scale, max, winners, shares, bars }];
   });
   const top = Math.max(0, ...Object.values(wins));
   const leaders = Object.keys(wins).filter((k) => wins[k] === top);
   return { metrics, wins, champion: top > 0 && leaders.length === 1 ? leaders[0] : null };
+}
+
+/** Años en activo contando el del debut; hasta el último si lo dejó. Sin año de debut, no se sabe. */
+export function yearsActive(debutYear: number | null, activeUntil: number | null, now = new Date()): number | null {
+  if (!debutYear) return null;
+  const end = Math.min(activeUntil ?? now.getUTCFullYear(), now.getUTCFullYear());
+  return Math.max(1, end - debutYear + 1);
+}
+
+/** Canciones con otro artista en el título («feat.», «ft.», «featuring», « x », « con »). */
+export const isCollab = (title: string) => /\b(feat|ft|featuring)\b\.?|\s(x|con|&)\s/i.test(title);
+
+export const HISTORY_METRICS = ['lastfmListeners', 'deezerFans', 'youtubeViews', 'fame'] as const;
+export type HistoryMetric = (typeof HISTORY_METRICS)[number];
+export type HistoryPoint = { day: string } & Partial<Record<HistoryMetric, number | null>>;
+
+/**
+ * La evolución de cada artista con las fotos diarias de `perreo:pulse` (las últimas `limit`), y
+ * cuántos días distintos hay entre todos: con menos de 2 no hay evolución que dibujar.
+ */
+export function compareHistory(bySlug: Record<string, (StatSnapshot & { fame?: number | null })[]>, limit = 90) {
+  const history: Record<string, HistoryPoint[]> = {};
+  const days = new Set<string>();
+  for (const [slug, snaps] of Object.entries(bySlug)) {
+    history[slug] = snaps.slice(-limit).map((s) => {
+      days.add(s.day);
+      return { day: s.day, lastfmListeners: s.lastfmListeners, deezerFans: s.deezerFans, youtubeViews: s.youtubeViews, fame: s.fame ?? null };
+    });
+  }
+  return { history, days: days.size };
 }
 
 // ------------------------------------ Países ------------------------------------

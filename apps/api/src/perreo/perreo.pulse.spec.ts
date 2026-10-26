@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterReleases, growthBetween, inPeriod, normalizeCompare, periodRange, rankHot, type HotInput, type Release, type StatSnapshot } from './perreo.pulse.js';
+import { compareHistory, filterReleases, isCollab, yearsActive, growthBetween, inPeriod, normalizeCompare, periodRange, rankHot, type HotInput, type Release, type StatSnapshot } from './perreo.pulse.js';
 
 // Domingo 25/10/2026, víspera de la demo.
 const NOW = new Date('2026-10-25T12:00:00Z');
@@ -92,5 +92,46 @@ describe('cifras del cara a cara', () => {
     expect(res.metrics.map((m) => m.id)).toEqual(['deezerFans']);
     expect(res.metrics[0].shares).toEqual({ a: 1, b: null, c: 0 });
     expect(res.champion).toBe('a');
+  });
+});
+
+describe('1 vs 1 completo', () => {
+  it('en audiencia la barra va en escala logarítmica: el pequeño se ve, pero gana el grande', () => {
+    const res = normalizeCompare([
+      { slug: 'leyenda', values: { youtubeViews: 21e9, yearsActive: 30 } },
+      { slug: 'nuevo', values: { youtubeViews: 4e6, yearsActive: 2 } },
+    ]);
+    const yt = res.metrics.find((m) => m.id === 'youtubeViews')!;
+    expect(yt.scale).toBe('log');
+    expect(yt.winners).toEqual(['leyenda']);
+    expect(yt.shares.nuevo).toBeLessThan(0.001);
+    expect(yt.bars.nuevo).toBeGreaterThan(0.6);
+    const years = res.metrics.find((m) => m.id === 'yearsActive')!;
+    expect(years.bars).toEqual(years.shares);
+  });
+
+  it('años en activo cuentan el del debut y paran si lo dejó', () => {
+    expect(yearsActive(2016, null, NOW)).toBe(11);
+    expect(yearsActive(2004, 2010, NOW)).toBe(7);
+    expect(yearsActive(2026, null, NOW)).toBe(1);
+    expect(yearsActive(null, null, NOW)).toBeNull();
+  });
+
+  it('reconoce colaboraciones en el título', () => {
+    expect(isCollab('Luna (feat. ATL Jacob)')).toBe(true);
+    expect(isCollab('Bichiyal ft. Jhay Cortez')).toBe(true);
+    expect(isCollab('Feid x ATL Jacob - Luna')).toBe(true);
+    expect(isCollab('Xtasis')).toBe(false);
+    expect(isCollab('Felices los 4')).toBe(false);
+  });
+
+  it('el historial cuenta los días distintos entre todos', () => {
+    const s = (day: string, n: number): StatSnapshot => ({ day, lastfmListeners: n, lastfmPlays: null, deezerFans: null, youtubeViews: null, geo: {} });
+    const one = compareHistory({ a: [s('2026-10-26', 1)], b: [s('2026-10-26', 2)] });
+    expect(one.days).toBe(1);
+    const two = compareHistory({ a: [s('2026-10-25', 1), s('2026-10-26', 2)], b: [] });
+    expect(two.days).toBe(2);
+    expect(two.history.a.map((p) => p.lastfmListeners)).toEqual([1, 2]);
+    expect(compareHistory({ a: [s('1', 1), s('2', 2), s('3', 3)] }, 2).history.a.map((p) => p.day)).toEqual(['2', '3']);
   });
 });

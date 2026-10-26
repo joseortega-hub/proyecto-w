@@ -4,7 +4,7 @@ import type { Db } from '../db/client.js';
 import { DB } from '../db/db.module.js';
 import { perreoReleases, perreoStats } from '../db/schema.js';
 import { fold, type ArtistSummary } from './perreo.filters.js';
-import { filterReleases, inPeriod, normalizeCompare, rankHot, RELEASE_PERIODS, type CompareRow, type Period, type Release, type ReleasePeriod, type StatSnapshot } from './perreo.pulse.js';
+import { compareHistory, filterReleases, inPeriod, isCollab, normalizeCompare, yearsActive, rankHot, RELEASE_PERIODS, type CompareRow, type Period, type Release, type ReleasePeriod, type StatSnapshot } from './perreo.pulse.js';
 import { PerreoService } from './perreo.service.js';
 
 type StatRow = typeof perreoStats.$inferSelect;
@@ -37,7 +37,7 @@ export class PerreoPulseService {
     ]);
     const byArtist = new Map<string, StatSnapshot[]>();
     for (const s of stats) {
-      const snap = { day: s.day, lastfmListeners: s.lastfmListeners, lastfmPlays: s.lastfmPlays, deezerFans: s.deezerFans, youtubeViews: s.youtubeViews, geo: s.geo };
+      const snap = { day: s.day, lastfmListeners: s.lastfmListeners, lastfmPlays: s.lastfmPlays, deezerFans: s.deezerFans, youtubeViews: s.youtubeViews, youtubeSubs: s.youtubeSubs, deezerAlbums: s.deezerAlbums, fame: s.fame, geo: s.geo };
       byArtist.set(s.artistSlug, [...(byArtist.get(s.artistSlug) ?? []), snap]);
     }
     const updated = stats.length ? stats[stats.length - 1].day : null;
@@ -82,22 +82,68 @@ export class PerreoPulseService {
   async compare(slugs: string[]) {
     const [{ releases, stats, updated }, artists] = await Promise.all([this.data(), this.perreo.visible()]);
     const picked = slugs.map((s) => artists.find((a) => a.slug === s)).filter((a): a is ArtistSummary => !!a);
+    const facts = await this.perreo.versusFacts(picked.map((a) => a.slug));
     const rows: CompareRow[] = picked.map((a) => {
-      const last = stats.get(a.slug)?.at(-1);
+      const snaps = stats.get(a.slug) ?? [];
+      const last = snaps.at(-1);
+      const full = facts.get(a.slug);
+      const years = yearsActive(a.debutYear, full?.artist.activeUntil ?? null);
+      // Si el último día no trae un dato (fallo de una fuente), vale el más reciente que lo tenga.
+      const latest = <K extends 'youtubeSubs' | 'deezerAlbums'>(k: K) => [...snaps].reverse().find((s) => s[k] != null)?.[k] ?? null;
+      const albums = latest('deezerAlbums');
+      const titles = full?.songTitles ?? [];
       return {
         slug: a.slug,
         values: {
           youtubeViews: last?.youtubeViews ?? null,
+          youtubeSubs: latest('youtubeSubs'),
           lastfmListeners: last?.lastfmListeners ?? null,
           lastfmPlays: last?.lastfmPlays ?? null,
           deezerFans: last?.deezerFans ?? null,
           // Sin pulso no se sabe: mejor «sin dato» que un cero falso.
           releasesYear: last ? releases.filter((r) => r.artistSlug === a.slug && inPeriod(r.releaseDate, 'year')).length : null,
+          topCountries: last ? Object.keys(last.geo).length : null,
           fame: Math.round(a.fame),
           streetLevel: a.streetLevel ?? null,
+          yearsActive: years,
+          deezerAlbums: albums,
+          // Discos por año: el ritmo, justo entre un veterano y alguien que empieza.
+          albumsPerYear: albums != null && years ? Math.round((albums / years) * 10) / 10 : null,
+          catalogSongs: titles.length || null,
+          collabs: titles.length ? titles.filter(isCollab).length : null,
         },
       };
     });
-    return { updated, artists: picked.map(this.lite), values: Object.fromEntries(rows.map((r) => [r.slug, r.values])), result: normalizeCompare(rows) };
+    const profiles = Object.fromEntries(
+      picked.map((a) => {
+        const full = facts.get(a.slug)?.artist;
+        return [
+          a.slug,
+          {
+            debutYear: a.debutYear,
+            activeUntil: full?.activeUntil ?? null,
+            status: full?.status ?? null,
+            country: a.country,
+            city: a.city,
+            labels: a.labels.slice(0, 4),
+            styles: a.styles.slice(0, 5),
+            topIn: Object.entries(stats.get(a.slug)?.at(-1)?.geo ?? {})
+              .sort((x, y) => x[1] - y[1])
+              .slice(0, 3)
+              .map(([country, rank]) => ({ country, rank })),
+          },
+        ];
+      }),
+    );
+    const { history, days } = compareHistory(Object.fromEntries(picked.map((a) => [a.slug, stats.get(a.slug) ?? []])));
+    return {
+      updated,
+      artists: picked.map(this.lite),
+      values: Object.fromEntries(rows.map((r) => [r.slug, r.values])),
+      profiles,
+      history,
+      historyDays: days,
+      result: normalizeCompare(rows),
+    };
   }
 }

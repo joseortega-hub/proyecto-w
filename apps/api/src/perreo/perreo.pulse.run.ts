@@ -71,7 +71,7 @@ const year = today.slice(0, 4);
 try {
   await migrate(db, { migrationsFolder: resolve(dirname(fileURLToPath(import.meta.url)), '../../drizzle') });
   const all = await db
-    .select({ slug: perreoArtists.slug, name: perreoArtists.name, kind: perreoArtists.kind, channel: perreoArtists.youtubeChannelId, aliases: perreoArtists.aliases })
+    .select({ slug: perreoArtists.slug, name: perreoArtists.name, kind: perreoArtists.kind, channel: perreoArtists.youtubeChannelId, aliases: perreoArtists.aliases, fame: perreoArtists.fame })
     .from(perreoArtists)
     .where(and(eq(perreoArtists.incomplete, false), eq(perreoArtists.hidden, false), inArray(perreoArtists.kind, ['artist', 'group'])));
   const artists = all.filter((a) => !only || a.slug === only).slice(0, limit);
@@ -116,7 +116,7 @@ try {
     const info = lastfmKey
       ? await cachedJson<{ artist?: { mbid?: string; stats?: { listeners?: string; playcount?: string } } }>('lastfm', `perreo:lfm:${a.slug}:${today}`, `https://ws.audioscrobbler.com/2.0/?${new URLSearchParams({ method: 'artist.getinfo', artist: a.name, autocorrect: '1', api_key: lastfmKey, format: 'json' })}`)
       : null;
-    const search = await cachedJson<{ data?: { id: number; name: string; nb_fan: number }[] }>('deezer', `perreo:dz:search:${a.slug}:${today}`, `https://api.deezer.com/search/artist?${new URLSearchParams({ q: a.name, limit: '5' })}`);
+    const search = await cachedJson<{ data?: { id: number; name: string; nb_fan: number; nb_album?: number }[] }>('deezer', `perreo:dz:search:${a.slug}:${today}`, `https://api.deezer.com/search/artist?${new URLSearchParams({ q: a.name, limit: '5' })}`);
     // Solo el nombre exacto: un homónimo daría números de otra persona.
     const dz = (search?.data ?? []).filter((d) => fold(d.name) === fold(a.name)).sort((x, y) => y.nb_fan - x.nb_fan)[0];
     const rows: (typeof perreoReleases.$inferInsert)[] = [];
@@ -149,6 +149,8 @@ try {
       deezerFans: dz?.nb_fan ?? null,
       youtubeViews: yt.get(a.slug)?.views ?? null,
       youtubeSubs: yt.get(a.slug)?.subs ?? null,
+      deezerAlbums: dz?.nb_album ?? null,
+      fame: a.fame ?? null,
       geo: geo.get(a.slug) ?? {},
     };
     await db.insert(perreoStats).values(stat).onConflictDoUpdate({ target: [perreoStats.artistSlug, perreoStats.day], set: stat });
