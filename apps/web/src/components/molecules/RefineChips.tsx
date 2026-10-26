@@ -36,9 +36,9 @@ function Chips({ options, value, onChange, disabled, ariaLabel, className }: Pic
 }
 
 /**
- * Filtros en una sola línea: un botón con el nombre y el número de activos (abre una hoja con
- * todas las opciones, «Limpiar» y «Listo»), una fila de chips pequeños que se desliza y una ✕
- * para quitarlos todos. En el ordenador, los chips caben en varias líneas sin deslizar.
+ * Filtros compactos: solo un botón con el nombre y el número de activos (abre una hoja con
+ * todas las opciones, «Limpiar» y «Listo») y una ✕ para quitarlos todos. Las opciones se ven
+ * al abrirlo, no ocupan sitio en la página.
  */
 export function RefineChips({ options, value, onChange, disabled, label = 'Afinar' }: RefineChipsProps) {
   const [open, setOpen] = useState(false)
@@ -66,18 +66,6 @@ export function RefineChips({ options, value, onChange, disabled, label = 'Afina
           </span>
         )}
       </button>
-      <Chips
-        options={activeFirst(options, value)}
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        ariaLabel={ariaLabel}
-        className={cn(
-          'flex min-w-0 flex-1 flex-nowrap justify-start gap-1.5 overflow-x-auto pr-4 [scrollbar-width:none]',
-          '[mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]',
-          'md:flex-wrap md:overflow-visible md:pr-0 md:[mask-image:none]',
-        )}
-      />
       {count > 0 && !disabled && (
         <button
           type="button"
@@ -104,7 +92,7 @@ export function RefineChips({ options, value, onChange, disabled, label = 'Afina
           </>
         }
       >
-        <Chips options={options} value={value} onChange={onChange} disabled={disabled} ariaLabel={ariaLabel} className="flex flex-wrap justify-start gap-2" />
+        <Chips options={activeFirst(options, value)} value={value} onChange={onChange} disabled={disabled} ariaLabel={ariaLabel} className="flex flex-wrap justify-start gap-2" />
       </BottomSheet>
     </div>
   )
