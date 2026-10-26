@@ -70,6 +70,7 @@ import {
   Lightbulb,
   ImagePlus,
   SlidersHorizontal,
+  ListFilter,
   Rocket,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -138,6 +139,7 @@ const ICONS = {
   swipe: GalleryHorizontalEnd,
   info: Info,
   customize: SlidersHorizontal,
+  filter: ListFilter,
   layout: LayoutDashboard,
   sidebar: PanelLeft,
   bottomBar: PanelBottom,

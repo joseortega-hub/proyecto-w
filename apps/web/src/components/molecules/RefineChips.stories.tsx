@@ -33,5 +33,8 @@ function ManyChips() {
   return <RefineChips label="Géneros" options={genres} value={value} onChange={setValue} />
 }
 
-/** Con muchas opciones: fila deslizable y «Todos» abre la hoja en el móvil. */
+/** Con muchas opciones: una sola línea que se desliza; el botón «Géneros» abre la hoja con todas. */
 export const Many: Story = { render: () => <ManyChips /> }
+
+/** Ancho de móvil (375 px menos márgenes). */
+export const Movil: Story = { render: () => <ManyChips />, decorators: [(Story) => <div className="w-[335px]"><Story /></div>] }

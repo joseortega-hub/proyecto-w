@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Button, Icon, Text } from '@/components/atoms'
+import { Button, Icon } from '@/components/atoms'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { activeFirst } from '@/lib/filters'
 import { cn } from '@/lib/utils'
 import { BottomSheet } from './BottomSheet'
 
@@ -9,18 +10,16 @@ interface RefineChipsProps {
   value: string[]
   onChange: (value: string[]) => void
   disabled?: boolean
-  /** Título del grupo; también sirve para filtros ("Géneros"). */
+  /** Nombre del filtro ("Géneros"): va en el botón que abre la hoja con todas las opciones. */
   label?: string
-  /** A partir de cuántas opciones el móvil enseña una fila deslizable y el resto en una hoja. */
-  sheetFrom?: number
 }
 
-/** Píldora de filtro: marca de verificación y color de la temática cuando está activa. */
+/** Chip de filtro pequeño: marca de verificación y color de la temática cuando está activo. */
 const chipClass = cn(
-  'group/chip h-9 touch:h-11 shrink-0 gap-1.5 rounded-full! border-[1.5px] border-border bg-card px-3.5 text-sm font-bold text-foreground shadow-none',
-  'transition-[background-color,border-color,color,box-shadow] duration-200 ease-standard motion-reduce:transition-none',
-  'hover:border-domain/60 hover:bg-domain-soft focus-visible:ring-2 focus-visible:ring-domain focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-  'data-[state=on]:border-domain data-[state=on]:bg-domain-soft data-[state=on]:text-foreground data-[state=on]:shadow-[inset_0_0_0_1px_var(--domain)]',
+  'group/chip h-8 shrink-0 gap-1 rounded-full! border-[1.5px] border-border bg-card px-3 text-[13px] font-semibold text-foreground shadow-none touch:h-9',
+  'transition-[background-color,border-color,color] duration-200 ease-standard motion-reduce:transition-none',
+  'hover:border-domain/60 hover:bg-domain-soft focus-visible:ring-2 focus-visible:ring-domain focus-visible:ring-offset-1 focus-visible:ring-offset-background',
+  'data-[state=on]:border-domain data-[state=on]:bg-domain-soft data-[state=on]:text-domain',
 )
 
 function Chips({ options, value, onChange, disabled, ariaLabel, className }: Pick<RefineChipsProps, 'options' | 'value' | 'onChange' | 'disabled'> & { ariaLabel: string; className?: string }) {
@@ -28,7 +27,7 @@ function Chips({ options, value, onChange, disabled, ariaLabel, className }: Pic
     <ToggleGroup type="multiple" value={value} onValueChange={onChange} disabled={disabled} aria-label={ariaLabel} className={className}>
       {options.map((o) => (
         <ToggleGroupItem key={o.key} value={o.key} className={chipClass}>
-          <Icon name="check" className="hidden size-4 text-domain group-data-[state=on]/chip:block" aria-hidden />
+          <Icon name="check" className="hidden size-3.5 group-data-[state=on]/chip:block" aria-hidden />
           {o.label}
         </ToggleGroupItem>
       ))}
@@ -37,73 +36,76 @@ function Chips({ options, value, onChange, disabled, ariaLabel, className }: Pic
 }
 
 /**
- * Filtros o ajustes rápidos en píldoras. Contador de activos y «Limpiar» a mano; en el móvil,
- * si hay muchas opciones, una fila que se desliza y «Todos» abre una hoja con todas.
+ * Filtros en una sola línea: un botón con el nombre y el número de activos (abre una hoja con
+ * todas las opciones, «Limpiar» y «Listo»), una fila de chips pequeños que se desliza y una ✕
+ * para quitarlos todos. En el ordenador, los chips caben en varias líneas sin deslizar.
  */
-export function RefineChips({ options, value, onChange, disabled, label = 'Afinar', sheetFrom = 7 }: RefineChipsProps) {
+export function RefineChips({ options, value, onChange, disabled, label = 'Afinar' }: RefineChipsProps) {
   const [open, setOpen] = useState(false)
   const ariaLabel = label === 'Afinar' ? 'Afinar la lista' : label
-  const many = options.length >= sheetFrom
-  // En la fila del móvil van primero las activas, para que se vean sin deslizar.
-  const row = many ? [...options.filter((o) => value.includes(o.key)), ...options.filter((o) => !value.includes(o.key))] : options
+  const count = value.length
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <div className="flex min-h-8 items-center gap-2">
-        <Text as="span" font="label">
-          {label}
-        </Text>
-        {value.length > 0 && (
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-domain px-1.5 font-mono text-[11px] font-bold text-background" aria-label={`${value.length} activos`}>
-            {value.length}
+    <div className="flex min-w-0 items-start gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-label={count ? `${label}: ${count} activos. Ver todos` : `${label}: ver todos`}
+        className={cn(
+          'inline-flex h-8 flex-none items-center gap-1.5 rounded-full border-[1.5px] px-2.5 text-[13px] font-bold touch:h-9',
+          'focus-visible:ring-2 focus-visible:ring-domain focus-visible:outline-none disabled:opacity-50',
+          count ? 'border-domain bg-domain-soft text-domain' : 'border-border hover:bg-secondary',
+        )}
+      >
+        <Icon name="filter" className="size-4" />
+        {label}
+        {count > 0 && (
+          <span aria-hidden className="inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-domain px-1 font-mono text-[11px] text-background">
+            {count}
           </span>
         )}
-        <span className="flex-1" />
-        {value.length > 0 && !disabled && (
-          <button type="button" onClick={() => onChange([])} className="inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[13px] font-bold text-muted-foreground hover:bg-secondary hover:text-foreground touch:min-h-11">
-            <Icon name="close" className="size-3.5" />
-            Limpiar
-          </button>
-        )}
-        {many && (
-          <button type="button" onClick={() => setOpen(true)} disabled={disabled} className="inline-flex min-h-8 items-center gap-1 rounded-full border-[1.5px] border-border px-3 text-[13px] font-bold touch:min-h-11 md:hidden">
-            Todos
-            <Icon name="chevronDown" className="size-3.5" />
-          </button>
-        )}
-      </div>
+      </button>
       <Chips
-        options={row}
+        options={activeFirst(options, value)}
         value={value}
         onChange={onChange}
         disabled={disabled}
         ariaLabel={ariaLabel}
         className={cn(
-          'flex w-full gap-2',
-          many
-            ? // Fila deslizable en el móvil, con el borde derecho difuminado; en escritorio, todas en varias líneas.
-              '-mx-5 w-auto flex-nowrap justify-start overflow-x-auto px-5 pb-1 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:[mask-image:none]'
-            : 'flex-wrap justify-start',
+          'flex min-w-0 flex-1 flex-nowrap justify-start gap-1.5 overflow-x-auto pr-4 [scrollbar-width:none]',
+          '[mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]',
+          'md:flex-wrap md:overflow-visible md:pr-0 md:[mask-image:none]',
         )}
       />
-      {many && (
-        <BottomSheet
-          open={open}
-          onClose={() => setOpen(false)}
-          title={label}
-          footer={
-            <>
-              <Button variant="secondary" size="md" className="flex-1" disabled={value.length === 0} onClick={() => onChange([])}>
-                Limpiar
-              </Button>
-              <Button size="md" className="flex-1" onClick={() => setOpen(false)}>
-                Listo
-              </Button>
-            </>
-          }
+      {count > 0 && !disabled && (
+        <button
+          type="button"
+          onClick={() => onChange([])}
+          aria-label={`Quitar ${count === 1 ? 'el filtro' : `los ${count} filtros`}`}
+          title="Limpiar"
+          className="grid size-8 flex-none place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-domain focus-visible:outline-none touch:size-9"
         >
-          <Chips options={options} value={value} onChange={onChange} disabled={disabled} ariaLabel={ariaLabel} className="flex flex-wrap justify-start gap-2" />
-        </BottomSheet>
+          <Icon name="close" className="size-4" />
+        </button>
       )}
+      <BottomSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={label}
+        footer={
+          <>
+            <Button variant="secondary" size="md" className="flex-1" disabled={count === 0} onClick={() => onChange([])}>
+              Limpiar
+            </Button>
+            <Button size="md" className="flex-1" onClick={() => setOpen(false)}>
+              Listo
+            </Button>
+          </>
+        }
+      >
+        <Chips options={options} value={value} onChange={onChange} disabled={disabled} ariaLabel={ariaLabel} className="flex flex-wrap justify-start gap-2" />
+      </BottomSheet>
     </div>
   )
 }
